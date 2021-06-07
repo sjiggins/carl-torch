@@ -43,8 +43,11 @@ export AtlasSetup=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/x86_64/AtlasSetup
 export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
 
 # Copy over tarball and unpack
-cp /afs/cern.ch/work/s/sjiggins/CARL_Athena/carl-torch.tar.gz .
-tar -xvf carl-torch.tar.gz 
+#cp /afs/cern.ch/work/s/sjiggins/CARL_Athena/carl-torch.tar.gz .
+cp /afs/cern.ch/work/a/arubioji/CARL-Torch/carl-torch/carl-torch.tar.gz .
+tar -xvf carl-torch.tar.gz
 
-# Execute python script for 
-python3 train.py -s dilepton -v ckkw -n 500000
+# Execute python script for
+#python3 train.py -s dilepton -v ckkw -n 500000
+python3 train.py -n Cluster_364681_test1 -v String_364690_test1 -e 10000 -p ./Inputs/ -g Test1 -t Tree -f Njets,N_ch,HT,JetBtag,JetCtag,Jet_Pt,Jet_Eta,Jet_Phi,Jet_Mass,\
+Jet1_lund_z,Jet2_lund_z,Jet1_lund_dR,Jet2_lund_dR -w eventWeight
