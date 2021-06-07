@@ -123,7 +123,8 @@ def load(
         features = X_Tree.keys()
         
     # Extract the pandas dataframe - warning about jagged arrays
-    df = X_tree.pandas.df(features, flatten=False)
+    #df = X_tree.pandas.df(features, flatten=False)
+    df = pd.DataFrame(X_tree.arrays(features, library="np", entry_stop=n))
 
     # Extract the weights from the Tree if specificed 
     if weightFeature == "DummyEvtWeight":
@@ -132,7 +133,8 @@ def load(
         weights = pd.DataFrame(data=dweights, index=range(len(df.index)), columns=[weightFeature])
     else:
         #weights = X_tree[weightFeature]
-        weights = X_tree.pandas.df(weightFeature)
+        #weights = X_tree.pandas.df(weightFeature)
+        weights = pd.DataFrame(X_tree.arrays(weightFeature, library="np", entry_stop=n))
         
     # For the moment one should siply use the features
     labels  = features

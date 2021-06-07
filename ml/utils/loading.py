@@ -45,6 +45,8 @@ class Loader():
         nentries = 0,
         pathA = '',
         pathB = '',
+        normalise = False,
+        debug = False
     ):
         """
         Parameters
@@ -91,11 +93,12 @@ class Loader():
                                nentries = int(nentries), TreeName = TreeName)
 
         # Run if requested debugging by user
-        print("<loading.py::load()>::   Data sets for training (pandas dataframe)")
-        print("<loading.py::load()>::      X0:")
-        print(x0)
-        print("<loading.py::load()>::      X1:")
-        print(x1)
+        if debug:
+            print("<loading.py::Loader()>::   Data sets for training (pandas dataframe)")
+            print("<loading.py::Loader()>::      X0:")
+            print(x0)
+            print("<loading.py::Loader()>::      X1:")
+            print(x1)
 
         # Pre-process for outliers
         logger.info(" Starting filtering")
@@ -116,39 +119,31 @@ class Loader():
                 if x0[column].std == 0 or x1[column].std () == 0:
                     continue
 
-                #print("Column: {}:".format(column))
-                #print(x0[column])
-                #print(x1[column])
-                print("Column: {},  mean0 = {}".format(column, x0[column].mean ()))
-                print("Column: {},  mean1 = {}".format(column, x1[column].mean ()))
-                print("Column: {},  std0 = {}".format(column, x0[column].std ()))
-                print("Column: {},  std1 = {}".format(column, x1[column].std ()))
-                print("Column: {},  lower limit = {}".format(column,lower_lim))
-                print("Column: {},  upper limit = {}".format(column,upper_lim))
+                if debug:
+                    print("Column: {}:".format(column))
+                    print("Column: {},  mean0 = {}".format(column, x0[column].mean ()))
+                    print("Column: {},  mean1 = {}".format(column, x1[column].mean ()))
+                    print("Column: {},  std0 = {}".format(column, x0[column].std ()))
+                    print("Column: {},  std1 = {}".format(column, x1[column].std ()))
+                    print("Column: {},  lower limit = {}".format(column,lower_lim))
+                    print("Column: {},  upper limit = {}".format(column,upper_lim))
                 x0_mask = (x0[column] < upper_lim) & (x0[column] > lower_lim)
                 x1_mask = (x1[column] < upper_lim) & (x1[column] > lower_lim)
 
-                #x0 = x0[(x0[column] < upper_lim) & (x0[column] > lower_lim)]
                 x0 = x0[x0_mask]
-                #x1 = x1[(x1[column] < upper_lim) & (x1[column] > lower_lim)]
                 x1 = x1[x1_mask]
 
-                # To filter weights one needs a mask
-                #print("MASK: {}".format( x0_mask))
-                #print("MASK END")
+                # Filter weights
                 w0 = w0[x0_mask]
                 w1 = w1[x1_mask]
-                #print(len(x0))
-                #print(len(x1))
             x0 = x0.round(decimals=2)
             x1 = x1.round(decimals=2)
-            #print(len(x0))
-            #print(len(x1))
-            logger.info(" Filtered x0 outliers in percent: %.2f", (x00-len(x0))/len(x0)*100)
-            logger.info(" Filtered x1 outliers in percent: %.2f", (x10-len(x1))/len(x1)*100)
-            print("weight vector (0): {}".format(w0))
-            print("weight vector (1): {}".format(w1))
 
+            if debug:
+                logger.info(" Filtered x0 outliers in percent: %.2f", (x00-len(x0))/len(x0)*100)
+                logger.info(" Filtered x1 outliers in percent: %.2f", (x10-len(x1))/len(x1)*100)
+                logger.info("weight vector (0): {}".format(w0))
+                logger.info("weight vector (1): {}".format(w1))
 
         if correlation:
             cor0 = x0.corr()
@@ -182,14 +177,15 @@ class Loader():
         # Convert weights to numpy
         w0 = w0.to_numpy()
         w1 = w1.to_numpy()
-        # Temporary  -#sjiggins
-        #w0 = w0 / (w0.sum())
-        #w1 = w1 / (w1.sum())
+        if normalise:
+            w0 = w0 / (w0.sum())
+            w1 = w1 / (w1.sum())
 
-        # combine
+        # Target labels
         y0 = np.zeros(x0.shape[0])
         y1 = np.ones(x1.shape[0])
 
+        # Train, test splitting of input dataset
         X0_train, X0_test, y0_train, y0_test, w0_train, w0_test = train_test_split(X0, y0, w0, test_size=0.40, random_state=42)
         X1_train, X1_test, y1_train, y1_test, w1_train, w1_test = train_test_split(X1, y1, w1, test_size=0.40, random_state=42)
         X0_train, X0_val,  y0_train, y0_val, w0_train, w0_val =  train_test_split(X0_train, y0_train, w0_train, test_size=0.50, random_state=42)
@@ -321,7 +317,7 @@ class Loader():
             factor = 5
             minmax[idx] = [mean-(5*std), mean+(5*std)]
             binning[idx] = np.linspace(mean-(5*std), mean+(5*std), divisions)
-            print("<loading.py::load_result>::   Column {}:  min  =  {},  max  =  {}".format(key,mean,std))
+            print("<loading.py::load_result>::   Column {}:  min  =  {},  max  =  {}".format(key,mean-5*std,mean+5*std))
             print(binning[idx])
 
         # no point in plotting distributions with too few events, they only look bad

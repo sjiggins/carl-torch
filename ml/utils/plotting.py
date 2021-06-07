@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import multiprocessing
+import math
 from functools import partial
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import GradientBoostingClassifier
@@ -18,9 +19,12 @@ import torch
 from .tools import create_missing_folders
 
 logger = logging.getLogger(__name__)
-hist_settings0 = {'alpha': 0.3}
-hist_settings1 = {'histtype':'step', 'color':'black', 'linewidth':1, 'linestyle':'--'}
-hist_settings1_step = {"color": "black", "linewidth": 3, "linestyle": "--"}
+hist_settings_nom = {'alpha': 0.25, 'color':'blue'}
+hist_settings_alt = {'alpha': 0.25, 'color':'orange'}
+hist_settings_CARL = {'histtype':'step', 'color':'black', 'linewidth':1, 'linestyle':'--'}
+hist_settings_CARL_ratio = {'color':'black', 'linewidth':1, 'linestyle':'--'}
+#hist_settings1_step = {'color':'black', 'linewidth':1, 'linestyle':'--'}
+
 
 def draw_unweighted_distributions(x0, x1,
                                   weights,
@@ -36,8 +40,8 @@ def draw_unweighted_distributions(x0, x1,
         if save: plt.figure(figsize=(5, 4.2))
         else: plt.subplot(3,4, id)
         plt.yscale('log')
-        plt.hist(x0[:,column], bins = binning[id-1], weights=weights, label = "nominal", **hist_settings0)
-        plt.hist(x1[:,column], bins = binning[id-1], label = legend, **hist_settings1)
+        plt.hist(x0[:,column], bins = binning[id-1], weights=weights, label = "nominal", **hist_settings_nom)
+        plt.hist(x1[:,column], bins = binning[id-1], label = legend, **hist_settings_alt)
         plt.xlabel('%s'%(vlabels[id-1]), horizontalalignment='right',x=1)
         plt.legend(frameon=False)
         axes = plt.gca()
@@ -63,35 +67,106 @@ def draw_weighted_distributions(x0, x1, w0, w1,
         print("<plotting.py::draw_weighted_distribution()>::     binning: {}".format(binning[id]))
         if save: plt.figure(figsize=(5, 4))
         else: plt.subplot(3,4, id)
-        plt.yscale('log')
+        #plt.yscale('log')
         #plt.hist(x0[:,id], bins = binning[column], label = "nominal", **hist_settings0)
         #plt.hist(x0[:,id], bins = binning[column], weights=weights, label = 'nominal*CARL', **hist_settings0)
         #plt.hist(x1[:,id], bins = binning[column], label = legend, **hist_settings1)
         w0 = w0.flatten()
         w1 = w1.flatten()
         w_carl = w0*weights
-        plt.hist(x0[:,id], bins = binning[id], weights = w0, label = "nominal", **hist_settings0)
-        plt.hist(x0[:,id], bins = binning[id], weights = w_carl, label = 'nominal*CARL', **hist_settings0)
-        plt.hist(x1[:,id], bins = binning[id], weights = w1, label = legend, **hist_settings1)
+        plt.hist(x0[:,id], bins = binning[id], weights = w0, label = "nominal", **hist_settings_nom)
+        plt.hist(x0[:,id], bins = binning[id], weights = w_carl, label = 'nominal*CARL', **hist_settings_CARL)
+        plt.hist(x1[:,id], bins = binning[id], weights = w1, label = legend, **hist_settings_alt)
         plt.xlabel('%s'%(column), horizontalalignment='right',x=1)
         plt.legend(frameon=False,title = '%s sample'%(label) )
         axes = plt.gca()
         #axes.set_ylim([len(x0)*0.001,len(x0)*2]) #sjiggins
         #axes.set_ylim([w0.sum()*0.001,w0.sum()*2]) #sjiggins
         if save:
+            
+            # Create folder for storing plots
             create_missing_folders([f"plots/{legend}"])
+            # Form output name and then save
             output_name = f"plots/{legend}/w_{column}_nominalVs{legend}_{label}_{n}"
             plt.savefig(f"{output_name}.png")
             plt.clf()
             plt.close()
+
             # ratio plot
-            x0_hist, edge = np.histogram(x0[:,id], bins = binning[id], weights = w0)
-            x1_hist, edge = np.histogram(x1[:,id], bins = binning[id], weights = w1)
-            carl_hist, edge = np.histogram(x0[:,id], bins = binning[id], weights = w_carl)
-            x1_ratio = x1_hist/x0_hist
-            carl_ratio = carl_hist/x0_hist
-            plt.step(edge[:-1], x1_ratio, where="post", label=legend, **hist_settings0)
-            plt.step(edge[:-1], carl_ratio, where="post", label = 'nominal*CARL', **hist_settings1_step)
+            x0_hist, edge0 = np.histogram(x0[:,id], bins = binning[id], weights = w0)
+            x1_hist, edge1 = np.histogram(x1[:,id], bins = binning[id], weights = w1)
+            carl_hist, edgecarl = np.histogram(x0[:,id], bins = binning[id], weights = w_carl)
+            #x1_ratio = x1_hist/x0_hist
+            x1_ratio = x0_hist/x1_hist
+            #carl_ratio = carl_hist/x0_hist
+            carl_ratio = carl_hist/x1_hist
+            # Generate reference line
+            #   -> Extract the lowest and highest bin edge
+            xref= [binning[id].min(), binning[id].max()]
+            #   -> Now generate the x and y points of the reference line
+            yref = [1.0,1.0]
+            
+            ## Generate error bands for the reference histogram
+            x0_error = []
+            x1_error = []
+            if len(binning[id]) > 1:
+                width = abs(binning[id][1] - binning[id][0] )
+                for xbin in binning[id]:
+                    # Form masks for all event that match condition
+                    mask0 = (x0[:,id] < (xbin + width)) & (x0[:,id] > (xbin - width))
+                    mask1 = (x1[:,id] < (xbin + width)) & (x1[:,id] > (xbin - width))
+                    # Form bin error
+                    binsqrsum_x0 = np.sum(w0[mask0]**2)
+                    binsqrsum_x1 = np.sum(w1[mask1]**2)
+                    binsqrsum_x0 = math.sqrt(binsqrsum_x0)
+                    binsqrsum_x1 = math.sqrt(binsqrsum_x1)
+                    # Form relative error
+                    binsqrsum_x0 = binsqrsum_x0/w0[mask0].sum()
+                    binsqrsum_x1 = binsqrsum_x1/w1[mask1].sum()
+                    
+                    x0_error.append(binsqrsum_x0 if binsqrsum_x0 > 0 else 0.0 )
+                    x1_error.append(binsqrsum_x1 if binsqrsum_x1 > 0 else 0.0)
+                    #print("binsqrsum_x0:  {}".format(binsqrsum_x0))
+                    #print("binsqrsum_x1:  {}".format(binsqrsum_x1))
+
+
+            #else: 
+            #    # Fill in errors with 0 as could not determine bin width
+            #    x0_hist_error = 
+            #    x1_hist_error = 
+
+            
+            # Convert error lists to numpy arrays
+            x0_error = np.array(x0_error)
+            x1_error = np.array(x1_error)
+
+            plt.step( xref, yref, where="post", label=legend+" / "+legend, **hist_settings_alt )
+            plt.step( edge1[:-1], x1_ratio, where="post", label="nom / "+legend, **hist_settings_nom)
+            plt.step( edgecarl[:-1], carl_ratio, where="post", label = '(nominal*CARL) / '+legend, **hist_settings_CARL_ratio)
+            #plt.fill_between(edge[:,-1], 1.0, x1_ratio)
+            yref_error = np.ones(len(edge1))
+            yref_error_up = 2* np.sqrt( np.power(x1_error,2) + np.power(x0_error, 2)) # height from bottom
+            yref_error_down = yref_error - np.sqrt(np.power(x1_error, 2) + np.power(x0_error,2))
+            print("edg1e:    {}".format(edge1))
+            print("yref_error:    {}".format(yref_error))
+            print("x0_error:    {}".format(x0_error))
+            print("x1_error:    {}".format(x1_error))
+            print("width:       {}".format(np.diff(edge1)))
+            #plt.bar( x=edge1, height=yref_error+x1_error, bottom = yref_error-x1_error, width=np.diff(edge1), align='edge', linewidth=0, color='red', alpha=0.25, zorder=-1, label='uncertainty band')
+            plt.bar( x=edge1[:-1], 
+                     height=yref_error_up[:-1], bottom = yref_error_down[:-1],
+                     color='red',
+                     width=np.diff(edge1),
+                     align='edge',
+                     alpha=0.25,
+                     label='uncertainty band')
+            #         #width=np.diff(edge1), 
+            #         #align='edge', 
+            #         #linewidth=0, 
+            #         #color='red', 
+            #         #alpha=0.25, 
+            #         #label='uncertainty band')
+                        
             plt.xlabel('%s'%(column), horizontalalignment='right',x=1)
             plt.legend(frameon=False,title = '%s sample'%(label) )
             axes = plt.gca()

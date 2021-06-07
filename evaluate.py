@@ -42,8 +42,11 @@ carl.load('models/'+global_name+'_carl_'+str(n))
 evaluate = ['train','val']
 for i in evaluate:
     print("<evaluate.py::__init__>::   Running evaluation for {}".format(i))
-    r_hat, _ = carl.evaluate(x='data/'+global_name+'/X0_'+i+'_'+str(n)+'.npy')
-    w = 1./r_hat
+    r_hat, s_hat = carl.evaluate(x='data/'+global_name+'/X0_'+i+'_'+str(n)+'.npy')
+    print("s_hat = {}".format(s_hat))
+    print("r_hat = {}".format(r_hat))
+    w = 1./r_hat   # I thought r_hat = p_{1}(x) / p_{0}(x) ???
+    print("w = {}".format(w))
     print("<evaluate.py::__init__>::   Loading Result for {}".format(i))
     loading.load_result(x0='data/'+global_name+'/X0_'+i+'_'+str(n)+'.npy',     
                         x1='data/'+global_name+'/X1_'+i+'_'+str(n)+'.npy',

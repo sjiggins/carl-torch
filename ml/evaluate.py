@@ -33,7 +33,10 @@ def evaluate_ratio_model(
         model.eval()
 
         r_hat, s_hat  = model(xs)
-        s_hat = torch.sigmoid(s_hat)
+        # Do we need this as ml/models.py::forward() defined implicitely that the output of the network is:
+        #      s_hat = torch.sigmoid(s_hat)  where s_hat at this point is the network last layer
+        #      r_hat = (1-s_hat) / s_hat = p_{1}(x) / p_{0}(x)
+        s_hat = torch.sigmoid(s_hat) 
         # Copy back tensors to CPU
         if run_on_gpu:
             r_hat = r_hat.cpu()
