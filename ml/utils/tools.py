@@ -21,37 +21,37 @@ def HarmonisedLoading(fA="",
                       features=[],
                       weightFeature="DummyEvtWeight",
                       nentries=0,
-                      TreeName="Tree"        
+                      TreeName="Tree"
                   ):
-    
 
-    x0, w0, vlabels0 = load(f = fA, 
-                            features=features, weightFeature=weightFeature, 
-                            n = int(nentries), t = TreeName)
-    x1, w1, vlabels1 = load(f = fB, 
+
+    x0, w0, vlabels0 = load(f = fA,
                             features=features, weightFeature=weightFeature,
                             n = int(nentries), t = TreeName)
-    
+    x1, w1, vlabels1 = load(f = fB,
+                            features=features, weightFeature=weightFeature,
+                            n = int(nentries), t = TreeName)
+
     x0, x1 = CoherentFlattening(x0,x1)
 
     return x0, w0, vlabels0, x1, w1, vlabels1
-    
 
-    
+
+
 def CoherentFlattening(df0, df1):
-    
+
     # Find the lowest common denominator for object lengths
     df0_objects = df0.select_dtypes(object)
     df1_objects = df1.select_dtypes(object)
     minObjectLen = defaultdict()
     for column in df0_objects:
-        elemLen0 = df0[column].apply(lambda x: len(x)).max() 
-        elemLen1 = df1[column].apply(lambda x: len(x)).max() 
-    
+        elemLen0 = df0[column].apply(lambda x: len(x)).max()
+        elemLen1 = df1[column].apply(lambda x: len(x)).max()
+
         # Warn user
         if elemLen0 != elemLen1:
             print("<tools.py::CoherentFlattening()>::   The two datasets do not have the same length for features '{}', please be warned that we choose zero-padding using lowest dimensionatlity".format(column))
-    
+
         minObjectLen[column] = elemLen0 if elemLen0 < elemLen1 else elemLen1
         print("<tools.py::CoherentFlattening()>::   Variable: {}({}),   min size = {}".format( column, df0[column].dtypes, minObjectLen))
         print("<tools.py::CoherentFlattening()>::      Element Length 0 = {}".format( elemLen0))
@@ -60,14 +60,14 @@ def CoherentFlattening(df0, df1):
     # Find the columns that are not scalars and get all object type columns
     #maxListLength = df.select_dtypes(object).apply(lambda x: x.list.len()).max(axis=1)
     for column in df0_objects:
-        elemLen0 = df0[column].apply(lambda x: len(x)).max() 
-        elemLen1 = df1[column].apply(lambda x: len(x)).max() 
+        elemLen0 = df0[column].apply(lambda x: len(x)).max()
+        elemLen1 = df1[column].apply(lambda x: len(x)).max()
 
 
         # Now break up each column into elements of max size 'macObjectLen'
         df0_flattened = pd.DataFrame(df0[column].to_list(), columns=[column+str(idx) for idx in range(elemLen0)])
         df0_flattened = df0_flattened.fillna(0)
-        
+
         # Delete extra dimensions if needed due to non-matching dimensionality of df0 & df1
         if elemLen0 > minObjectLen[column]:
             delColumns0 = [column+str(idx) for idx in range(minObjectLen[column], elemLen0)]
@@ -105,28 +105,28 @@ def load(
     features=[],
     weightFeature="DummyEvtWeight",
     n=0,
-    t="Tree"        
+    t="Tree"
 ):
     # grab our data and iterate over chunks of it with uproot
     print("Uproot open file")
     file = uproot.open(f)
-    
+
     # Now get the Tree
     print("Getting TTree from file")
     X_tree = file[t]
 
-    # Check that features were set by user, if not then will use all features 
+    # Check that features were set by user, if not then will use all features
     #   -  may double up on weight feature but will warn user
     if not features:
         # Set the features to all keys in tree - warn user!!!
         print("<tools.py::load()>::   Attempting extract features however user did not define values. Using all keys inside TTree as features.")
         features = X_Tree.keys()
-        
+
     # Extract the pandas dataframe - warning about jagged arrays
     #df = X_tree.pandas.df(features, flatten=False)
     df = pd.DataFrame(X_tree.arrays(features, library="np", entry_stop=n))
 
-    # Extract the weights from the Tree if specificed 
+    # Extract the weights from the Tree if specificed
     if weightFeature == "DummyEvtWeight":
         #weights = len(df.index)
         dweights = np.ones(len(df.index))
@@ -135,7 +135,7 @@ def load(
         #weights = X_tree[weightFeature]
         #weights = X_tree.pandas.df(weightFeature)
         weights = pd.DataFrame(X_tree.arrays(weightFeature, library="np", entry_stop=n))
-        
+
     # For the moment one should siply use the features
     labels  = features
 

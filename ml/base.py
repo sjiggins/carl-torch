@@ -19,7 +19,7 @@ except NameError:
 logger = logging.getLogger(__name__)
 class Estimator(object):
     """
-    Abstract class for any ML estimator. 
+    Abstract class for any ML estimator.
     Each instance of this class represents one neural estimator. The most important functions are:
     * `Estimator.train()` to train an estimator.
     * `Estimator.evaluate()` to evaluate the estimator.
@@ -46,7 +46,7 @@ class Estimator(object):
 
     def evaluate_ratio(self, *args, **kwargs):
         """
-        Ratio estimation. Signature depends on the type of estimator. The first returned value is the ratio with 
+        Ratio estimation. Signature depends on the type of estimator. The first returned value is the ratio with
         shape `(n_thetas, n_x)` or `(n_x)`.
         """
         raise NotImplementedError
@@ -59,7 +59,7 @@ class Estimator(object):
         """
         Saves the trained model to four files: a JSON file with the settings, a pickled pyTorch state dict
         file, and numpy files for the mean and variance of the inputs (used for input scaling).
-        Also exports model to onnx if export_model is set to True. 
+        Also exports model to onnx if export_model is set to True.
         Parameters
         ----------
         filename : str
@@ -68,7 +68,7 @@ class Estimator(object):
             If True, the whole model is saved in addition to the state dict. This is not necessary for loading it
             again with Estimator.load(), but can be useful for debugging, for instance to plot the computational graph.
         export_model : bool, optional
-            If True, the whole model is exported to .onnx format to be loaded within a C++ envirnoment. 
+            If True, the whole model is exported to .onnx format to be loaded within a C++ envirnoment.
         Returns
         -------
             None
@@ -99,7 +99,7 @@ class Estimator(object):
         # Save state dict
         logger.debug("Saving state dictionary to %s_state_dict.pt", filename)
         torch.save(self.model.state_dict(), filename + "_state_dict.pt")
-        
+
         # Save model
         if save_model:
             logger.debug("Saving model to %s_model.pt", filename)
@@ -116,7 +116,7 @@ class Estimator(object):
         #  Note: This is inefficient due to I/O reasons, however
         #        torch.onnx interface seemingly has no options for this
         if export_model and os.path.isfile(filename+".onnx"):
-            
+
             ####################################
             ##        ONNXRUNTIME
             ## Example using Onnxruntime instead of Onxx
@@ -132,7 +132,7 @@ class Estimator(object):
             #print("Custom Meta-Data Map: {}".format(CustomMap))
 
             ## Define a new custom meta data map
-            #CustomMap_new = {"Var1" : 200.0, 
+            #CustomMap_new = {"Var1" : 200.0,
             #                 "Var2" : 5.0,
             #                 "Var3" : 1000.0,
             #                 "Var4" : 400.0,
@@ -143,17 +143,17 @@ class Estimator(object):
             #metaData.custom_metadata_map = CustomMap_new
 
             # Unable to save Onnx model from Onnxruntime Inference session it seems
-            #   -> Makes sense given InferenceSession is designed to access and infer, not 
+            #   -> Makes sense given InferenceSession is designed to access and infer, not
             #      a data/model editor session.
             #ort_session.SaveModelMetadata() # Believe that this does not work
             ####################################
             ####################################
-            
+
             ####################################
             ##        ONNX
             ####################################
             # Define a new custom meta data map
-            #CustomMap_new = {"Var1" : 200.0, 
+            #CustomMap_new = {"Var1" : 200.0,
             #                 "Var2" : 5.0,
             #                 "Var3" : 1000.0,
             #                 "Var4" : 400.0,
@@ -162,19 +162,19 @@ class Estimator(object):
             # Load model
             model = onnx.load(filename+".onnx")
             # Get Meta Data
-            for index,(cust_key,cust_var) in enumerate(metaData.items()): 
+            for index,(cust_key,cust_var) in enumerate(metaData.items()):
                 meta = model.metadata_props.add()
                 meta.key = cust_key
                 meta.value = str(cust_var)
                 # Check value
                 logger.info(" New Meta data: %s ",model.metadata_props[index])
 
-                
+
             # Save model
             onnx.save(model, filename+"_new"+".onnx")
-            
+
             # Start the normal onnxruntime session using the model
-            # just saved to check that the model was saved with the correct 
+            # just saved to check that the model was saved with the correct
             # metadata
             ort_session = ort.InferenceSession(filename+"_new"+".onnx")
             # Model Meta data
@@ -185,7 +185,7 @@ class Estimator(object):
             # Need to close the ort session for comleteness (C-style)
             ####################################
             ###################################
-            
+
 
         # Tar model if training is done on GPU
         if torch.cuda.is_available():
@@ -263,32 +263,39 @@ class Estimator(object):
             self.x_scaling_maxs = np.ones(n_parameters)
 
     def _transform_inputs(self, x, scaling = "minmax"):
-        if scaling == "standard":    
+        print("<base.py::_transform_inputs()>:: Converting dummy values into NaN")
+        print("feature type {}".format(x.dtype))
+        x_aux = x.astype(float) # Need to be float to convert values into NaN
+        x_aux[x_aux==-99999] = np.nan
+        if scaling == "standard":
             print("<base.py::_transform_inputs()>::   Doing Standard Scaling")
             #Check for standard deviation = 0 and none values
             if self.x_scaling_means is not None and self.x_scaling_stds is not None:
-                if isinstance(x, torch.Tensor):
-                    x_scaled = x - torch.tensor(self.x_scaling_means, dtype=x.dtype, device=x.device)
+                if isinstance(x_aux, torch.Tensor):
+                    x_scaled = x_aux - torch.tensor(self.x_scaling_means, dtype=x.dtype, device=x.device)
                     x_scaled = x_scaled / torch.tensor(self.x_scaling_stds, dtype=x.dtype, device=x.device)
                 else:
-                    x_scaled = x - self.x_scaling_means
+                    x_scaled = x_aux - self.x_scaling_means
                     x_scaled /= self.x_scaling_stds
             else:
-                x_scaled = x
+                x_scaled = x_aux
         else:
             print("<base.py::_transform_inputs()>::   Doing min-max scaling")
             # Check for none and 0 values
             if self.x_scaling_mins is not None and self.x_scaling_maxs is not None:
-                if isinstance(x, torch.Tensor):
-                    x_scaled = (x-torch.tensor(self.x_scaling_mins, dtype=x.dtype, device=x.device))
+                if isinstance(x_aux, torch.Tensor):
+                    x_scaled = (x_aux-torch.tensor(self.x_scaling_mins, dtype=x.dtype, device=x.device))
                     x_scaled = x_scaled/(torch.tensor(self.x_scaling_maxs, dtype=x.dtype, device=x.device) - torch.tensor(self.x_scaling_mins, dtype=x.dtype, device=x.device))
                 else:
-                    x_scaled = (x - self.x_scaling_mins)
+                    x_scaled = (x_aux - self.x_scaling_mins)
                     #x_scaled = x_scaled/(self.x_scaling_maxs - self.x_scaling_mins)
                     diff = (self.x_scaling_maxs - self.x_scaling_mins)
-                    x_scaled = np.divide(x_scaled, diff, out=np.zeros_like(x_scaled), where=diff!=0) 
+                    x_scaled = np.divide(x_scaled, diff, out=np.zeros_like(x_scaled), where=diff!=0)
             else:
-                x_scaled = x
+                x_scaled = x_aux
+        print("<base.py::_transform_inputs()>:: Converting NaN to zero values")
+        x_scaled = np.nan_to_num(x_scaled, nan=0)
+        # x_scaled = xscaled.astype(x.dtype) ## Maybe setting original type is required if x.dtype is different from 'float64'
         return x_scaled
 
     def _wrap_settings(self):
@@ -330,4 +337,3 @@ class Estimator(object):
 
     def _create_model(self):
         raise NotImplementedError
-

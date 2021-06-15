@@ -170,7 +170,7 @@ class Loader():
         x1 = x1[sorted(x1.columns)]
 
         # get metadata, i.e. max, min, mean, std of all the variables in the dataframes
-        metaData = {v : {x0[v].min(), x0[v].max() } for v in  x0.columns }
+        metaData = {v : {x0[v].min() if (x0[v].min()!=-99999) else 0 , x0[v].max() } for v in  x0.columns }
         X0 = x0.to_numpy()
         X1 = x1.to_numpy()
 
@@ -314,6 +314,8 @@ class Loader():
             #  Mean/std
             mean = np.mean(X0[:,idx])
             std = np.std(X0[:,idx])
+            print("<loading.py::load_result>:: Standard deviation to find binning limits:")
+            print("     idx = {}, key = {}, pair = {}, sigma = {}".format(idx, key, pair, std))
             factor = 5
             minmax[idx] = [mean-(5*std), mean+(5*std)]
             binning[idx] = np.linspace(mean-(5*std), mean+(5*std), divisions)

@@ -69,7 +69,7 @@ if os.path.exists('data/'+global_name+'/X_train_'+str(n)+'.npy'):
     w1='data/'+global_name+'/w1_train_'+str(n)+'.npy'
     f = open('data/'+global_name+'/metaData_'+str(n)+".pkl","rb")
     metaData = pickle.load(f)
-    f.close()   
+    f.close()
 else:
     x, y, x0, x1, w, w0, w1, metaData = loading.loading(
         folder='./data/',
@@ -99,14 +99,14 @@ estimator = RatioEstimator(
 )
 estimator.train(
     method='carl',
-    batch_size=1024,
+    batch_size=30,#1024,
     n_epochs=500,
-    early_stopping=False,
+    early_stopping=True,
     validation_split=0.25,
     x=x,
     y=y,
     w=w,
-    x0=x0, 
+    x0=x0,
     x1=x1,
     scale_inputs=True,
 )
