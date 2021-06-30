@@ -76,14 +76,14 @@ def draw_weighted_distributions(x0, x1, w0, w1,
         w_carl = w0*weights
         plt.hist(x0[:,id], bins = binning[id], weights = w0, label = "nominal", **hist_settings_nom)
         plt.hist(x0[:,id], bins = binning[id], weights = w_carl, label = 'nominal*CARL', **hist_settings_CARL)
-        plt.hist(x1[:,id], bins = binning[id], weights = w1, label = legend, **hist_settings_alt)
+        plt.hist(x1[:,id], bins = binning[id], weights = w1, label = "alternative", **hist_settings_alt)
         plt.xlabel('%s'%(column), horizontalalignment='right',x=1)
-        plt.legend(frameon=False,title = '%s sample'%(label) )
+        plt.legend(frameon=False,title = '%s sample %s'%(label,legend) )
         axes = plt.gca()
         #axes.set_ylim([len(x0)*0.001,len(x0)*2]) #sjiggins
         #axes.set_ylim([w0.sum()*0.001,w0.sum()*2]) #sjiggins
         if save:
-            
+
             # Create folder for storing plots
             create_missing_folders([f"plots/{legend}"])
             # Form output name and then save
@@ -105,7 +105,7 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             xref= [binning[id].min(), binning[id].max()]
             #   -> Now generate the x and y points of the reference line
             yref = [1.0,1.0]
-            
+
             ## Generate error bands for the reference histogram
             x0_error = []
             x1_error = []
@@ -123,19 +123,19 @@ def draw_weighted_distributions(x0, x1, w0, w1,
                     # Form relative error
                     binsqrsum_x0 = binsqrsum_x0/w0[mask0].sum()
                     binsqrsum_x1 = binsqrsum_x1/w1[mask1].sum()
-                    
+
                     x0_error.append(binsqrsum_x0 if binsqrsum_x0 > 0 else 0.0 )
                     x1_error.append(binsqrsum_x1 if binsqrsum_x1 > 0 else 0.0)
                     #print("binsqrsum_x0:  {}".format(binsqrsum_x0))
                     #print("binsqrsum_x1:  {}".format(binsqrsum_x1))
 
 
-            #else: 
+            #else:
             #    # Fill in errors with 0 as could not determine bin width
-            #    x0_hist_error = 
-            #    x1_hist_error = 
+            #    x0_hist_error =
+            #    x1_hist_error =
 
-            
+
             # Convert error lists to numpy arrays
             x0_error = np.array(x0_error)
             x1_error = np.array(x1_error)
@@ -153,20 +153,20 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             print("x1_error:    {}".format(x1_error))
             print("width:       {}".format(np.diff(edge1)))
             #plt.bar( x=edge1, height=yref_error+x1_error, bottom = yref_error-x1_error, width=np.diff(edge1), align='edge', linewidth=0, color='red', alpha=0.25, zorder=-1, label='uncertainty band')
-            plt.bar( x=edge1[:-1], 
+            plt.bar( x=edge1[:-1],
                      height=yref_error_up[:-1], bottom = yref_error_down[:-1],
                      color='red',
                      width=np.diff(edge1),
                      align='edge',
                      alpha=0.25,
                      label='uncertainty band')
-            #         #width=np.diff(edge1), 
-            #         #align='edge', 
-            #         #linewidth=0, 
-            #         #color='red', 
-            #         #alpha=0.25, 
+            #         #width=np.diff(edge1),
+            #         #align='edge',
+            #         #linewidth=0,
+            #         #color='red',
+            #         #alpha=0.25,
             #         #label='uncertainty band')
-                        
+
             plt.xlabel('%s'%(column), horizontalalignment='right',x=1)
             plt.legend(frameon=False,title = '%s sample'%(label) )
             axes = plt.gca()
