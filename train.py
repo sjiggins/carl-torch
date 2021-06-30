@@ -99,7 +99,7 @@ estimator = RatioEstimator(
 )
 estimator.train(
     method='carl',
-    batch_size=30,#1024,
+    batch_size=1024,
     n_epochs=500,
     early_stopping=True,
     validation_split=0.25,
