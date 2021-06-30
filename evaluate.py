@@ -16,6 +16,9 @@ parser.add_option('-g', '--global_name',  action='store', type=str, dest='global
 parser.add_option('-f', '--features',  action='store', type=str, dest='features',  default='', help='Comma separated list of features within tree')
 parser.add_option('-w', '--weightFeature',  action='store', type=str, dest='weightFeature',  default='', help='Name of event weights feature in TTree')
 parser.add_option('-t', '--TreeName',  action='store', type=str, dest='treename',  default='Tree', help='Name of TTree name inside root files')
+parser.add_option('--PlotROC',  action="store_true", dest='plot_ROC',  help='Flag to determine if one should plot ROC')
+parser.add_option('--PlotObsROC',  action="store_true", dest='plot_obs_ROC',  help='Flag to determine if one should plot observable ROCs')
+parser.add_option('-m', '--model', action='store', type=str, dest='model', default=None, help='path to the model.')
 (opts, args) = parser.parse_args()
 nominal  = opts.nominal
 variation = opts.variation
@@ -25,6 +28,7 @@ global_name = opts.global_name
 features = opts.features.split(",")
 weightFeature = opts.weightFeature
 treename = opts.treename
+model = opts.model
 #################################################
 
 
@@ -35,10 +39,13 @@ else:
     logger.info(" No datasets available for evaluation of model trained with datasets: [{},{}] with {} events.".format(nominal, variation, n))
     logger.info("ABORTING")
     sys.exit()
-    
+
 loading = Loader()
 carl = RatioEstimator()
-carl.load('models/'+global_name+'_carl_'+str(n))
+if model:
+    carl.load(model)
+else:
+    carl.load('models/'+global_name+'_carl_'+str(n))
 evaluate = ['train','val']
 for i in evaluate:
     print("<evaluate.py::__init__>::   Running evaluation for {}".format(i))
@@ -48,12 +55,12 @@ for i in evaluate:
     w = 1./r_hat   # I thought r_hat = p_{1}(x) / p_{0}(x) ???
     print("w = {}".format(w))
     print("<evaluate.py::__init__>::   Loading Result for {}".format(i))
-    loading.load_result(x0='data/'+global_name+'/X0_'+i+'_'+str(n)+'.npy',     
+    loading.load_result(x0='data/'+global_name+'/X0_'+i+'_'+str(n)+'.npy',
                         x1='data/'+global_name+'/X1_'+i+'_'+str(n)+'.npy',
-                        w0='data/'+global_name+'/w0_'+i+'_'+str(n)+'.npy',     
+                        w0='data/'+global_name+'/w0_'+i+'_'+str(n)+'.npy',
                         w1='data/'+global_name+'/w1_'+i+'_'+str(n)+'.npy',
                         metaData='data/'+global_name+'/metaData_'+str(n)+'.pkl',
-                        weights=w, 
+                        weights=w,
                         features=features,
                         #weightFeature=weightFeature,
                         label=i,
@@ -63,6 +70,8 @@ for i in evaluate:
                         #pathA=p+nominal+".root",
                         #pathB=p+variation+".root",
                         global_name=global_name,
+                        plot_ROC=opts.plot_ROC,
+                        plot_obs_ROC=opts.plot_obs_ROC,
                     )
 # Evaluate performance
 carl.evaluate_performance(x='data/'+global_name+'/X_val_'+str(n)+'.npy',

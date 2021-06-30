@@ -30,7 +30,7 @@ class RatioEstimator(Estimator):
         Indices of observables (features) that are used as input to the neural networks. If None, all observables
         are used. Default value: None.
     n_hidden : tuple of int, optional
-        Units in each hidden layer in the neural networks. 
+        Units in each hidden layer in the neural networks.
         Default value: (100,).
     activation : {'tanh', 'sigmoid', 'relu'}, optional
         Activation function. Default value: 'tanh'.
@@ -64,6 +64,8 @@ class RatioEstimator(Estimator):
         n_workers=8,
         clip_gradient=None,
         early_stopping_patience=None,
+        intermediate_train_plot=None,
+        intermediate_save=None,
     ):
 
         """
@@ -110,6 +112,7 @@ class RatioEstimator(Estimator):
         """
 
         logger.info("Starting training")
+        logger.info("  PyTorch version:                 %s", torch.__version__)
         logger.info("  Method:                 %s", method)
         logger.info("  Batch size:             %s", batch_size)
         logger.info("  Optimizer:              %s", optimizer)
@@ -124,6 +127,7 @@ class RatioEstimator(Estimator):
             logger.info("  Samples:                all")
         else:
             logger.info("  Samples:                %s", limit_samplesize)
+        logger.info(f"  N hidden:                 {self.n_hidden}")
 
         # Load training data
         logger.info("Loading training data")
@@ -188,7 +192,7 @@ class RatioEstimator(Estimator):
             self._create_model()
         # Losses
         if w is None:
-            w = len(x0)/len(x1) 
+            w = len(x0)/len(x1)
             logger.info("Passing weight %s to the loss function to account for imbalanced dataset: ", w) #sjiggins
         loss_functions, loss_labels, loss_weights = get_loss(method, alpha, w)
 
@@ -216,6 +220,8 @@ class RatioEstimator(Estimator):
             verbose=verbose,
             clip_gradient=clip_gradient,
             early_stopping_patience=early_stopping_patience,
+            intermediate_train_plot = intermediate_train_plot,
+            intermediate_save = intermediate_save,
         )
         return result
 
@@ -250,7 +256,7 @@ class RatioEstimator(Estimator):
             xs=x,
         )
         logger.debug("Evaluation done")
-        return r_hat, s_hat 
+        return r_hat, s_hat
 
     def evaluate(self, *args, **kwargs):
         return self.evaluate_ratio(*args, **kwargs)
@@ -263,7 +269,7 @@ class RatioEstimator(Estimator):
         x : str or ndarray
             Observations.
         y : str or ndarray
-            Target. 
+            Target.
         """
         if self.model is None:
             raise ValueError("No model -- train or load model before evaluating it!")
@@ -312,4 +318,3 @@ class RatioEstimator(Estimator):
         estimator_type = str(settings["estimator_type"])
         if estimator_type != "double_parameterized_ratio":
             raise RuntimeError("Saved model is an incompatible estimator type {}.".format(estimator_type))
-

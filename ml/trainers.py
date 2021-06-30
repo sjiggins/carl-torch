@@ -10,6 +10,7 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 from torch.nn.utils import clip_grad_norm_
+from sklearn.metrics import accuracy_score
 logger = logging.getLogger(__name__)
 
 class NanException(Exception):
@@ -73,7 +74,7 @@ class Trainer(object):
             "GPU" if self.run_on_gpu else "CPU",
             "double" if double_precision else "single",
         )
-        logger.info(" run_on_gpu %r,   torch.cuda.is_available() %r ", run_on_gpu, torch.cuda.is_available()) 
+        logger.info(" run_on_gpu %r,   torch.cuda.is_available() %r ", run_on_gpu, torch.cuda.is_available())
 
         self._timer(stop="initialize model")
         self._timer(stop="ALL")
@@ -96,6 +97,8 @@ class Trainer(object):
         early_stopping_patience=None,
         clip_gradient=None,
         verbose="some",
+        intermediate_train_plot=None,
+        intermediate_save=None,
     ):
         self._timer(start="ALL")
         self._timer(start="check data")
@@ -144,7 +147,7 @@ class Trainer(object):
         logger.debug("Will print training progress every %s epochs", n_epochs_verbose)
 
         logger.debug("Beginning main training loop")
-        losses_train, losses_val = [], []
+        losses_train, losses_val, accuracy_train, accuracy_val = [], [], [], []
         self._timer(stop="initialize training")
 
         # Loop over epochs
@@ -158,11 +161,13 @@ class Trainer(object):
             loss_val = None
 
             try:
-                loss_train, loss_val, loss_contributions_train, loss_contributions_val = self.epoch(
+                loss_train, loss_val, loss_contributions_train, loss_contributions_val, accu_train, accu_val = self.epoch(
                     i_epoch, data_labels, train_loader, val_loader, opt, loss_functions, loss_weights, clip_gradient
                 )
                 losses_train.append(loss_train)
                 losses_val.append(loss_val)
+                accuracy_train.append(accu_train)
+                accuracy_val.append(accu_val)
             except NanException:
                 logger.info("Ending training during epoch %s because NaNs appeared", i_epoch + 1)
                 break
@@ -178,7 +183,11 @@ class Trainer(object):
                     break
             self._timer(stop="early stopping", start="report epoch")
 
-            verbose_epoch = (i_epoch + 1) % n_epochs_verbose == 0
+            # display the first 10 epoch
+            if i_epoch < 10:
+                verbose_epoch = i_epoch
+            else:
+                verbose_epoch = (i_epoch + 1) % n_epochs_verbose == 0
             self.report_epoch(
                 i_epoch,
                 loss_labels,
@@ -186,9 +195,38 @@ class Trainer(object):
                 loss_val,
                 loss_contributions_train,
                 loss_contributions_val,
+                accu_train = accu_train,
+                accu_val = accu_val,
                 verbose=verbose_epoch,
             )
             self._timer(stop="report epoch")
+
+            # do intermediate plotting and saving
+            if verbose_epoch:
+                if intermediate_train_plot:
+                    self._timer(start="intermediate train plot")
+                    m_evaluator, m_plotter = intermediate_train_plot
+                    for type in ["train", "val"]:
+                        m_r_hat, m_s_hat = m_evaluator[0](m_evaluator[1][type])
+                        m_plotter[1][type].update({"ext_plot_path":f"epoch_plot_{i_epoch}_{type}"})
+                        m_carl_w = 1.0/m_r_hat
+                        m_plotter[1][type].update({"weights":m_carl_w})
+                        m_plotter[1][type].update({"label":type})
+                        m_plotter[0](**m_plotter[1][type])
+                    self._timer(stop="intermediate train plot")
+                if intermediate_save:
+                    self._timer(start="intermediate save")
+                    saver, save_args = intermediate_save
+                    m_filename = save_args['filename']
+                    new_fname = f"models/epoch_{i_epoch}/{m_filename}"
+                    save_args.update({"filename":new_fname})
+                    saver(**save_args)
+                    save_args.update({"filename":m_filename})
+                    np.save(f"{new_fname}_loss_train.py", np.array(losses_train))
+                    np.save(f"{new_fname}_loss_val.py", np.array(losses_val))
+                    np.save(f"{new_fname}_accu_train.py", np.array(accuracy_train))
+                    np.save(f"{new_fname}_accu_val.py", np.array(accuracy_val))
+                    self._timer(stop="intermediate save")
 
         self._timer(start="early stopping")
         if early_stopping and len(losses_val) > 0:
@@ -200,7 +238,7 @@ class Trainer(object):
         self._timer(stop="ALL")
         self._report_timer()
 
-        return np.array(losses_train), np.array(losses_val)
+        return np.array(losses_train), np.array(losses_val), np.array(accuracy_train), np.array(accuracy_val)
 
     @staticmethod
     def report_data(data):
@@ -303,14 +341,16 @@ class Trainer(object):
         self.model.train()
         loss_contributions_train = np.zeros(n_losses)
         loss_train = 0.0
+        accu_train = 0.0
         self._timer(start="load training batch")
         for i_batch, batch_data in enumerate(train_loader):
             batch_data = OrderedDict(list(zip(data_labels, batch_data)))
             self._timer(stop="load training batch")
-            batch_loss, batch_loss_contributions = self.batch_train(
+            batch_loss, batch_loss_contributions, accuracy = self.batch_train(
                 batch_data, loss_functions, loss_weights, optimizer, clip_gradient
             )
             loss_train += batch_loss
+            accu_train += accuracy
             for i, batch_loss_contribution in enumerate(batch_loss_contributions):
                 loss_contributions_train[i] += batch_loss_contribution
 
@@ -321,19 +361,22 @@ class Trainer(object):
 
         loss_contributions_train /= len(train_loader)
         loss_train /= len(train_loader)
+        accu_train /= len(train_loader)
 
         if val_loader is not None:
             self.model.eval()
             loss_contributions_val = np.zeros(n_losses)
             loss_val = 0.0
+            accu_val = 0.0
 
             self._timer(start="load validation batch")
             for i_batch, batch_data in enumerate(val_loader):
                 batch_data = OrderedDict(list(zip(data_labels, batch_data)))
                 self._timer(stop="load validation batch")
 
-                batch_loss, batch_loss_contributions = self.batch_val(batch_data, loss_functions, loss_weights)
+                batch_loss, batch_loss_contributions, accuracy = self.batch_val(batch_data, loss_functions, loss_weights)
                 loss_val += batch_loss
+                accu_val += accuracy
                 for i, batch_loss_contribution in enumerate(batch_loss_contributions):
                     loss_contributions_val[i] += batch_loss_contribution
 
@@ -342,16 +385,18 @@ class Trainer(object):
 
             loss_contributions_val /= len(val_loader)
             loss_val /= len(val_loader)
+            accu_val /= len(val_loader)
 
         else:
             loss_contributions_val = None
             loss_val = None
+            accu_val = None
 
-        return loss_train, loss_val, loss_contributions_train, loss_contributions_val
+        return loss_train, loss_val, loss_contributions_train, loss_contributions_val, accu_train, accu_val
 
     def batch_train(self, batch_data, loss_functions, loss_weights, optimizer, clip_gradient=None):
         self._timer(start="training forward pass")
-        loss_contributions = self.forward_pass(batch_data, loss_functions)
+        loss_contributions, accuracy = self.forward_pass(batch_data, loss_functions)
         self._timer(stop="training forward pass", start="training sum losses")
         loss = self.sum_losses(loss_contributions, loss_weights)
         self._timer(stop="training sum losses", start="optimizer step")
@@ -363,18 +408,18 @@ class Trainer(object):
         loss_contributions = [contrib.item() for contrib in loss_contributions]
         self._timer(stop="training sum losses")
 
-        return loss, loss_contributions
+        return loss, loss_contributions, accuracy
 
     def batch_val(self, batch_data, loss_functions, loss_weights):
         self._timer(start="validation forward pass")
-        loss_contributions = self.forward_pass(batch_data, loss_functions)
+        loss_contributions, accuracy = self.forward_pass(batch_data, loss_functions)
         self._timer(stop="validation forward pass", start="validation sum losses")
         loss = self.sum_losses(loss_contributions, loss_weights)
 
         loss = loss.item()
         loss_contributions = [contrib.item() for contrib in loss_contributions]
         self._timer(stop="validation sum losses")
-        return loss, loss_contributions
+        return loss, loss_contributions, accuracy
 
     def forward_pass(self, batch_data, loss_functions):
         """
@@ -433,7 +478,7 @@ class Trainer(object):
 
     @staticmethod
     def report_epoch(
-        i_epoch, loss_labels, loss_train, loss_val, loss_contributions_train, loss_contributions_val, verbose=False
+        i_epoch, loss_labels, loss_train, loss_val, loss_contributions_train, loss_contributions_val, accu_train=None, accu_val=None, verbose=False
     ):
         logging_fn = logger.info if verbose else logger.debug
 
@@ -445,14 +490,14 @@ class Trainer(object):
                 summary += "{}: {:>6.3f}".format(label, value)
             return summary
 
-        train_report = "  Epoch {:>3d}: train loss {:>8.5f} ({})".format(
-            i_epoch + 1, loss_train, contribution_summary(loss_labels, loss_contributions_train)
+        train_report = "  Epoch {:>3d}: train loss {:>8.8f} ({}), accu {}".format(
+            i_epoch + 1, loss_train, contribution_summary(loss_labels, loss_contributions_train), accu_train
         )
         logging_fn(train_report)
 
         if loss_val is not None:
-            val_report = "             val. loss  {:>8.5f} ({})".format(
-                loss_val, contribution_summary(loss_labels, loss_contributions_val)
+            val_report = "             val. loss  {:>8.8f} ({}), accu {}".format(
+                loss_val, contribution_summary(loss_labels, loss_contributions_val), accu_val
             )
             logging_fn(val_report)
 
@@ -519,7 +564,7 @@ class RatioTrainer(Trainer):
         x = batch_data["x"].to(self.device, self.dtype, non_blocking=True)
         y = batch_data["y"].to(self.device, self.dtype, non_blocking=True)
         w = batch_data["w"].to(self.device, self.dtype, non_blocking=True) #sjiggins
-        
+
         self._timer(stop="fwd: move data", start="fwd: check for nans")
         self._timer(start="fwd: model.forward", stop="fwd: check for nans")
 
@@ -532,8 +577,14 @@ class RatioTrainer(Trainer):
         losses = [
             loss_function(s_hat, y, w) for loss_function in loss_functions
         ]
+
+        # computing binary classification accuracy
+        truth = (y>0.5).float()*1
+        predict = (s_hat>0.0).float()*1
+        accuracy = accuracy_score(truth.cpu().flatten(), predict.cpu().flatten(), sample_weight=w.cpu().flatten())
+
         self._timer(stop="fwd: calculate losses", start="fwd: check for nans")
         self._check_for_nans("Loss", *losses)
         self._timer(stop="fwd: check for nans")
 
-        return losses
+        return losses, accuracy
