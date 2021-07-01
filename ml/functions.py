@@ -7,6 +7,7 @@ import torch
 from torch.nn import functional as F
 from torch import optim
 from torch.nn import BCELoss, BCEWithLogitsLoss, MSELoss
+#import numpy as np
 
 from contextlib import contextmanager
 
@@ -54,17 +55,9 @@ def get_optimizer(optimizer, nesterov_momentum):
 
 
 def ratio_xe(s_hat, y_true, w):
-    # Original loss
-    #loss = BCEWithLogitsLoss()(s_hat, y_true) #sjiggins
-    
     # New weighted loss functions - sjiggins
     if w is None:
         w = torch.ones(y_true.shape[0])
-    #assert w.dim() == 1, "Weights must be a rank 1 tensor"
-    #loss = (BCEWithLogitsLoss(reduction='none')(s_hat, y_true) * w / w.sum()).sum()  # First test
-    #loss = (BCEWithLogitsLoss()(s_hat, y_true) * w / w.sum()).sum()
-    #loss = (BCELoss(reduction='none')(s_hat, y_true) * w / w.sum()).sum()
-    #loss = (BCELoss(weight=w)(s_hat, y_true) * w / w.sum()).sum()
     loss = BCELoss(weight=w)(s_hat, y_true)
     return loss
 

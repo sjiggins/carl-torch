@@ -3,7 +3,7 @@ import numpy as np
 from itertools import product
 from sklearn.utils import check_array
 from scipy.interpolate import interp1d
-
+import matplotlib.pyplot as plt
 
 
 class Histogram():
@@ -79,14 +79,26 @@ class Histogram():
         else:
             bins = self.bins
             h, e = np.histogramdd(X, bins=bins, range=self.range,
-                                  weights=sample_weight, normed=True)
+                                  weights=sample_weight.flatten(), normed=True)
+
+        # Plot histogram for prosperity
+        pltx = []
+        for i in range(bins):
+            pltx.append( (e[0][i+1] + e[0][i]) /2 )
+        plt.plot(pltx,h)
+        plt.xlabel('Prob(y=1 | X)')
+        plt.ylabel('Entries')
+        plt.savefig("plots/"+kwargs["global_name"]+"/"+kwargs["output"]+'.png')
+        plt.clf()
 
         # Add empty bins for out of bound samples
         for j in range(X.shape[1]):
             h = np.insert(h, 0, 0., axis=j)
             h = np.insert(h, h.shape[j], 0., axis=j)
             e[j] = np.insert(e[j], 0, -np.inf)
+            #e[j] = np.insert(e[j], 0, 0.0)
             e[j] = np.insert(e[j], len(e[j]), np.inf)
+            #e[j] = np.insert(e[j], len(e[j]), 1.0)
 
         if X.shape[1] == 1 and self.interpolation:
             inputs = e[0][2:-1] - (e[0][2] - e[0][1]) / 2.

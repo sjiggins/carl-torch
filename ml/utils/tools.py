@@ -136,6 +136,8 @@ def load(
         #weights = X_tree.pandas.df(weightFeature)
         weights = pd.DataFrame(X_tree.arrays(weightFeature, library="np", entry_stop=n))
 
+        #weights[weightFeature] = weights[weightFeature].abs() #sjiggins
+
     # For the moment one should siply use the features
     labels  = features
 

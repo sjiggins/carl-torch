@@ -18,7 +18,7 @@ class CalibratedClassifier():
     """
 
     def __init__(self, model, method="histogram", bins=100,
-                 interpolation=None, variable_width=False):
+                 interpolation=None, variable_width=False, global_name="Test"):
         """Constructor.
         Parameters
         ----------
@@ -28,7 +28,9 @@ class CalibratedClassifier():
         self.interpolation = interpolation
         self.variable_width = variable_width
         self.model = model
-    def fit(self, X, y):
+        self.global_name = global_name
+
+    def fit(self, X, y, w):
         """Fit the calibrated model.
         Parameters
         ----------
@@ -36,6 +38,8 @@ class CalibratedClassifier():
             Training data.
         * `y` [array-like, shape=(n_samples,)]:
             Target values.
+        * `w` [array-like, shape=(n_samples,)]:
+            Weight of each data point in sample.
         Returns
         -------
         * `self` [object]:
@@ -45,6 +49,8 @@ class CalibratedClassifier():
         X = load_and_check(X)
         y = load_and_check(y)
         y = column_or_1d(y)
+        w = load_and_check(w)
+        w = column_or_1d(w)
         label_encoder = LabelEncoder()
         y = label_encoder.fit_transform(y).astype(np.float)
 
@@ -53,10 +59,14 @@ class CalibratedClassifier():
         self.classes_ = label_encoder.classes_
 
         # Calibrator
-        cal = HistogramCalibrator(bins=self.bins, interpolation=self.interpolation,variable_width=self.variable_width)
+        cal = HistogramCalibrator(bins=self.bins, 
+                                  interpolation=self.interpolation,
+                                  variable_width=self.variable_width,
+                                  global_name=self.global_name,)
         _, T = self.model.evaluate(X)
 
-        cal.fit(T, y)
+
+        cal.fit(T, y, w)
         self.calibrator = cal
         return self
 
@@ -101,7 +111,8 @@ class HistogramCalibrator():
     """Probability calibration through density estimation with histograms."""
 
     def __init__(self, bins="auto", range=None, eps=0.1,
-                 interpolation=None, variable_width=False):
+                 interpolation=None, variable_width=False,
+                 global_name="Test"):
         """Constructor.
         Parameters
         ----------
@@ -119,14 +130,17 @@ class HistogramCalibrator():
             `"cubic"`).
         * `variable_width` [boolean, optional]
             If True use equal probability variable length bins.
+        * `global_name` [string, optional]
+            Name of the current training used for plotting, and file saving
         """
         self.bins = bins
         self.range = range
         self.eps = eps
         self.interpolation = interpolation
         self.variable_width = variable_width
+        self.global_name=global_name
 
-    def fit(self, T, y):
+    def fit(self, T, y, w, **kwargs):
         """Fit using `T`, `y` as training data.
         Parameters
         ----------
@@ -134,6 +148,8 @@ class HistogramCalibrator():
             Training data.
         * `y` [array-like, shape=(n_samples,)]:
             Training target.
+        * `w` [array-like, shape=(n_samples,)]:
+            Weight of each data point in sample.
         Returns
         -------
         * `self` [object]:
@@ -142,7 +158,9 @@ class HistogramCalibrator():
         # Check input
         T = column_or_1d(T)
         t0 = T[y == 0]
+        w0 = w[y == 0]
         t1 = T[y == 1]
+        w1 = w[y == 1]
         bins = self.bins
         if self.bins == "auto":
             bins = 10 + int(len(t0) ** (1. / 3.))
@@ -158,8 +176,9 @@ class HistogramCalibrator():
         self.calibrator1 = Histogram(bins=bins, range=range,
                                      interpolation=self.interpolation,
                                      variable_width=self.variable_width)
-        self.calibrator0.fit(t0.reshape(-1, 1))
-        self.calibrator1.fit(t1.reshape(-1, 1))
+        self.calibrator0.fit(t0.reshape(-1, 1), sample_weight=w0.reshape(-1, 1), global_name=self.global_name, output=self.global_name+"_y0_calibDist")
+        self.calibrator1.fit(t1.reshape(-1, 1), sample_weight=w1.reshape(-1, 1), global_name=self.global_name, output=self.global_name+"_y1_calibDist")
+        
         return self
 
     def predict(self, T):

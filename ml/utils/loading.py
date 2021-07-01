@@ -16,8 +16,9 @@ import matplotlib.pyplot as plt
 from functools import partial
 from collections import defaultdict
 from .tools import create_missing_folders, load, load_and_check, HarmonisedLoading
-from .plotting import draw_weighted_distributions, draw_unweighted_distributions, draw_ROC, resampled_discriminator_and_roc, plot_calibration_curve, draw_weights, draw_scatter
+from .plotting import draw_weighted_distributions, draw_unweighted_distributions, draw_ROC, draw_Obs_ROC, resampled_obs_and_roc, plot_calibration_curve, draw_weights, draw_scatter
 from sklearn.model_selection import train_test_split
+import yaml
 logger = logging.getLogger(__name__)
 
 
@@ -46,7 +47,8 @@ class Loader():
         pathA = '',
         pathB = '',
         normalise = False,
-        debug = False
+        debug = False,
+        noTar = True,
     ):
         """
         Parameters
@@ -144,7 +146,7 @@ class Loader():
                 logger.info(" Filtered x1 outliers in percent: %.2f", (x10-len(x1))/len(x1)*100)
                 logger.info("weight vector (0): {}".format(w0))
                 logger.info("weight vector (1): {}".format(w1))
-
+                
         if correlation:
             cor0 = x0.corr()
             sns.heatmap(cor0, annot=True, cmap=plt.cm.Reds)
@@ -219,7 +221,7 @@ class Loader():
             pickle.dump(metaData, f)
             f.close()
             #Tar data files if training is done on GPU
-            if torch.cuda.is_available():
+            if torch.cuda.is_available() and not noTar:
                 plot = False #don't plot on GPU...
                 tar = tarfile.open("data_out.tar.gz", "w:gz")
                 for name in [folder + global_name + "/X_train_" +str(nentries)+".npy",
@@ -254,13 +256,14 @@ class Loader():
         weights = None,
         label = None,
         features=[],
-#        weightFeature="DummyEvtWeight",
         plot = False,
         nentries = 0,
-#        TreeName = "Tree",
-#        pathA = '',
-#        pathB = '',
-        global_name="Test"
+        global_name="Test",
+        plot_ROC = True,
+        plot_obs_ROC = True,
+        ext_binning = None,
+        ext_plot_path=None,
+        verbose=False,
     ):
         """
         Parameters
@@ -271,7 +274,8 @@ class Loader():
         -------
         """
 
-        print("<loading.py::load_result>::   Extracting numpy data features")
+        if verbose:
+            print("<loading.py::load_result>::   Extracting numpy data features")
 
         # Get data - only needed for column names which we can use features instead
         #x0df, weights0, labels0 = load(f = pathA,
@@ -286,18 +290,39 @@ class Loader():
         X1 = load_and_check(x1, memmap_files_larger_than_gb=1.0)
         W0 = load_and_check(w0, memmap_files_larger_than_gb=1.0)
         W1 = load_and_check(w1, memmap_files_larger_than_gb=1.0)
-        metaDataFile = open(metaData, 'rb')
-        metaDataDict = pickle.load(metaDataFile)
-        metaDataFile.close()
+
+        if isinstance(metaData, str):
+            metaDataFile = open(metaData, 'rb')
+            metaDataDict = pickle.load(metaDataFile)
+            metaDataFile.close()
+        else:
+            metaDataDict = metaData
         #weights = weights / weights.sum() * len(X1)
 
         # Calculate the maximum of each column and minimum and then allocate bins
-        print("<loading.py::load_result>::   Calculating min/max range for plots & binning")
+        if verbose:
+            print("<loading.py::load_result>::   Calculating min/max range for plots & binning")
         binning = defaultdict()
         minmax = defaultdict()
         divisions = 50
+
+        # external binning from yaml file.
+        if ext_binning:
+            with open(ext_binning, "r") as f:
+                ext_binning = yaml.load(f, yaml.FullLoader)
+
         #for idx,column in enumerate(x0df.columns):
         for idx,(key,pair) in enumerate(metaDataDict.items()):
+
+            # check to see if variable is in the yaml file.
+            # if not, proceed to automatic binning
+            if ext_binning is not None:
+                try:
+                    binning[idx] = np.arange(*ext_binning["binning"][key])
+                    continue
+                except KeyError:
+                    pass
+
             #max = x0df[column].max()
             #min = x0df[column].min()
             #minmax[column] = [min,max]
@@ -319,23 +344,30 @@ class Loader():
             factor = 5
             minmax[idx] = [mean-(5*std), mean+(5*std)]
             binning[idx] = np.linspace(mean-(5*std), mean+(5*std), divisions)
-            print("<loading.py::load_result>::   Column {}:  min  =  {},  max  =  {}".format(key,mean-5*std,mean+5*std))
-            print(binning[idx])
+            if verbose:
+                print("<loading.py::load_result>::   Column {}:  min  =  {},  max  =  {}".format(key,mean-5*std,mean+5*std))
+                print(binning[idx])
 
         # no point in plotting distributions with too few events, they only look bad
         #if int(nentries) > 5000:
         # plot ROC curves
         print("<loading.py::load_result>::   Printing ROC")
-        draw_ROC(X0, X1, W0, W1, weights, label, global_name, nentries, plot)
 
-        print("<loading.py::load_result>::   Printing weighted distributions")
+        if plot_ROC:
+            draw_ROC(X0, X1, W0, W1, weights, label, global_name, nentries, plot)
+        if plot_obs_ROC:
+            draw_Obs_ROC(X0, X1, W0, W1, weights, label, global_name, nentries, plot)
+
+        if verbose:
+            print("<loading.py::load_result>::   Printing weighted distributions")
+
         # plot reweighted distributions
         draw_weighted_distributions(X0, X1, W0, W1,
                                     weights,
                                     metaDataDict.keys(),#x0df.columns,
                                     binning,
                                     label,
-                                    global_name, nentries, plot)
+                                    global_name, nentries, plot, ext_plot_path)
 
     def validate_result(
         self,
@@ -362,14 +394,23 @@ class Loader():
         draw_scatter(weightCT, weightCA, var, do, n)
 
     def load_calibration(
+        #self,
+        #y_true,
+        #p1_raw = None,
+        #p1_cal = None,
+        #label = None,
+        #do = 'dilepton',
+        #var = 'QSFUP',
+        #plot = False
         self,
         y_true,
-        p1_raw = None,
-        p1_cal = None,
+        p1_raw,
+        p1_cal,
         label = None,
-        do = 'dilepton',
-        var = 'QSFUP',
-        plot = False
+        features=[],
+        plot = False,
+        global_name="Test"
+
     ):
         """
         Parameters
@@ -386,4 +427,5 @@ class Loader():
 
         # load samples
         y_true  = load_and_check(y_true,  memmap_files_larger_than_gb=1.0)
-        plot_calibration_curve(y_true, p1_raw, p1_cal, do, var, plot)
+
+        plot_calibration_curve(y_true, p1_raw, p1_cal, global_name, plot)

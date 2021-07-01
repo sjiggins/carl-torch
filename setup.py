@@ -15,10 +15,10 @@ from setuptools import find_packages, setup, Command
 
 # Package meta-data.
 NAME = 'carl-torch'
-DESCRIPTION = 'A multivariate reweighting technique for Monte-Carlo simulation using calibrated classifiers.' 
+DESCRIPTION = 'A multivariate reweighting technique for Monte-Carlo simulation using calibrated classifiers.'
 URL = 'https://github.com/leonoravesterbacka/carl-torch'
 EMAIL = 'leonoravesterbacka@gmail.com'
-AUTHOR = 'Leonora Vesterbacka' 
+AUTHOR = 'Leonora Vesterbacka'
 REQUIRES_PYTHON = '>=3.6'
 VERSION = '0.1'
 
@@ -32,6 +32,7 @@ REQUIRED = [
     "matplotlib>=2.0.0",
     "pytest",
     "recommonmark",
+    "pyyaml",
 ]
 
 # What packages are optional?
