@@ -20,7 +20,7 @@ initialized = False
 def AddInvertWeight(
     x,
     w,
-    frac=0.05,
+    frac=0.50,
 ):
     """
     Take fraction of the event ramdomly, frac_x and frac_w, append them into
