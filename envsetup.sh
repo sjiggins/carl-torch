@@ -18,7 +18,7 @@ elif [[ $(uname -a) == *"slc6"* ]]; then
     TEMP_PYTHONPATH=/cvmfs/sft.cern.ch/lcg/views/LCG_98bpython3/x86_64-slc6-gcc8-opt/python:/cvmfs/sft.cern.ch/lcg/views/LCG_98bpython3/x86_64-slc6-gcc8-opt/lib
 fi
 OLD_PYTHONPATH=$PYTHONPATH
-if [ -f "CARL/bin/activate" ]; then
+if [ -f "CARL-Torch/bin/activate" ]; then
     source CARL-Torch/bin/activate
 else
     python -m venv CARL-Torch
