@@ -66,6 +66,8 @@ def draw_weighted_distributions(x0, x1, w0, w1,
 
     for id, column in enumerate(variables):
         print("<plotting.py::draw_weighted_distribution()>::   id: {},   column: {}".format(id,column))
+        if (column=="N_ch0" or column=="N_ch1"):
+            binning[id]=np.linspace(0.,25.,25)
         print("<plotting.py::draw_weighted_distribution()>::     binning: {}".format(binning[id]))
         if save: plt.figure(figsize=(14, 10))
         else: plt.subplot(3,4, id)
@@ -81,7 +83,7 @@ def draw_weighted_distributions(x0, x1, w0, w1,
         plt.hist(x0[:,id], bins = binning[id], weights = w_carl, label = 'nominal*CARL', **hist_settings_CARL)
         plt.hist(x1[:,id], bins = binning[id], weights = w1, label = "alternative", **hist_settings_alt)
         plt.xlabel('%s'%(column), horizontalalignment='right',x=1)
-        plt.legend(frameon=False,title = '%s sample %s'%(label,legend) )
+        plt.legend(frameon=False,title = '%s sample'%label )
         axes = plt.gca()
         plt.xticks(fontsize=14)
         plt.yticks(fontsize=14)
@@ -151,9 +153,9 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             x0_error = np.array(x0_error)
             x1_error = np.array(x1_error)
 
-            plt.step( xref, yref, where="post", label=legend+" / "+legend, **hist_settings_alt )
-            plt.step( edge1[:-1], x1_ratio, where="post", label="nom / "+legend, **hist_settings_nom)
-            plt.step( edgecarl[:-1], carl_ratio, where="post", label = '(nominal*CARL) / '+legend, **hist_settings_CARL_ratio)
+            plt.step( xref, yref, where="post", label="alternative / alternative", **hist_settings_alt )
+            plt.step( edge1[:-1], x1_ratio, where="post", label="nominal / alternative", **hist_settings_nom)
+            plt.step( edgecarl[:-1], carl_ratio, where="post", label = '(nominal*CARL) / alternative', **hist_settings_CARL_ratio)
             #plt.fill_between(edge[:,-1], 1.0, x1_ratio)
             yref_error = np.ones(len(edge1))
             yref_error_up = 2* np.sqrt( np.power(x1_error,2) + np.power(x0_error, 2)) # height from bottom

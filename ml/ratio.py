@@ -245,6 +245,7 @@ class RatioEstimator(Estimator):
         x = load_and_check(x)
 
         # Scale observables
+        logger.info("Scaling before obtaining CARL weights")
         x = self._transform_inputs(x)
 
         # Restrict features

@@ -66,7 +66,8 @@ def CoherentFlattening(df0, df1):
 
         # Now break up each column into elements of max size 'macObjectLen'
         df0_flattened = pd.DataFrame(df0[column].to_list(), columns=[column+str(idx) for idx in range(elemLen0)])
-        df0_flattened = df0_flattened.fillna(0)
+        df0_flattened = df0_flattened.fillna(float("nan")) #To be sure about NaN padding
+        df0_flattened[df0_flattened==-99999] = float("nan") #Convert input dummy values into NaN
 
         # Delete extra dimensions if needed due to non-matching dimensionality of df0 & df1
         if elemLen0 > minObjectLen[column]:
@@ -82,7 +83,9 @@ def CoherentFlattening(df0, df1):
 
         # Now break up each column into elements of max size 'macObjectLen'
         df1_flattened = pd.DataFrame(df1[column].to_list(), columns=[column+str(idx) for idx in range(elemLen1)])
-        df1_flattened = df1_flattened.fillna(0)
+        df1_flattened = df1_flattened.fillna(float("nan")) #To be sure about NaN padding
+        df1_flattened[df1_flattened==-99999] = float("nan") #Convert input dummy values into NaN
+
 
         # Delete extra dimensions if needed due to non-matching dimensionality of df0 & df1
         if elemLen1 > minObjectLen[column]:

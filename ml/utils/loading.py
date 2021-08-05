@@ -102,6 +102,86 @@ class Loader():
             print("<loading.py::Loader()>::      X1:")
             print(x1)
 
+        # Diferent filters of observables to keep only the interesting ones (provisional)
+        feat_interest = ["Jet1_lund_z0","Jet1_lund_z1","Jet1_lund_z2","Jet1_lund_z3",
+                         "Jet2_lund_z0","Jet2_lund_z1","Jet2_lund_z2","Jet2_lund_z3",
+                         "Jet1_pTrel_ch0","Jet1_pTrel_ch1","Jet1_pTrel_ch2",
+                         "Jet2_pTrel_ch0","Jet2_pTrel_ch1","Jet2_pTrel_ch2",
+                         "Jet3_pTrel_ch0","Jet3_pTrel_ch1","Jet3_pTrel_ch2",
+                         "Jet1_JetShape_ch0","Jet1_JetShape_ch1","Jet1_JetShape_ch2",
+                         "Jet2_JetShape_ch0","Jet2_JetShape_ch1","Jet2_JetShape_ch2",
+                         "Jet3_JetShape_ch0","Jet3_JetShape_ch1","Jet3_JetShape_ch2",
+                         "Ntracks",
+                         "N_ch0","N_ch1","N_ch2",
+                         "Jet_Mass0","Jet_Mass1","Jet_Mass2",
+                         "JetCharge0","JetCharge1","JetCharge2",
+                         "ptFracB0","ptFracB1","ptFracB2",
+                         "ptFracC0","ptFracC1","ptFracC2"]
+
+        feat_interestB = ["Jet1_lund_z1","Jet1_lund_z2","Jet1_lund_z3",
+                         "Jet1_lund_dR1","Jet1_lund_dR2","Jet1_lund_dR3",
+                         "Jet1_track_Pt0","Jet1_track_Pt1","Jet1_track_Pt2",
+                         "Jet2_lund_z1","Jet2_lund_z2","Jet2_lund_z3",
+                         "Jet2_lund_dR1","Jet2_lund_dR2","Jet2_lund_dR3",
+                         "Jet2_track_Pt0","Jet2_track_Pt1","Jet2_track_Pt2",
+                         "Jet_Mass0","Jet_Mass1",
+                         "JetCharge0","JetCharge1",
+                         "ptFracC0","ptFracC1",
+                         "ptFracB0","ptFracB1",
+                         "Ntracks",
+                         "N_ch0","N_ch1",
+                         "Jet1_z_ch0","Jet1_z_ch1","Jet1_z_ch2",
+                         "Jet1_pTrel_ch0","Jet1_pTrel_ch1","Jet1_pTrel_ch2",
+                         "Jet1_JetShape_ch0","Jet1_JetShape_ch1","Jet1_JetShape_ch2",
+                         "Jet2_z_ch0","Jet2_z_ch1","Jet2_z_ch2",
+                         "Jet2_pTrel_ch0","Jet2_pTrel_ch1","Jet2_pTrel_ch2",
+                         "Jet2_JetShape_ch0","Jet2_JetShape_ch1","Jet2_JetShape_ch2"]
+
+        feat_interestC = ["Jet1_lund_z0","Jet1_lund_z1","Jet1_lund_z2","Jet1_lund_z3",
+                         "Jet2_lund_z0","Jet2_lund_z1","Jet2_lund_z2","Jet2_lund_z3",
+                         "Jet1_pTrel_ch0","Jet1_pTrel_ch1","Jet1_pTrel_ch2",
+                         "Jet2_pTrel_ch0","Jet2_pTrel_ch1","Jet2_pTrel_ch2",
+                         "Jet3_pTrel_ch0","Jet3_pTrel_ch1","Jet3_pTrel_ch2",
+                         "Ntracks",
+                         "N_ch0","N_ch1","N_ch2",
+                         "Jet_Mass0","Jet_Mass1","Jet_Mass2",
+                         "Jet_Pt0","Jet_Pt1","Jet_Pt2",
+                         "Jet_Eta0","Jet_Eta1","Jet_Eta2",
+                         "JetCharge0","JetCharge1","JetCharge2"]
+
+        feat_interestD = ["Jet1_lund_z0",
+                         "Jet2_lund_z0",
+                         "Jet1_pTrel_ch0",
+                         "Jet2_pTrel_ch0",
+                         "Jet3_pTrel_ch0",
+                         "Ntracks",
+                         "N_ch0","N_ch1","N_ch2",
+                         "Jet_Mass0","Jet_Mass1","Jet_Mass2",
+                         "JetCharge0","JetCharge1","JetCharge2"]
+
+        feat_interestE = ["Ntracks",
+                          "Jet_Mass0","Jet_Mass1",
+                          "JetCharge0","JetCharge1",
+                          "N_ch0", "N_ch1",
+                          "ptFracB0","ptFracB1",
+                          "ptFracC0","ptFracC1"]
+
+        initial_columns = x0.columns
+        for f in initial_columns:#No loop and delete in same list
+            logger.info("Observable column {}, Dummy porportion {}".format(f, np.isnan(x0[f]).sum()/len(x0[f])))
+            if not f in feat_interest:
+                del x0[f]
+                del x1[f]
+                logger.info(" Deleting observable column {}".format(f))
+        #    else:
+                # Drop columns with large amount of dummy values
+#            logger.info("Observable column {}, Dummy porportion {}".format(f, np.isnan(x0[f]).sum()/len(x0[f])))
+#            if ((np.isnan(x0[f])).sum()/len(x0[f]) > 0.5):
+#                logger.info("Deleting observable column {} with more than 50% of dummy values".format(f))
+#                del x0[f]
+#                del x1[f]
+        logger.info("Final list of observables: {}".format(x0.columns))
+
         # Pre-process for outliers
         logger.info(" Starting filtering")
         if preprocessing:
@@ -146,12 +226,24 @@ class Loader():
                 logger.info(" Filtered x1 outliers in percent: %.2f", (x10-len(x1))/len(x1)*100)
                 logger.info("weight vector (0): {}".format(w0))
                 logger.info("weight vector (1): {}".format(w1))
-                
+
         if correlation:
             cor0 = x0.corr()
+
+            # Save in txt file
+            logger.info("Correlation Matrix: {}".format(cor0))
+            f_corr = open("Corr/corr_"+global_name+".txt", "w")
+            corr_string = cor0.to_string(header=True,index=True)
+            f_corr.write(corr_string)
+            cor2 = cor0[abs(cor0)>0.15]
+            f_corr2 = open("Corr/corr2_"+global_name+".txt", "w")
+            corr2_string = cor2.to_string(header=True,index=True)
+            f_corr2.write(corr2_string)
+
+            # corr plot
             sns.heatmap(cor0, annot=True, cmap=plt.cm.Reds)
             cor_target = abs(cor0[x0.columns[0]])
-            relevant_features = cor_target[cor_target>0.5]
+            relevant_features = cor_target[cor_target>0.15]
             if plot:
                 plt.savefig('plots/scatterMatrix_'+global_name+'.png')
                 plt.clf()
@@ -172,7 +264,7 @@ class Loader():
         x1 = x1[sorted(x1.columns)]
 
         # get metadata, i.e. max, min, mean, std of all the variables in the dataframes
-        metaData = {v : {x0[v].min() if (x0[v].min()!=-99999) else 0 , x0[v].max() } for v in  x0.columns }
+        metaData = {v : {x0[v].min(), x0[v].max() } for v in  x0.columns } # Try also x0[v].nsmallest(2).iloc[-1] instead of 0.0
         X0 = x0.to_numpy()
         X1 = x1.to_numpy()
 
@@ -337,8 +429,11 @@ class Loader():
             #print("<loading.py::load_result>::   Column {}:  min  =  {},  max  =  {}".format(column,min,max))
 
             #  Mean/std
-            mean = np.mean(X0[:,idx])
-            std = np.std(X0[:,idx])
+            mean = np.nanmean(X0[:,idx]) # mean = np.mean(X0[:,idx]) does not work with NaN values
+            std = np.nanstd(X0[:,idx])  # mean = np.std(X0[:,idx]) does not work with NaN values
+            #if (key == "Jet1_lund_dR0" or "Jet1_lund_z0" or "Jet2_lund_z0" or "Jet2_lund_dR0"):
+            #    std = 2.
+
             print("<loading.py::load_result>:: Standard deviation to find binning limits:")
             print("     idx = {}, key = {}, pair = {}, sigma = {}".format(idx, key, pair, std))
             factor = 5
@@ -348,15 +443,9 @@ class Loader():
                 print("<loading.py::load_result>::   Column {}:  min  =  {},  max  =  {}".format(key,mean-5*std,mean+5*std))
                 print(binning[idx])
 
+
         # no point in plotting distributions with too few events, they only look bad
         #if int(nentries) > 5000:
-        # plot ROC curves
-        print("<loading.py::load_result>::   Printing ROC")
-
-        if plot_ROC:
-            draw_ROC(X0, X1, W0, W1, weights, label, global_name, nentries, plot)
-        if plot_obs_ROC:
-            draw_Obs_ROC(X0, X1, W0, W1, weights, label, global_name, nentries, plot)
 
         if verbose:
             print("<loading.py::load_result>::   Printing weighted distributions")
@@ -368,6 +457,20 @@ class Loader():
                                     binning,
                                     label,
                                     global_name, nentries, plot, ext_plot_path)
+
+        # plot ROC curves
+        print("<loading.py::load_result>::   Printing ROC")
+
+        # The saved numpy datasets have NaN as dummy values. This is not handled in ROC computation.
+        # Therefore, we give an arbitrary non physical value to these dummy values when obtaining the ROC
+        X0 = np.nan_to_num(X0, nan=-9)
+        X1 = np.nan_to_num(X1, nan=-9)
+
+        if plot_ROC:
+            draw_ROC(X0, X1, W0, W1, weights, label, global_name, nentries, plot)
+        if plot_obs_ROC:
+            draw_Obs_ROC(X0, X1, W0, W1, weights, label, global_name, nentries, plot)
+
 
     def validate_result(
         self,
