@@ -17,15 +17,32 @@ logger = logging.getLogger(__name__)
 
 initialized = False
 
-def AddInvertWeight(
-    x,
-    w,
-    frac=0.50,
-):
+def GenerateFractionSamples(x, w, frac=0.50):
     """
-    Take fraction of the event ramdomly, frac_x and frac_w, append them into
-    the original x and w data. Inverted the sign of frac_w to get inv_frac_w,
-    and then append them into the orignal data set as well. The final distribution
+    Randomly samples fraction of the events from given features and weight.
+
+    Args:
+        x : panda.DataFrame
+            dataframe that contains the features for training.
+
+        w : panda.DataFrame
+            dataframe that contains the MC event weight.
+
+        frac : float, optional
+            fraction of samples to be re-sample from the original dataframe
+
+    """
+
+    frac_x = x.sample(frac=frac, random_state = 42)
+    frac_w = w.iloc[frac_x.index]
+
+    return frac_x, frac_w
+
+def AddInvertWeight(x, w, frac_x, frac_w):
+    """
+    append frac_x and frac_w them the original x and w data.
+    Inverted the sign of frac_w to get inv_frac_w, and then append them into the
+    orignal data set as well. The final distribution. The overall distribution
     shouldn't change since the frac_w and inv_frac_w cancel each other.
 
     Args:
@@ -39,9 +56,6 @@ def AddInvertWeight(
             fraction of samples to be re-sample from the original dataframe
 
     """
-    frac_x = x.sample(frac=frac, random_state = 42)
-    frac_w = w.iloc[frac_x.index]
-
     # appending this into the original data frame
     x = x.append(frac_x)
     w = w.append(frac_w)
@@ -53,10 +67,12 @@ def AddInvertWeight(
     x = x.append(frac_x)
     w = w.append(frac_w)
 
+    '''
     with open("addInvSample.pkl", "wb") as f:
         frac_x = frac_x[sorted(frac_x.columns)]
         addInvSample = (frac_x, frac_w)
         pickle.dump(addInvSample, f)
+    '''
 
     return x, w
 
@@ -68,7 +84,43 @@ def HarmonisedLoading(
     weightFeature="DummyEvtWeight",
     nentries=0,
     TreeName="Tree",
+    do_self_dope=False,
+    do_mix_dope=False,
 ):
+    """
+    Harmonising feature and weight dataframe to same shape. i.e jet multiplicity
+    for each event can be different in nominal and variational samples, which
+    require matching to the minimum jet multiplicity.
+
+    Args:
+        fA: str
+            file name to (nominal) N-tuples
+
+        fB: str
+            file name to (variational) N-tuples
+
+        features: list(str)
+            list of features (branch name) in the N-tuple TTree.
+
+        weightFeasure: str, default="DummyEvtWeight"
+            name of the weigth branch in TTree.
+
+        nentries: int
+            number of events for training.
+
+        TreeName: str
+            Name of the TTree.
+
+        do_self_dope: bool, default=False
+            Take fraction of the samples from fA and invert the sign of the
+            event weight, then append both the fraction and inverted fraction to
+            the orignal sample set.
+
+        do_mix_dope: bool, default=False
+            similar to do_self_dope, but using fB sample set to generate the
+            fraction of events instead.
+
+    """
 
 
     x0, w0, vlabels0 = load(f = fA,
@@ -82,7 +134,12 @@ def HarmonisedLoading(
 
     # hard-coding the event weight inverting here for the moment
     # TODO: make this optional
-    x0, w0 = AddInvertWeight(x0, w0)
+    if do_self_dope:
+        frac_x0, frac_w0 = GenerateFractionSamples(x0, w0)
+        x0, w0 = AddInvertWeight(x0, w0, frac_x0, frac_x0)
+    if do_mix_dope:
+        frac_x1, frac_w1 = GenerateFractionSamples(x1, w1)
+        x0, w0 = AddInvertWeight(x0, w0, frac_x1, frac_x1)
 
     return x0, w0, vlabels0, x1, w1, vlabels1
 
