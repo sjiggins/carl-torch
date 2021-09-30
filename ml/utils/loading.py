@@ -1,24 +1,25 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
-import os
-import time
+# import os
+# import time
 import logging
 import tarfile
 import torch
 import pickle
 import numpy as np
-import pandas as pd
+# import pandas as pd
 import seaborn as sns
-from pandas.plotting import scatter_matrix
-import multiprocessing
+# from pandas.plotting import scatter_matrix
+# import multiprocessing
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from functools import partial
+# from functools import partial
 from collections import defaultdict
 from .tools import create_missing_folders, load, load_and_check, HarmonisedLoading
 from .plotting import draw_weighted_distributions, draw_unweighted_distributions, draw_ROC, draw_Obs_ROC, resampled_obs_and_roc, plot_calibration_curve, draw_weights, draw_scatter
 from sklearn.model_selection import train_test_split
 import yaml
+import copy
 logger = logging.getLogger(__name__)
 
 
@@ -49,6 +50,11 @@ class Loader():
         normalise = False,
         debug = False,
         noTar = True,
+        weight_preprocess = False,
+        weight_preprocess_nsigma = 3,
+        large_weight_clipping = False,
+        large_weight_clipping_threshold = 1e7,
+        weight_polarity = False,
     ):
         """
         Parameters
@@ -72,6 +78,13 @@ class Loader():
         save : bool, optional
             Save training ans test samples. Default value:
             False
+
+        weight_preprocess: bool, optional
+            event weigth pre-processing by mapping event weights that are larger N*standard deviation to the mean value.
+
+        large_weight_clipping: bool, optional
+            clipping large event weight.
+
         Returns
         -------
         x : ndarray
@@ -92,7 +105,7 @@ class Loader():
             x1, w1, vlabels1
         )  = HarmonisedLoading(fA = pathA, fB = pathB,
                                features=features, weightFeature=weightFeature,
-                               nentries = int(nentries), TreeName = TreeName)
+                               nentries = int(nentries), TreeName = TreeName, weight_polarity=weight_polarity)
 
         # Run if requested debugging by user
         if debug:
@@ -189,19 +202,87 @@ class Loader():
         y1 = np.ones(x1.shape[0])
 
         # Train, test splitting of input dataset
-        X0_train, X0_test, y0_train, y0_test, w0_train, w0_test = train_test_split(X0, y0, w0, test_size=0.40, random_state=42)
-        X1_train, X1_test, y1_train, y1_test, w1_train, w1_test = train_test_split(X1, y1, w1, test_size=0.40, random_state=42)
+        X0_train, X0_test, y0_train, y0_test, w0_train, w0_test = train_test_split(X0, y0, w0, test_size=0.05, random_state=42) # what is "w0_test" for? maybe a split size of 0.05 if ok.
+        X1_train, X1_test, y1_train, y1_test, w1_train, w1_test = train_test_split(X1, y1, w1, test_size=0.05, random_state=42)
         X0_train, X0_val,  y0_train, y0_val, w0_train, w0_val =  train_test_split(X0_train, y0_train, w0_train, test_size=0.50, random_state=42)
         X1_train, X1_val,  y1_train, y1_val, w1_train, w1_val =  train_test_split(X1_train, y1_train, w1_train, test_size=0.50, random_state=42)
+
+        #cliping large weights, and replace it by 1.0
+        raw_w0_train = None
+        raw_w1_train = None
+        raw_w0_val = None
+        raw_w1_val = None
+        if large_weight_clipping or weight_preprocess:
+            raw_w0_train = copy.deepcopy(w0_train)
+            raw_w1_train = copy.deepcopy(w1_train)
+            raw_w0_val = copy.deepcopy(w0_val)
+            raw_w1_val = copy.deepcopy(w1_val)
+            raw_w0_train_sum = w0_train.sum()
+            raw_w1_train_sum = w1_train.sum()
+            raw_w0_val_sum = w0_val.sum()
+            raw_w1_val_sum = w1_val.sum()
+            logger.info(f"Training sum w0={raw_w0_train_sum}")
+            logger.info(f"Training sum w1={raw_w1_train_sum}")
+            logger.info(f"Validation sum w0={raw_w0_val_sum}")
+            logger.info(f"Validation sum w1={raw_w1_val_sum}")
+
+        if large_weight_clipping:
+            clip_threshold = (-large_weight_clipping_threshold, large_weight_clipping_threshold)
+            w0_train = w0_train.clip(*clip_threshold)
+            w1_train = w1_train.clip(*clip_threshold)
+            w0_val = w0_val.clip(*clip_threshold)
+            w1_val = w1_val.clip(*clip_threshold)
+            w0_train_sum = w0_train.sum()
+            w1_train_sum = w1_train.sum()
+            w0_val_sum = w0_val.sum()
+            w1_val_sum = w1_val.sum()
+            w0_train_per_change = (w0_train_sum - raw_w0_train_sum)/raw_w0_train_sum
+            w1_train_per_change = (w1_train_sum - raw_w1_train_sum)/raw_w1_train_sum
+            w0_val_per_change = (w0_val_sum - raw_w0_val_sum)/raw_w0_val_sum
+            w1_val_per_change = (w1_val_sum - raw_w1_val_sum)/raw_w1_val_sum
+            logger.info(f"After large weight clipping, training sum w0={w0_train_sum}, {w0_train_per_change}")
+            logger.info(f"After large weight clipping, training sum w1={w1_train_sum}, {w1_train_per_change}")
+            logger.info(f"After large weight clipping, validation sum w0={w0_val_sum}, {w0_val_per_change}")
+            logger.info(f"After large weight clipping, validation sum w1={w1_val_sum}, {w1_val_per_change}")
+
+        if weight_preprocess:
+            w0_train_mean = np.mean(w0_train)
+            w1_train_mean = np.mean(w1_train)
+            w0_val_mean = np.mean(w0_val)
+            w1_val_mean = np.mean(w1_val)
+            w0_train_std = np.std(w0_train)
+            w1_train_std = np.std(w1_train)
+            w0_val_std = np.std(w0_val)
+            w1_val_std = np.std(w1_val)
+
+            local_buffers = {
+                "w0_train" : {"weight" : w0_train, "mean" : w0_train_mean, "std" : w0_train_std},
+                "w1_train" : {"weight" : w1_train, "mean" : w1_train_mean, "std" : w1_train_std},
+                "w0_val" : {"weight" : w0_val, "mean" : w0_val_mean, "std" : w0_val_std},
+                "w1_val" : {"weight" : w1_val, "mean" : w1_val_mean, "std" : w1_val_std},
+            }
+
+            for name, buffer in local_buffers.items():
+                simga_above = buffer["mean"] + weight_preprocess_nsigma * abs(buffer["std"])
+                simga_below = buffer["mean"] - weight_preprocess_nsigma * abs(buffer["std"])
+                m_weight = buffer["weight"]
+                sum_w = m_weight.sum()
+                m_weight[ m_weight > simga_above] = buffer["mean"]
+                m_weight[ m_weight < simga_below] = buffer["mean"]
+                per_change = (m_weight.sum() - sum_w)/sum_w
+                logger.info(f"After weight preprocessing with {buffer['mean']}, +-{buffer['std']}, training sum {name}={m_weight.sum()}, {per_change}")
+
+        # finalizing dataset format
         X_train = np.vstack([X0_train, X1_train])
         y_train = np.concatenate((y0_train, y1_train), axis=None)
-        w_train = np.concatenate( (w0_train, w1_train), axis=None)
+        w_train = np.concatenate((w0_train, w1_train), axis=None)
         X_val   = np.vstack([X0_val, X1_val])
         y_val = np.concatenate((y0_val, y1_val), axis=None)
-        w_val = np.concatenate( (w0_val, w1_val), axis=None)
-        X = np.vstack([X0, X1])
-        y = np.concatenate((y0, y1), axis=None)
-        w = np.concatenate( (w0,w1), axis=None)
+        w_val = np.concatenate((w0_val, w1_val), axis=None)
+        # X = np.vstack([X0, X1])
+        # y = np.concatenate((y0, y1), axis=None)
+        # w = np.concatenate((w0, w1), axis=None)
+
         # save data
         if folder is not None and save:
             np.save(folder + global_name + "/X_train_" +str(nentries)+".npy", X_train)
@@ -218,6 +299,11 @@ class Loader():
             np.save(folder + global_name + "/X1_train_"+str(nentries)+".npy", X1_train)
             np.save(folder + global_name + "/w0_train_"  +str(nentries)+".npy", w0_train)
             np.save(folder + global_name + "/w1_train_"  +str(nentries)+".npy", w1_train)
+            if large_weight_clipping or weight_preprocess:
+                np.save(folder + global_name + "/w0_train_raw_"  +str(nentries)+".npy", raw_w0_train)
+                np.save(folder + global_name + "/w1_train_raw_"  +str(nentries)+".npy", raw_w1_train)
+                np.save(folder + global_name + "/w0_val_raw_"  +str(nentries)+".npy", raw_w0_val)
+                np.save(folder + global_name + "/w1_val_raw_"  +str(nentries)+".npy", raw_w1_val)
             f = open(folder + global_name + "/metaData_"+str(nentries)+".pkl", "wb")
             pickle.dump(metaData, f)
             f.close()
@@ -288,10 +374,10 @@ class Loader():
         #                     n = int(nentries), t = TreeName)
 
         # load samples
-        X0 = load_and_check(x0, memmap_files_larger_than_gb=1.0)
-        X1 = load_and_check(x1, memmap_files_larger_than_gb=1.0)
-        W0 = load_and_check(w0, memmap_files_larger_than_gb=1.0)
-        W1 = load_and_check(w1, memmap_files_larger_than_gb=1.0)
+        X0 = load_and_check(x0, memmap_files_larger_than_gb=1.0, name="nominal features")
+        X1 = load_and_check(x1, memmap_files_larger_than_gb=1.0, name="variation features")
+        W0 = load_and_check(w0, memmap_files_larger_than_gb=1.0, name="nominal weights")
+        W1 = load_and_check(w1, memmap_files_larger_than_gb=1.0, name="variation weights")
         if isinstance(metaData, str):
             metaDataFile = open(metaData, 'rb')
             metaDataDict = pickle.load(metaDataFile)
