@@ -40,7 +40,7 @@ class Estimator(object):
         self.x_scaling_means = None
         self.x_scaling_stds = None
         self.scaling_method = None
-        self.scaling_clamp = True
+        self.scaling_clamp = False
         self.clamp_min = None
         self.clamp_max = None
         self.x_scaling_quantile_up = None
@@ -261,8 +261,8 @@ class Estimator(object):
             self.x_scaling_stds = np.maximum(np.std(x, axis=0), 1.0e-6)
             self.x_scaling_mins = np.min(x, axis=0)
             self.x_scaling_maxs = np.max(x, axis=0)
-            self.x_scaling_quantile_down = np.quantile(x, 0.25, axis=0)
-            self.x_scaling_quantile_up = np.quantile(x, 0.75, axis=0)
+            self.x_scaling_quantile_down = np.quantile(x, 0, axis=0)
+            self.x_scaling_quantile_up = np.quantile(x, 0.80, axis=0)
             if self.clamp_max is None:
                 self.clamp_max = self.x_scaling_quantile_up
             if self.clamp_min is None:
