@@ -2,8 +2,8 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
-from torch.autograd import grad
+# from torch.nn import functional as F
+# from torch.autograd import grad
 from .functions import get_activation
 
 import logging
@@ -42,10 +42,12 @@ class RatioModel(nn.Module):
         for i, layer in enumerate(self.layers):
             if i > 0:
                 s_hat = self.activation(s_hat)
-            s_hat = layer(s_hat) 
+            s_hat = layer(s_hat)
         s_hat = torch.sigmoid(s_hat)
+        # clamping very small value to 1e-9 to avoid zero
+        s_hat = torch.clamp(s_hat, min=1.0e-9)
         r_hat = (1 - s_hat) / s_hat
-        
+
         return r_hat, s_hat
 
     def to(self, *args, **kwargs):
@@ -55,4 +57,3 @@ class RatioModel(nn.Module):
             self.layers[i] = layer.to(*args, **kwargs)
 
         return self
-
