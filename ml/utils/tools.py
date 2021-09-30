@@ -213,7 +213,7 @@ def load(
     weightFeature="DummyEvtWeight",
     n=0,
     t="Tree",
-    weight_polarity=True,
+    weight_polarity=False,
 ):
     """
     Function for preparing feastures for training.
@@ -300,9 +300,14 @@ def create_missing_folders(folders):
             raise OSError("Path {} exists, but is no directory!".format(folder))
 
 
-def load_and_check(filename, warning_threshold=1.0e9, memmap_files_larger_than_gb=None):
+def load_and_check(filename, warning_threshold=1.0e9, memmap_files_larger_than_gb=None, name=None):
     if filename is None:
         return None
+
+    # in case filenmae is not string, the warning does not show which file it is
+    # so it will tell you where the large numbers are coming from instead of
+    # showing just a list of values from the arrays.
+    name = name or filename
 
     if not isinstance(filename, six.string_types):
         data = filename
@@ -324,13 +329,13 @@ def load_and_check(filename, warning_threshold=1.0e9, memmap_files_larger_than_g
         n_finite = np.sum(np.isfinite(data))
         if n_nans + n_infs > 0:
             logger.warning(
-                "%s contains %s NaNs and %s Infs, compared to %s finite numbers!", filename, n_nans, n_infs, n_finite
+                "%s contains %s NaNs and %s Infs, compared to %s finite numbers!", name, n_nans, n_infs, n_finite
             )
 
         smallest = np.nanmin(data)
         largest = np.nanmax(data)
         if np.abs(smallest) > warning_threshold or np.abs(largest) > warning_threshold:
-            logger.warning("Warning: file %s has some large numbers, rangin from %s to %s", filename, smallest, largest)
+            logger.warning("Warning: file %s has some large numbers, ranging from %s to %s", name, smallest, largest)
 
     if len(data.shape) == 1:
         data = data.reshape(-1, 1)
