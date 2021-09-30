@@ -86,6 +86,7 @@ def HarmonisedLoading(
     TreeName="Tree",
     do_self_dope=False,
     do_mix_dope=False,
+    weight_polarity=False,
 ):
     """
     Harmonising feature and weight dataframe to same shape. i.e jet multiplicity
@@ -120,15 +121,30 @@ def HarmonisedLoading(
             similar to do_self_dope, but using fB sample set to generate the
             fraction of events instead.
 
+        weight_polarity: bool, default=False
+            adding a polarity feature based on the sign of the event weight.
+            i.e. polarity=1 (-1) will be assigned to positive(negative) event weignt.
+
     """
 
 
-    x0, w0, vlabels0 = load(f = fA,
-                            features=features, weightFeature=weightFeature,
-                            n = int(nentries), t = TreeName)
-    x1, w1, vlabels1 = load(f = fB,
-                            features=features, weightFeature=weightFeature,
-                            n = int(nentries), t = TreeName)
+    x0, w0, vlabels0 = load(
+        f = fA,
+        features=features,
+        weightFeature=weightFeature,
+        n=int(nentries),
+        t=TreeName,
+        weight_polarity=weight_polarity,
+    )
+
+    x1, w1, vlabels1 = load(
+        f=fB,
+        features=features,
+        weightFeature=weightFeature,
+        n=int(nentries),
+        t=TreeName,
+        weight_polarity=weight_polarity,
+    )
 
     x0, x1 = CoherentFlattening(x0,x1)
 
