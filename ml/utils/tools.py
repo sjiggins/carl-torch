@@ -3,15 +3,15 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import six
 import logging
 import os
-import stat
+# import stat
 import numpy as np
 import uproot
 import pandas as pd
-import torch
-from torch.nn import functional as F
+# import torch
+# from torch.nn import functional as F
 from collections import defaultdict
-from contextlib import contextmanager
-import pickle
+# from contextlib import contextmanager
+# import pickle
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +165,7 @@ def CoherentFlattening(df0, df1):
 
     # Find the lowest common denominator for object lengths
     df0_objects = df0.select_dtypes(object)
-    df1_objects = df1.select_dtypes(object)
+    # df1_objects = df1.select_dtypes(object) # this one never used?
     minObjectLen = defaultdict()
     for column in df0_objects:
         elemLen0 = df0[column].apply(lambda x: len(x)).max()
@@ -273,7 +273,7 @@ def load(
     if not features:
         # Set the features to all keys in tree - warn user!!!
         print("<tools.py::load()>::   Attempting extract features however user did not define values. Using all keys inside TTree as features.")
-        features = X_Tree.keys()
+        features = X_tree.keys()
 
     # Extract the pandas dataframe - warning about jagged arrays
     #df = X_tree.pandas.df(features, flatten=False)
