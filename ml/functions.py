@@ -26,9 +26,9 @@ def get_activation(activation):
         raise ValueError("Activation function %s unknown", activation)
 
 
-def get_loss(method, alpha, w = 1):
+def get_loss(method, alpha, w = 1, loss_type="regular"):
     if method in ["carl", "carl2"]:
-        loss_functions = [ratio_xe]
+        loss_functions = [ratio_xe(loss_type)]
         # It is advised not to use loss_weights inside this function like this
         loss_weights = [1.0] #sjiggins
         loss_labels = ["xe"]
@@ -54,12 +54,41 @@ def get_optimizer(optimizer, nesterov_momentum):
     return opt, opt_kwargs
 
 
-def ratio_xe(s_hat, y_true, w):
+def _ratio_xe(s_hat, y_true, w):
     # New weighted loss functions - sjiggins
+    if w is None:
+        w = torch.ones(y_true.shape[0])
+    #loss = BCELoss(weight=torch.exp(w))(s_hat, y_true)
+    loss = BCELoss(weight=torch.abs(w))(s_hat, y_true)
+    #loss = BCELoss(weight=w)(s_hat, y_true)
+    return loss
+
+def _ratio_xe_abs_w(s_hat, y_true, w):
     if w is None:
         w = torch.ones(y_true.shape[0])
     loss = BCELoss(weight=torch.abs(w))(s_hat, y_true)
     return loss
+
+def _ratio_xe_log_abs_w(s_hat, y_true, w):
+    if w is None:
+        w = torch.ones(y_true.shape[0])
+    loss = BCELoss(weight=torh.log(torch.abs(w)))(s_hat, y_true)
+    return loss
+
+def ratio_xe(type):
+    """
+    server as factory for different weight modification.
+    """
+    preserved_type = {
+        "regular": _ratio_xe,
+        "abs(w)": _ratio_xe_abs_w,
+        "log(abs(w))": _ratio_xe_log_abs_w,
+    }
+    try:
+        return preserved_type[type]
+    except KeyError as _error:
+        raise KeyError(f"ratio_xe requires one of the type from: {preserved_type}") from _error
+
 
 @contextmanager
 def less_logging():
