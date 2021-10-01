@@ -36,7 +36,7 @@ parser.add_argument('--scale-method', action='store', dest='scale_method', type=
 parser.add_argument('--weight-clipping', action='store_true', dest='weight_clipping', default=False, help='clipping event weights')
 parser.add_argument('--weight-nsigma', action='store', type=int, dest='weight_nsigma', default=0, help='re-mapping weights')
 parser.add_argument('--polarity', action='store_true', dest="polarity", help='enable event weight polarity feature.')
-parser.add_argument('--loss-type', action='store', type=str, dest=loss_type, default="regular", help='a type on how to handle weight in loss function, options are "abs(w)" & "log(abs(w))" ')
+parser.add_argument('--loss-type', action='store', type=str, dest="loss_type", default="regular", help='a type on how to handle weight in loss function, options are "abs(w)" & "log(abs(w))" ')
 opts = parser.parse_args()
 nominal  = opts.nominal
 variation = opts.variation
