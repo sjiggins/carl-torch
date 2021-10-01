@@ -28,11 +28,10 @@ REQUIRED = [
     "scipy>=1.0.0",
     "scikit-learn>=0.19.0",
     "torch>=1.0.0",
-    "uproot",
+    "uproot>=4.0.0",
     "matplotlib>=2.0.0",
     "pytest",
     "recommonmark",
-    "pyyaml",
 ]
 
 # What packages are optional?
