@@ -207,6 +207,9 @@ class Loader():
         X0_train, X0_val,  y0_train, y0_val, w0_train, w0_val =  train_test_split(X0_train, y0_train, w0_train, test_size=0.50, random_state=42)
         X1_train, X1_val,  y1_train, y1_val, w1_train, w1_val =  train_test_split(X1_train, y1_train, w1_train, test_size=0.50, random_state=42)
 
+        w0_test = None
+        w1_test = None
+
         #cliping large weights, and replace it by 1.0
         raw_w0_train = None
         raw_w1_train = None
@@ -276,9 +279,13 @@ class Loader():
         X_train = np.vstack([X0_train, X1_train])
         y_train = np.concatenate((y0_train, y1_train), axis=None)
         w_train = np.concatenate((w0_train, w1_train), axis=None)
-        X_val   = np.vstack([X0_val, X1_val])
-        y_val = np.concatenate((y0_val, y1_val), axis=None)
-        w_val = np.concatenate((w0_val, w1_val), axis=None)
+
+        # Since we don't pass these 3 variables back, just save it and set to None
+        # to avoid too much RAM usage.
+        #X_val   = np.vstack([X0_val, X1_val])
+        #y_val = np.concatenate((y0_val, y1_val), axis=None)
+        #w_val = np.concatenate((w0_val, w1_val), axis=None)
+
         # X = np.vstack([X0, X1])
         # y = np.concatenate((y0, y1), axis=None)
         # w = np.concatenate((w0, w1), axis=None)
@@ -288,9 +295,19 @@ class Loader():
             np.save(folder + global_name + "/X_train_" +str(nentries)+".npy", X_train)
             np.save(folder + global_name + "/y_train_" +str(nentries)+".npy", y_train)
             np.save(folder + global_name + "/w_train_" +str(nentries)+".npy", w_train)
+
+            X_val = np.vstack([X0_val, X1_val])
             np.save(folder + global_name + "/X_val_"   +str(nentries)+".npy", X_val)
+            X_val = None
+
+            y_val = np.concatenate((y0_val, y1_val), axis=None)
             np.save(folder + global_name + "/y_val_"   +str(nentries)+".npy", y_val)
+            y_val = None
+
+            w_val = np.concatenate((w0_val, w1_val), axis=None)
             np.save(folder + global_name + "/w_val_"   +str(nentries)+".npy", w_val)
+            w_val = None
+
             np.save(folder + global_name + "/X0_val_"  +str(nentries)+".npy", X0_val)
             np.save(folder + global_name + "/X1_val_"  +str(nentries)+".npy", X1_val)
             np.save(folder + global_name + "/w0_val_"  +str(nentries)+".npy", w0_val)
