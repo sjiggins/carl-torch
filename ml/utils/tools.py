@@ -21,16 +21,17 @@ def HarmonisedLoading(fA="",
                       features=[],
                       weightFeature="DummyEvtWeight",
                       nentries=0,
-                      TreeName="Tree"        
+                      TreeName="Tree",
+                      Filter=None,
                   ):
     
 
     x0, w0, vlabels0 = load(f = fA, 
                             features=features, weightFeature=weightFeature, 
-                            n = int(nentries), t = TreeName)
+                            n = int(nentries), t = TreeName, Filter=Filter)
     x1, w1, vlabels1 = load(f = fB, 
                             features=features, weightFeature=weightFeature,
-                            n = int(nentries), t = TreeName)
+                            n = int(nentries), t = TreeName, Filter=Filter)
     
     x0, x1 = CoherentFlattening(x0,x1)
 
@@ -105,7 +106,8 @@ def load(
     features=[],
     weightFeature="DummyEvtWeight",
     n=0,
-    t="Tree"        
+    t="Tree",
+    Filter=None,
 ):
     # grab our data and iterate over chunks of it with uproot
     print("Uproot open file")
@@ -126,16 +128,19 @@ def load(
     #df = X_tree.pandas.df(features, flatten=False)
     df = pd.DataFrame(X_tree.arrays(features, library="np", entry_stop=n))
 
+    # Apply filtering if set by user
+    for logExp in Filter.FilterList:
+        #df_mask = pd.eval( logExp, target = df)
+        df_mask = df.eval( logExp )
+        df = df[df_mask]
+
     # Extract the weights from the Tree if specificed 
     if weightFeature == "DummyEvtWeight":
-        #weights = len(df.index)
         dweights = np.ones(len(df.index))
         weights = pd.DataFrame(data=dweights, index=range(len(df.index)), columns=[weightFeature])
     else:
-        #weights = X_tree[weightFeature]
-        #weights = X_tree.pandas.df(weightFeature)
         weights = pd.DataFrame(X_tree.arrays(weightFeature, library="np", entry_stop=n))
-        #weights[weightFeature] = weights[weightFeature].abs() #sjiggins
+        weights = weights[df_mask]
 
     # For the moment one should siply use the features
     labels  = features
@@ -188,7 +193,7 @@ def load_and_check(filename, warning_threshold=1.0e9, memmap_files_larger_than_g
         smallest = np.nanmin(data)
         largest = np.nanmax(data)
         if np.abs(smallest) > warning_threshold or np.abs(largest) > warning_threshold:
-            logger.warning("Warning: file %s has some large numbers, rangin from %s to %s", filename, smallest, largest)
+            logger.warning("Warning: File %s has some large numbers, ranging from %s to %s", filename, smallest, largest)
 
     if len(data.shape) == 1:
         data = data.reshape(-1, 1)

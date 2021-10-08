@@ -20,6 +20,7 @@ parser.add_option('--PlotROC',  action="store_true", dest='plot_ROC',  help='Fla
 parser.add_option('--PlotObsROC',  action="store_true", dest='plot_obs_ROC',  help='Flag to determine if one should plot observable ROCs')
 parser.add_option('--PlotResampleRatio',  action="store_true", dest='plot_resampledRatio',  help='Flag to determine if one should plot a ratio of resampled vs original distribution')
 parser.add_option('-m', '--model', action='store', type=str, dest='model', default=None, help='path to the model.')
+parser.add_option('--scale-method', action='store', dest='scale_method', type=str, default=None, help='scaling method for input data. e.g minmax, standard.')
 (opts, args) = parser.parse_args()
 nominal  = opts.nominal
 variation = opts.variation
@@ -30,6 +31,7 @@ features = opts.features.split(",")
 weightFeature = opts.weightFeature
 treename = opts.treename
 model = opts.model
+scale_method = opts.scale_method
 #################################################
 
 
@@ -43,6 +45,7 @@ else:
 
 loading = Loader()
 carl = RatioEstimator()
+carl.scaling_method = scale_method
 if model:
     carl.load(model)
 else:
@@ -73,8 +76,10 @@ for i in evaluate:
                         global_name=global_name,
                         plot_ROC=opts.plot_ROC,
                         plot_obs_ROC=opts.plot_obs_ROC,
+                        scaling=scale_method,
                         plot_resampledRatio=opts.plot_resampledRatio
                     )
 # Evaluate performance
+print("<evaluate.py::__init__>::   Evaluate Performance of Model")
 carl.evaluate_performance(x='data/'+global_name+'/X_val_'+str(n)+'.npy',
                           y='data/'+global_name+'/y_val_'+str(n)+'.npy')

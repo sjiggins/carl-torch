@@ -28,6 +28,7 @@ class Loader():
     """
     def __init__(self):
         super(Loader, self).__init__()
+        self.Filter=None
 
     def loading(
         self,
@@ -49,6 +50,7 @@ class Loader():
         normalise = False,
         debug = False,
         noTar = True,
+        scaling="minmax",
     ):
         """
         Parameters
@@ -92,7 +94,7 @@ class Loader():
             x1, w1, vlabels1
         )  = HarmonisedLoading(fA = pathA, fB = pathB,
                                features=features, weightFeature=weightFeature,
-                               nentries = int(nentries), TreeName = TreeName)
+                               nentries = int(nentries), TreeName = TreeName, Filter=self.Filter)
 
         # Run if requested debugging by user
         if debug:
@@ -173,7 +175,12 @@ class Loader():
         x1 = x1[sorted(x1.columns)]
 
         # get metadata, i.e. max, min, mean, std of all the variables in the dataframes
-        metaData = {v : {x0[v].min(), x0[v].max() } for v in  x0.columns }
+        if scaling == "standard":
+            metaData = {v : {x0[v].mean(), x0[v].std() } for v in  x0.columns }
+            print("Performed Z0 Standard scaling: {}".format(metaData))
+        elif scaling == "minmax":
+            metaData = {v : {x0[v].min(), x0[v].max() } for v in  x0.columns }
+            print("Performed minmax scaling: {}".format(metaData))
         X0 = x0.to_numpy()
         X1 = x1.to_numpy()
 
@@ -266,6 +273,7 @@ class Loader():
         ext_binning = None,
         ext_plot_path=None,
         verbose=False,
+        scaling="minmax",
     ):
         """
         Parameters
@@ -305,7 +313,7 @@ class Loader():
             print("<loading.py::load_result>::   Calculating min/max range for plots & binning")
         binning = defaultdict()
         minmax = defaultdict()
-        divisions = 50
+        divisions = 100 # 50 default
 
         # external binning from yaml file.
         if ext_binning:
@@ -325,27 +333,19 @@ class Loader():
                     pass
 
             #max = x0df[column].max()
-            #min = x0df[column].min()
-            #minmax[column] = [min,max]
-            #binning[column] = np.linspace(min, max, divisions)
-            #print("<loading.py::load_result>::   Column {}:  min  =  {},  max  =  {}".format(column,min,max))
-
-            #  Min/max
-            #max = np.amax(X0[:,idx])
-            #min = np.amin(X0[:,idx])
-            #minmax[idx] = [min,max]
-            #binning[idx] = np.linspace(min, max, divisions)
-            #print("<loading.py::load_result>::   Column {}:  min  =  {},  max  =  {}".format(column,min,max))
-
-            #  Mean/std
-            mean = np.mean(X0[:,idx])
-            std = np.std(X0[:,idx])
-            factor = 5
-            minmax[idx] = [mean-(5*std), mean+(5*std)]
-            binning[idx] = np.linspace(mean-(5*std), mean+(5*std), divisions)
+            # Check for integer values in plotting data only, this indicates that no capping on data range needed
+            #  as integer values indicate well bounded data
+            intTest = [ (i % 1) == 0  for i in X0[:,idx] ]
+            intTest = all(intTest) #np.all(intTest == True)
+            upperThreshold = 100 if intTest else 98
+            max = np.percentile(X0[:,idx], upperThreshold)
+            lowerThreshold = 0 if (np.any(X0[:,idx] < 0 ) or intTest) else 0
+            min = np.percentile(X0[:,idx], lowerThreshold)
+            minmax[idx] = [min,max]
+            binning[idx] = np.linspace(min, max, divisions)
             if verbose:
-                print("<loading.py::load_result>::   Column {}:  min  =  {},  max  =  {}".format(key,mean-5*std,mean+5*std))
-                print(binning[idx])
+                print("<loading.py::load_result>::   Column {}:  min  =  {},  max  =  {}".format(column,min,max))
+                print(binning[idx])       
 
         # no point in plotting distributions with too few events, they only look bad
         #if int(nentries) > 5000:
