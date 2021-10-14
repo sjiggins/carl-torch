@@ -247,7 +247,7 @@ class RatioEstimator(Estimator):
         x = load_and_check(x)
 
         # Scale observables
-        x = self._transform_inputs(x)
+        x = self._transform_inputs(x, scaling=self.scaling_method)
 
         # Restrict features
         if self.features is not None:

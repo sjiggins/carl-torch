@@ -11,6 +11,8 @@ CARL-TORCH
 `carl-torch` is a toolbox for multivariate reweighting using PyTorch. 
 `carl-torch` is based on [carl](https://github.com/diana-hep/carl/) originally developed for likelihood ratio estimation, but repurposed to be used as a multivariate reweighting technique to be used in the context of particle physics research. 
 
+A more details website for installation, setup, execution, and the theory behind the technique can be found at the public webpage here - [ATLAS Monte Carlo Machine Learning Assisted Uncertainties Forum](https://sjiggins.web.cern.ch/sjiggins/CARL-Webpage/public/)
+
 ## Background
 The motivation behind this toolbox is to enable a reweighting of one simulation to look like another. 
 In the context of particle physics, the research is done largely using simulated data (Monte-Carlo samples). 

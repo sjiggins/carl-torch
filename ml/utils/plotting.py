@@ -215,33 +215,114 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             plt.clf()
             plt.close()
 
-def weight_obs_data(x0, x1, w0, w1, max_evts=100000):
+def draw_resampled_ratio(x0, w0, x1, w1, ratioName=''):
+    bins = np.linspace(np.amin(x0), np.amax(x0) ,50)
+    n0, _, _ = plt.hist(x0, weights=w0, bins=bins, label='original', **hist_settings_nom)
+    n1, _, _ = plt.hist(x1, weights=w1, bins=bins, label='resampled', **hist_settings_alt)
+    plt.clf()
+
+    ratio = [n1i/n0i-1 if n0i!=0 else -1 for (n0i,n1i) in zip(n0,n1)]
+
+    #error
+    x0_error = []
+    x1_error = []
+    width = abs(bins[1] - bins[0] )
+    for xbin in bins:
+        # Form masks for all event that match condition
+        mask0 = (x0 < (xbin + width)) & (x0 > (xbin - width))
+        mask1 = (x1 < (xbin + width)) & (x1 > (xbin - width))
+        # Form bin error
+        binsqrsum_x0 = np.sum(w0[mask0]**2)
+        binsqrsum_x1 = np.sum(w1[mask1]**2)
+        binsqrsum_x0 = math.sqrt(binsqrsum_x0)
+        binsqrsum_x1 = math.sqrt(binsqrsum_x1)
+        ratio_binsqrsum_x0 = binsqrsum_x0
+        # Form relative error
+        binsqrsum_x0 = binsqrsum_x0/w0[mask0].sum()
+        binsqrsum_x1 = binsqrsum_x1/w1[mask1].sum()
+
+        x0_error.append(binsqrsum_x0 if binsqrsum_x0 > 0 else 0.0)
+        x1_error.append(binsqrsum_x1 if binsqrsum_x1 > 0 else 0.0)
+
+    # Convert error lists to numpy arrays
+    x0_error = np.array(x0_error)
+    x1_error = np.array(x1_error)
+
+    bin_centers = [ (bins[i+1]+bins[i])/2 for i in range(len(bins)-1)]
+    ones = [1 for b in bin_centers]
+    plt.hist(bin_centers, weights=ratio, bins=bins, bottom=ones, label='ratio', histtype='step') #, **hist_settings_CARL_ratio)
+
+    yref_error = np.ones(len(bins))
+    yref_error_up = 2* np.sqrt( np.power(x1_error,2) + np.power(x0_error, 2)) # height from bottom
+    yref_error_down = yref_error - np.sqrt(np.power(x1_error, 2) + np.power(x0_error,2))
+
+
+    plt.bar( x=bins[:-1],
+             height=yref_error_up[:-1], bottom = yref_error_down[:-1],
+             color='red',
+             width=np.diff(bins),
+             align='edge',
+             alpha=0.25,
+             label='uncertainty band')
+
+    plt.ylabel('resampled / original')
+    plt.legend(frameon=False )
+    axes = plt.gca()
+    plt.savefig(f'plots/ratio_{ratioName}.png')
+    plt.clf()
+    plt.close()
+
+def weight_obs_data(x0, x1, w0, w1, ratioName=''):
 
     # Remove negative probabilities - maintains proportionality still by abs()
-    w0 = abs(w0)
-    w1 = abs(w1)
-
-    # Calculate the minimum size so as to ensure we have equal number of events in each class
-    x0_len = x0.shape[0]
-    x1_len = x1.shape[0]
-    minEvts = x0_len if x0_len < x1_len else x1_len
-    minEvts = minEvts if minEvts < max_evts else max_evts
+    w0_abs = abs(w0)
+    w1_abs = abs(w1)
 
     # Dataset 0 probability proportionality sub-sampling
-    w0 = w0 / w0.sum()
-    w_x0 = np.random.choice(x0, size=minEvts, p = w0)
+    x0_len = x0.shape[0]
+    w0_abs_sum = int(w0_abs.sum())
+    w0_abs = w0_abs / w0_abs.sum()
+    weighted_data0 = np.random.choice(range(x0_len), w0_abs_sum, p = w0_abs)
+    w_x0 = x0.copy()[weighted_data0]
+
+    # set of +-1 weights, depending on the sign of the original weight
+    w0_ones = np.ones(x0_len)
+    w0_ones[w0<0] = -1
+    w_w0 = w0_ones.copy()[weighted_data0]
 
     # Dataset 1 probability proportionality sub-sampling
-    w1 = w1 / w1.sum()
-    w_x1 = np.random.choice(x1, size=minEvts, p = w1)
+    x1_len = x1.shape[0]
+    w1_abs_sum = int(w1_abs.sum())
+    w1_abs = w1_abs / w1_abs.sum()
+    weighted_data1 = np.random.choice(range(x1_len), w1_abs_sum, p = w1_abs)
+    w_x1 = x1.copy()[weighted_data1]
+
+    # set of +-1 weights, depending on the sign of the original weight
+    w1_ones = np.ones(x1_len)
+    w1_ones[w1<0] = -1
+    w_w1 = w1_ones.copy()[weighted_data1]
 
     # Concatenate all data
     x_all = np.append(w_x0,w_x1)
-    y_all = np.zeros(minEvts*2)
-    y_all[minEvts:] = 1
-    return (x_all,y_all)
+    y_all = np.zeros(w0_abs_sum+w1_abs_sum)
+    y_all[w0_abs_sum:] = 1
+    w_all = np.concatenate([w_w0, w_w1])
 
-def obs_roc_curve(x, y_true):
+    #===========================================================================
+    if ratioName!='':
+        draw_resampled_ratio(x0, w0, w_x0, w_w0, ratioName+'_x0')
+        draw_resampled_ratio(x1, w1, w_x1, w_w1, ratioName+'_x1')
+    #===========================================================================
+
+    ## no resampling
+    # x_all = np.append(x0,x1)
+    # y_all = np.zeros(x0.shape[0]+x1.shape[0])
+    # y_all[x0.shape[0]:] = 1
+    # w_all = np.concatenate([w0, w1])
+
+    return (x_all,y_all,w_all)
+
+def obs_roc_curve(x, y_true, weights):
 
     # Determine the maximum range
     #maxRange = np.amax(x)
@@ -261,9 +342,9 @@ def obs_roc_curve(x, y_true):
     for idx,edge in enumerate(ClassBoundaries):
         tpr[idx] = 0.0
         fpr[idx] = 0.0
-        #print("       -> Edge:  {}".format(idx))
+        # print("-> Edge:  {}".format(idx))
         y_pred =  x < edge
-        tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+        tn, fp, fn, tp = confusion_matrix(y_true, y_pred, sample_weight=weights).ravel()
         tpr[idx] = tp/(tp+fn)
         fpr[idx] = fp/(tn+fp)
         #print("       -> tpr:  {}".format(tpr))
@@ -271,14 +352,16 @@ def obs_roc_curve(x, y_true):
 
     return fpr, tpr
 
-def resampled_obs_and_roc(original, target, w0, w1):
-    (data, labels) = weight_obs_data(original, target, w0, w1)
-    fpr, tpr  = obs_roc_curve(data, labels)
+def resampled_obs_and_roc(original, target, w0, w1, ratioName=''):
+
+    (data, labels, weights) = weight_obs_data(original, target, w0, w1, ratioName)
+    fpr, tpr  = obs_roc_curve(data, labels, weights)
     #roc_auc = auc(fpr, tpr)
     roc_auc = np.trapz(tpr, x=fpr)
-    return fpr,tpr,roc_auc,data,labels
 
-def draw_Obs_ROC(X0, X1, W0, W1, weights, label, legend, n, plot = True):
+    return fpr,tpr,roc_auc,data,labels,weights
+
+def draw_Obs_ROC(X0, X1, W0, W1, weights, label, legend, n, plot = True, plot_resampledRatio = False):
     plt.figure(figsize=(8, 6))
     W0 = W0.flatten()
     W1 = W1.flatten()
@@ -289,8 +372,12 @@ def draw_Obs_ROC(X0, X1, W0, W1, weights, label, legend, n, plot = True):
         x1 = X1[:,idx]
 
         # Form the resampled data based on probability of each event
-        fpr_t,tpr_t,roc_auc_t,data_t,labels_t = resampled_obs_and_roc(x0, x1, W0, W1)
-        fpr_tC,tpr_tC,roc_auc_tC,data_tr,labels_tr = resampled_obs_and_roc(x0, x1, W0*weights, W1)
+        # file names for the ratios
+        ratioNameNominal = 'nom_alt' if plot_resampledRatio else ''
+        ratioNameWeighted = 'carlW_alt' if plot_resampledRatio else ''
+        #
+        fpr_t,tpr_t,roc_auc_t,data_t,labels_t,weights_t = resampled_obs_and_roc(x0, x1, W0, W1, ratioName=ratioNameNominal)
+        fpr_tC,tpr_tC,roc_auc_tC,data_tr,labels_tr,weights_tr = resampled_obs_and_roc(x0, x1, W0*weights, W1, ratioName=ratioNameWeighted)
         plt.plot(fpr_t, tpr_t, label=r"no weight, AUC=%.3f" % roc_auc_t)
         plt.plot(fpr_tC, tpr_tC, label=r"CARL weight, AUC=%.3f" % roc_auc_tC)
         plt.plot([0, 1], [0, 1], 'k--')
@@ -311,9 +398,9 @@ def draw_Obs_ROC(X0, X1, W0, W1, weights, label, legend, n, plot = True):
 
         # Plot variables used in ROC calculation
         bins = np.linspace(np.amin(x0), np.amax(x0) ,50)
-        plt.hist(data_t[labels_t==0], bins=bins, label=r"Nominal", **hist_settings_nom)
-        plt.hist(data_tr[labels_tr==0], bins=bins, label=r"Nominal * CARL", **hist_settings_CARL)
-        plt.hist(data_tr[labels_tr==1], bins=bins, label=r"Alternative", **hist_settings_alt)
+        plt.hist(data_t[labels_t==0],   bins=bins, weights=weights_t[labels_t==0], label=r"Nominal", **hist_settings_nom)
+        plt.hist(data_tr[labels_tr==0], bins=bins, weights=weights_tr[labels_tr==0], label=r"Nominal * CARL", **hist_settings_CARL)
+        plt.hist(data_tr[labels_tr==1], bins=bins, weights=weights_tr[labels_tr==1], label=r"Alternative", **hist_settings_alt)
         plt.title('Resampled proportional to weights (obs: {})'.format(idx))
         plt.xlabel('Obseravble {}'.format(idx))
         plt.ylabel('Events')
@@ -323,51 +410,38 @@ def draw_Obs_ROC(X0, X1, W0, W1, weights, label, legend, n, plot = True):
             plt.savefig('plots/roc_inputs_nominalVs%s_%s_%s_%s.png'%(legend,label,idx,n))
             plt.clf()
 
-def weight_data(x0, x1, w0, w1, max_evts=100000):
+def weight_data(x0, x1, w0, w1):
 
     # Remove negative probabilities - maintains proportionality still by abs()
     w0 = abs(w0)
     w1 = abs(w1)
 
-    # Calculate the minimum size so as to ensure we have equal number of events in each class
     x0_len = x0.shape[0]
-    x1_len = x1.shape[0]
-    minEvts = x0_len if x0_len < x1_len else x1_len
-    minEvts = minEvts if minEvts < max_evts else max_evts
-
-    x0_len = x0.shape[0]
+    w0_sum = int(w0.sum())
     w0 = w0 / w0.sum()
-    weighted_data0 = np.random.choice(range(x0_len), x0_len, p = w0)
+    weighted_data0 = np.random.choice(range(x0_len), w0_sum, p = w0)
     w_x0 = x0.copy()[weighted_data0]
-    w0   = w0.copy()[weighted_data0]
-    #w_x0 = np.random.choice(x0, size=minEvts, p = w0)
 
     x1_len = x1.shape[0]
+    w1_sum = int(w1.sum())
     w1 = w1 / w1.sum()
-    weighted_data1 = np.random.choice(range(x1_len), x1_len, p = w1)
+    weighted_data1 = np.random.choice(range(x1_len), w1_sum, p = w1)
     w_x1 = x1.copy()[weighted_data1]
-    w1   = w1.copy()[weighted_data1]
-    #w_x1 = np.random.choice(x1, size=minEvts, p = w1)
 
-    # Cap the two to equal size
+    # Calculate the minimum size so as to ensure we have equal number of events in each class
+    minEvts = min([len(w_x0),len(w_x1)])
     w_x0 = w_x0[ 0:minEvts, :]
     w_x1 = w_x1[ 0:minEvts, :]
-    w0   = w0[0:minEvts]
-    w1   = w1[0:minEvts]
 
     x_all = np.vstack((w_x0,w_x1))
-    #y_all = np.zeros(x0_len+x1_len)
-    y_all = np.zeros(minEvts*2)
-    y_all[minEvts:] = 1
-    w_all = np.append( w0, w1)
-    return (x_all,y_all,w_all)
+    y_all = np.zeros(2*len(w_x0))
+    y_all[len(w_x0):] = 1
+
+    return (x_all,y_all)
 
 def resampled_discriminator_and_roc(original, target, w0, w1):
-    #w0 = abs(w0) # Done in function below 'weight_data'
-    #w1 = abs(w1)
-    (data, labels, W) = weight_data(original, target, w0, w1)
-    #W = np.concatenate([w0 / w0.sum(), w1 / w1.sum()])
-    Xtr, Xts, Ytr, Yts, Wtr, Wts = train_test_split(data, labels, W, random_state=42, train_size=0.51, test_size=0.49)
+    (data, labels) = weight_data(original, target, w0, w1)
+    Xtr, Xts, Ytr, Yts = train_test_split(data, labels, random_state=42, train_size=0.51, test_size=0.49)
 
     discriminator = MLPRegressor(tol=1e-05, activation="logistic",
                                  hidden_layer_sizes=(original.shape[1],original.shape[1], original.shape[1]),
@@ -425,8 +499,8 @@ def plot_calibration_curve(y, probs_raw, probs_cal, global_name, save = False):
 
 
 
-    frac_of_pos_raw, mean_pred_value_raw = calibration_curve(y, probs_raw, n_bins=50)
-    frac_of_pos_cal, mean_pred_value_cal = calibration_curve(y, probs_cal, n_bins=50)
+    frac_of_pos_raw, mean_pred_value_raw = calibration_curve(y, probs_raw, n_bins=50)#, normalize=True)
+    frac_of_pos_cal, mean_pred_value_cal = calibration_curve(y, probs_cal, n_bins=50)#, normalize=True)
 
     ax1.plot(mean_pred_value_raw, frac_of_pos_raw, "s-", label='uncalibrated', **hist_settings_nom)
     ax1.plot(mean_pred_value_cal, frac_of_pos_cal, "s-", label='calibrated', **hist_settings_alt)

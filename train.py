@@ -8,6 +8,8 @@ import pathlib
 import numpy as np
 from ml import RatioEstimator
 from ml import Loader
+from ml import Filter
+import numpy as np
 from itertools import repeat
 
 
@@ -37,6 +39,7 @@ parser.add_argument('--weight-clipping', action='store_true', dest='weight_clipp
 parser.add_argument('--weight-nsigma', action='store', type=int, dest='weight_nsigma', default=0, help='re-mapping weights')
 parser.add_argument('--polarity', action='store_true', dest="polarity", help='enable event weight polarity feature.')
 parser.add_argument('--loss-type', action='store', type=str, dest="loss_type", default="regular", help='a type on how to handle weight in loss function, options are "abs(w)" & "log(abs(w))" ')
+parser.add_argument('--BoolFilter', action='store', dest='BoolFilter', type=str, default=None, help='Comma separated list of boolean logic. e.g. \'a | b\'.')
 opts = parser.parse_args()
 nominal  = opts.nominal
 variation = opts.variation
@@ -57,11 +60,15 @@ weight_clipping = opts.weight_clipping
 weight_sigma = opts.weight_nsigma
 polarity = opts.polarity
 loss_type = opts.loss_type
+BoolFilter = opts.BoolFilter
 #################################################
 
 #################################################
 # Loading of data from root of numpy arrays
 loading = Loader()
+if BoolFilter != None:
+    InputFilter = Filter(FilterString = BoolFilter)
+    loading.Filter= InputFilter
 
 # Exception handling for input files - .root
 if os.path.exists(p+nominal+'.root') or os.path.exists('data/'+global_name+'/X_train_'+str(n)+'.npy'):
@@ -119,6 +126,7 @@ else:
         weight_preprocess_nsigma=weight_sigma,
         large_weight_clipping=weight_clipping,
         weight_polarity=polarity,
+        scaling=scale_method,
     )
     logger.info(" Loaded new datasets ")
 #######################################
@@ -126,7 +134,7 @@ else:
 #######################################
 # Estimate the likelihood ratio using a NN model
 #   -> Calculate number of input variables as rudimentary guess
-structure = ( (len(features)*3, ) * 5)
+structure = n_hidden
 # Use the number of inputs as input to the hidden layer structure
 estimator = RatioEstimator(
     n_hidden=n_hidden,
@@ -195,6 +203,7 @@ train_loss, val_loss, accuracy_train, accuracy_val = estimator.train(
     batch_size=batch_size,
     n_epochs=nepoch,
     validation_split=0.25,
+    #optimizer="amsgrad",
     x=x,
     y=y,
     w=w,

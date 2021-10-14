@@ -182,6 +182,7 @@ def CoherentFlattening(df0, df1):
 
     # Find the columns that are not scalars and get all object type columns
     #maxListLength = df.select_dtypes(object).apply(lambda x: x.list.len()).max(axis=1)
+    print(df0)
     for column in df0_objects:
         elemLen0 = df0[column].apply(lambda x: len(x)).max()
         elemLen1 = df1[column].apply(lambda x: len(x)).max()
@@ -189,7 +190,9 @@ def CoherentFlattening(df0, df1):
 
         # Now break up each column into elements of max size 'macObjectLen'
         df0_flattened = pd.DataFrame(df0[column].to_list(), columns=[column+str(idx) for idx in range(elemLen0)])
+        print(df0_flattened)
         df0_flattened = df0_flattened.fillna(0)
+        print(df0_flattened)
 
         # Delete extra dimensions if needed due to non-matching dimensionality of df0 & df1
         if elemLen0 > minObjectLen[column]:
@@ -202,6 +205,7 @@ def CoherentFlattening(df0, df1):
         #print(df_flattened)
         del df0[column]
         df0 = df0.join(df0_flattened)
+        print(df0)
 
         # Now break up each column into elements of max size 'macObjectLen'
         df1_flattened = pd.DataFrame(df1[column].to_list(), columns=[column+str(idx) for idx in range(elemLen1)])
@@ -230,6 +234,7 @@ def load(
     n=0,
     t="Tree",
     weight_polarity=False,
+    Filter=None,
 ):
     """
     Function for preparing feastures for training.
@@ -281,14 +286,20 @@ def load(
 
     # Extract the weights from the Tree if specificed
     if weightFeature == "DummyEvtWeight":
-        #weights = len(df.index)
         dweights = np.ones(len(df.index))
         weights = pd.DataFrame(data=dweights, index=range(len(df.index)), columns=[weightFeature])
     else:
-        #weights = X_tree[weightFeature]
-        #weights = X_tree.pandas.df(weightFeature)
         weights = pd.DataFrame(X_tree.arrays(weightFeature, library="np", entry_stop=n))
-        #weights[weightFeature] = weights[weightFeature].abs() #sjiggins
+
+    # Apply filtering if set by user
+    for logExp in Filter.FilterList:
+        #df_mask = pd.eval( logExp, target = df)
+        df_mask = df.eval( logExp )
+        df = df[df_mask]
+        weights = weights[df_mask]
+
+    # Reset all row numbers
+    df = df.reset_index(drop=True)
 
     # For the moment one should siply use the features
     if weight_polarity:
