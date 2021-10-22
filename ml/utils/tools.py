@@ -178,7 +178,11 @@ def CoherentFlattening(df0, df1):
         if elemLen0 != elemLen1:
             print("<tools.py::CoherentFlattening()>::   The two datasets do not have the same length for features '{}', please be warned that we choose zero-padding using lowest dimensionatlity".format(column))
 
-        minObjectLen[column] = elemLen0 if elemLen0 < elemLen1 else elemLen1
+        #minObjectLen[column] = elemLen0 if elemLen0 < elemLen1 else elemLen1
+        if column not in ["Jet1_lund_z", "Jet2_lund_z", "Jet1_pTrel_ch", "Jet2_pTrel_ch"]:
+            minObjectLen[column] = elemLen0 if elemLen0 < elemLen1 else elemLen1
+        else:
+            minObjectLen[column] = 4
         print("<tools.py::CoherentFlattening()>::   Variable: {}({}),   min size = {}".format( column, df0[column].dtypes, minObjectLen))
         print("<tools.py::CoherentFlattening()>::      Element Length 0 = {}".format( elemLen0))
         print("<tools.py::CoherentFlattening()>::      Element Length 1 = {}".format( elemLen1))

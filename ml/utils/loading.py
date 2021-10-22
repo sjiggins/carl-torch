@@ -190,6 +190,7 @@ class Loader():
         x1 = x1[sorted(x1.columns)]
 
         # get metadata, i.e. max, min, mean, std of all the variables in the dataframes
+        metaData = defaultdict()
         if scaling == "standard":
             metaData = {v : {x0[v].mean(), x0[v].std() } for v in  x0.columns }
             logger.info("Storing Z0 Standard scaling metadata: {}".format(metaData))
