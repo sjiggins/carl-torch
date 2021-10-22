@@ -416,20 +416,28 @@ def weight_data(x0, x1, w0, w1):
     w0 = abs(w0)
     w1 = abs(w1)
 
-    x0_len = x0.shape[0]
-    w0_sum = int(w0.sum())
-    w0 = w0 / w0.sum()
-    weighted_data0 = np.random.choice(range(x0_len), w0_sum, p = w0)
-    w_x0 = x0.copy()[weighted_data0]
+    logger.info("x0 data length: {}".format(x0.shape[0]))
+    x0_len = int(x0.shape[0])
+    logger.info("x0 sample length: {}".format(x0_len))
+    w0_sum = int(w0[:x0_len].sum() * 0.01) 
+    w0_temp = w0[:x0_len] / w0[:x0_len].sum()
+    logger.info("w0_temp sample length: {}".format(w0_temp.shape))
+    weighted_data0 = np.random.choice(range(x0_len), w0_sum, p = w0_temp)
+    logger.info("weighted_data0 shape: {}".format(weighted_data0.shape))
+    w_x0 = x0[:x0_len].copy()[weighted_data0]
+    logger.info("w_x0 shape: {}".format(w_x0.shape))
 
-    x1_len = x1.shape[0]
-    w1_sum = int(w1.sum())
-    w1 = w1 / w1.sum()
-    weighted_data1 = np.random.choice(range(x1_len), w1_sum, p = w1)
-    w_x1 = x1.copy()[weighted_data1]
+    logger.info("x1 data length: {}".format(x1.shape[0]))
+    x1_len = int(x1.shape[0])
+    logger.info("x1 sample length: {}".format(x1_len))
+    w1_sum = int(w1[:x0_len].sum() * 0.01)
+    w1_temp = w1[:x0_len] / w1[:x0_len].sum()
+    weighted_data1 = np.random.choice(range(x1_len), w1_sum, p = w1_temp[:x1_len])
+    w_x1 = x1[:x1_len].copy()[weighted_data1]
 
     # Calculate the minimum size so as to ensure we have equal number of events in each class
     minEvts = min([len(w_x0),len(w_x1)])
+    logger.info("Minimum events: {}".format(minEvts))
     w_x0 = w_x0[ 0:minEvts, :]
     w_x1 = w_x1[ 0:minEvts, :]
 
@@ -441,13 +449,15 @@ def weight_data(x0, x1, w0, w1):
 
 def resampled_discriminator_and_roc(original, target, w0, w1):
     (data, labels) = weight_data(original, target, w0, w1)
+    print(data.shape)
     Xtr, Xts, Ytr, Yts = train_test_split(data, labels, random_state=42, train_size=0.51, test_size=0.49)
 
+    logger.info("MLPRegressor running now")
     discriminator = MLPRegressor(tol=1e-05, activation="logistic",
                                  hidden_layer_sizes=(original.shape[1],original.shape[1], original.shape[1]),
                                  learning_rate_init=1e-07, learning_rate="constant",
                                  solver="lbfgs", random_state=1,
-                                 max_iter=200)
+                                 max_iter=100, verbose=True)
 
     discriminator.fit(Xtr,Ytr)
     predicted = discriminator.predict(Xts)
@@ -459,7 +469,9 @@ def draw_ROC(X0, X1, W0, W1, weights, label, legend, n, plot = True):
     plt.figure(figsize=(8, 6))
     W0 = W0.flatten()
     W1 = W1.flatten()
+    logger.info("Generating resampled discriminator data")
     fpr_t,tpr_t,roc_auc_t = resampled_discriminator_and_roc(X0, X1, W0, W1)
+    logger.info("Generating resampled discriminator CARL weighted data")
     fpr_tC,tpr_tC,roc_auc_tC = resampled_discriminator_and_roc(X0, X1, W0*weights, W1)
     plt.plot(fpr_t, tpr_t, label=r"no weight, AUC=%.3f" % roc_auc_t)
     plt.plot(fpr_tC, tpr_tC, label=r"CARL weight, AUC=%.3f" % roc_auc_tC)
