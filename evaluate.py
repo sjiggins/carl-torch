@@ -24,7 +24,7 @@ parser.add_option('-m', '--model', action='store', type=str, dest='model', defau
 parser.add_option('-b', '--binning',  action='store', type=str, dest='binning',  default=None, help='path to binning yaml file.')
 parser.add_option('--normalise', action='store_true', dest='normalise', default=False, help='enforce normalization when plotting')
 parser.add_option('--rawWeight',  action="store_true", dest='raw_weight',  help='Flag to use raw event weight')
-parser.add_option('--scale-method', action='store', dest='scale_method', type=str, default=None, help='scaling method for input data. e.g minmax, standard.')
+parser.add_option('--scale-method', action='store', dest='scale_method', type=str, default="minmax", help='scaling method for input data. e.g minmax, standard.')
 (opts, args) = parser.parse_args()
 nominal  = opts.nominal
 variation = opts.variation
@@ -67,7 +67,22 @@ for i in evaluate:
     w = 1./r_hat   # I thought r_hat = p_{1}(x) / p_{0}(x) ???
     # Correct nan's and inf's to 1.0 corrective weights as they are useless in this instance. Warning
     # to screen should already be printed
+
+    for wi in range(len(w)):
+        if (w[wi] == float("nan")):
+            print(f"<evaluate.py::__main__>::   Entry {wi} has NaN CARL weight value = {w[wi]}")
+        if (w[wi] == float("inf")):
+            print(f"<evaluate.py::__main__>::   Entry {wi} has Infinity CARL weight value = {w[wi]}")
+        if (w[wi] == float("-inf")):
+            print(f"<evaluate.py::__main__>::   Entry {wi} has -Infinity CARL weight value = {w[wi]}")
+
     w = np.nan_to_num(w, nan=1.0, posinf=1.0, neginf=1.0)
+
+    w_max = np.nanquantile(w, 0.99)
+    w_min = None
+    w = np.clip(w, w_min, w_max)
+    print(f"Clipped value for {i} is {w_max}")
+
     print("w = {}".format(w))
     print("<evaluate.py::__init__>::   Loading Result for {}".format(i))
     loading.load_result(

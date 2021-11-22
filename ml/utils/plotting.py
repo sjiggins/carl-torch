@@ -70,13 +70,13 @@ def draw_weighted_distributions(x0, x1, w0, w1,
                                 binning, label,
                                 legend,
                                 n,
-                                save = False,
+                                save = True,
                                 ext_plot_path=None,
                                 normalise=True):
     plt.figure(figsize=(14, 10))
     #columns = range(len(variables))
-
     for id, column in enumerate(variables):
+        #plt.yscale('log')
         print("<plotting.py::draw_weighted_distribution()>::   id: {},   column: {}".format(id,column))
         print("<plotting.py::draw_weighted_distribution()>::     binning: {}".format(binning[id]))
         if save: plt.figure(figsize=(14, 10))
@@ -89,9 +89,10 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             w0 = w0/w0.sum()
             w1 = w1/w1.sum()
             w_carl = w_carl/w_carl.sum()
-        plt.hist(x0[:,id], bins = binning[id], weights = w0, label = "nominal", **hist_settings_nom)
-        plt.hist(x0[:,id], bins = binning[id], weights = w_carl, label = 'nominal*CARL', **hist_settings_CARL)
-        plt.hist(x1[:,id], bins = binning[id], weights = w1, label = legend, **hist_settings_alt)
+        plt.hist(x0[:,id], bins = binning[id], weights = w0, label = "nominal", **hist_settings_nom, log=True)
+        plt.hist(x0[:,id], bins = binning[id], weights = w_carl, label = 'nominal*CARL', **hist_settings_CARL, log=True)
+        plt.hist(x1[:,id], bins = binning[id], weights = w1, label = "alternative", **hist_settings_alt, log=True)
+        plt.yscale('log')
         if addInvSample:
             print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
             _setting = {'histtype':'step', 'linewidth':2, 'color':'red'}
@@ -178,9 +179,9 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             x0_error = np.array(x0_error)
             x1_error = np.array(x1_error)
 
-            plt.step( xref, yref, where="post", label=legend+" / "+legend, **hist_settings_alt )
-            plt.step( edge1[:-1], x1_ratio, where="post", label="nom / "+legend, **hist_settings_nom)
-            plt.step( edgecarl[:-1], carl_ratio, where="post", label = '(nominal*CARL) / '+legend, **hist_settings_CARL_ratio)
+            plt.step( xref, yref, where="post", label= "alt / alt", **hist_settings_alt )
+            plt.step( edge1[:-1], x1_ratio, where="post", label="nom / alt", **hist_settings_nom)
+            plt.step( edgecarl[:-1], carl_ratio, where="post", label = '(nominal*CARL) / alt', **hist_settings_CARL_ratio)
             #plt.fill_between(edge[:,-1], 1.0, x1_ratio)
             yref_error = np.ones(len(edge1))
             yref_error_up = 2* np.sqrt( np.power(x1_error,2) + np.power(x0_error, 2)) # height from bottom
@@ -415,17 +416,24 @@ def weight_data(x0, x1, w0, w1):
     # Remove negative probabilities - maintains proportionality still by abs()
     w0 = abs(w0)
     w1 = abs(w1)
+    #ratio = w1.sum()/w0.sum()
 
     x0_len = x0.shape[0]
     w0_sum = int(w0.sum())
+    #if (w0_sum < 100000):
+    #    w0_sum = 100000
+    print(f"<plotting.py::weight_data()>  w0_sum={w0_sum}")
     w0 = w0 / w0.sum()
-    weighted_data0 = np.random.choice(range(x0_len), w0_sum, p = w0)
+    weighted_data0 = np.random.choice(range(x0_len), int(w0_sum*0.01), p = w0)
     w_x0 = x0.copy()[weighted_data0]
 
     x1_len = x1.shape[0]
     w1_sum = int(w1.sum())
+    #if (w0_sum < 100000):
+    #    w1_sum = 100000*ratio
+    print(f"<plotting.py::weight_data()>  w1_sum={w1_sum}")
     w1 = w1 / w1.sum()
-    weighted_data1 = np.random.choice(range(x1_len), w1_sum, p = w1)
+    weighted_data1 = np.random.choice(range(x1_len), int(w1_sum*0.01), p = w1)
     w_x1 = x1.copy()[weighted_data1]
 
     # Calculate the minimum size so as to ensure we have equal number of events in each class
@@ -541,3 +549,102 @@ def draw_scatter(weightsCT, weightsCA, legend, do, n):
     plt.savefig("plots/scatter_weights_%s_%s_%s.png"%(do, legend, n))
     plt.clf()
     plt.close()
+
+def print_bad_events(x0, x1, w0, w1, weights, variables):
+
+    w0 = w0.flatten()
+    w1 = w1.flatten()
+    w_carl = w0*weights
+
+    bad_events = []
+    for entry in range(len(w_carl)):
+        if np.isnan(w_carl[entry]):
+            bad_events.append(entry)
+            print("Entry {} has weight with NaN value".format(entry))
+        if np.isinf(w_carl[entry]):
+            bad_events.append(entry)
+            print("Entry {} has weight with Inf value".format(entry))
+
+    for bad_entry in bad_events:
+        for id, column in enumerate(variables):
+            print("For bad event {}, the observable {} is {} in nominal sample".format(bad_entry, column, x0[bad_entry,id]))
+            #print("For bad event {}, the observable {} is {} in alternative sample".format(bad_entry, column, x1[entry,id]))
+
+
+def draw_CARL_weights(x0, x1, w0, w1, weightCT, variables, legend, label, n, save = True):
+    plt.yscale('log')
+    plt.xscale('log')
+    print(f"<plotting.py::draw_CARL_weights>::   Function called properly for sample {label}")
+
+    arr_w = np.array(weightCT)
+    mean = np.nanmean(arr_w, axis=0)
+    std = np.nanstd(arr_w, axis=0)
+    binning = np.linspace(mean-2*std,mean+10*std,50)
+    print(f"<plotting.py::draw_CARL_weights>::   Mean of weight vector = {mean}")
+    print(f"<plotting.py::draw_CARL_weights>::   Std of weight vector = {std}")
+    print("<plotting.py::draw_CARL_weights>::   binning: {}".format(binning))
+
+    EntriesHighCARL = []
+    for entry in range(len(weightCT)):
+        if ((np.isnan(weightCT[entry])) or np.isinf(weightCT[entry])):
+            EntriesHighCARL.append(entry)
+        if weightCT[entry]>(mean+5*std):
+            EntriesHighCARL.append(entry)
+            print(f"<plotting.py::draw_CARL_weights>::   Entry {entry} has large CARL weight value = {weightCT[entry]}")
+        if weightCT[entry]<=0:
+            EntriesHighCARL.append(entry)
+            print(f"<plotting.py::draw_CARL_weights>::   Entry {entry} has invalid CARL weight value = {weightCT[entry]}")
+
+    plt.hist(weightCT, bins = binning, label = label, **hist_settings_nom)
+    plt.xlabel('CARL weight', horizontalalignment='right',x=1)
+    plt.legend(frameon=False)
+
+    print("<plotting.py::draw_CARL_weights>::   CARL weights histogram created")
+
+    if save:
+        create_missing_folders([f"plots/{legend}"])
+        output_name = f"plots/{legend}/CARLweights_{legend}_{label}_{n}"
+
+        plt.savefig(f"{output_name}.png")
+        plt.clf()
+        plt.close()
+
+        print("<plotting.py::draw_CARL_weights>::   CARL weights histogram saved")
+
+    EventInfo_HighCARL(x0, x1, w0, w1, weightCT, variables, legend, label, EntriesHighCARL)
+
+def EventInfo_HighCARL(x0, x1, w0, w1, weights, variables, legend, label, EntriesList):
+
+    print(f"<plotting.py::EventInfo_HighCARL>::   Function called properly for sample {label}")
+
+    w0 = w0.flatten()
+    w1 = w1.flatten()
+    w_carl = w0*weights
+
+    with open(f"plots/{legend}/EventInfo_HighCARL_{legend}_{label}.txt", "w+") as file:
+        print("<plotting.py::EventInfo_HighCARL>::   File opened successfully")
+        for entry in EntriesList:
+            line = "Entry "+str(entry)+": MC weight = "+str(w0[entry])+", CARL weight = "+str(weights[entry])+", MC*CARL weight = "+str(w_carl[entry])+"\n"
+            print(f"<plotting.py::EventInfo_HighCARL>::  {line}")
+            file.write(line)
+            for id, column in enumerate(variables):
+                 file.write(f"Entry {entry}: {column} = {x0[entry,id]}\n")
+
+def draw_CARL_weights_transform_inputs(x0, weightCT, variables):
+
+    EntriesHighCARL = []
+    for entry in range(len(weightCT)):
+        if ((np.isnan(weightCT[entry])) or np.isinf(weightCT[entry])):
+            EntriesHighCARL.append(entry)
+
+    EventInfo_HighCARL_transform_inputs(x0, weightCT, variables, EntriesHighCARL)
+
+def EventInfo_HighCARL_transform_inputs(x0, weights, variables, EntriesList):
+    legend = "3000000_gpu_try100_2jets_manualObs_perJet_ktsplitting_lundz4_pTrel3"
+    with open(f"plots/{legend}/EventInfo_HighCARL_{legend}_val_transform_inputs_InitializeOverwrite.txt", "w+") as file:
+        print("<plotting.py::EventInfo_HighCARL_transform_inputs>::   File opened successfully")
+        for entry in EntriesList:
+            line = "Entry "+str(entry)+": CARL weight = "+str(weights[entry])+"\n"
+            file.write(line)
+            for id, column in enumerate(variables):
+                 file.write(f"Entry {entry}: {column} = {x0[entry,id]}\n")

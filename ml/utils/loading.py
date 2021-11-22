@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 # from functools import partial
 from collections import defaultdict
 from .tools import create_missing_folders, load, load_and_check, HarmonisedLoading
-from .plotting import draw_weighted_distributions, draw_unweighted_distributions, draw_ROC, draw_Obs_ROC, resampled_obs_and_roc, plot_calibration_curve, draw_weights, draw_scatter
+from .plotting import draw_weighted_distributions, draw_unweighted_distributions, draw_ROC, draw_Obs_ROC, resampled_obs_and_roc, plot_calibration_curve, draw_weights, draw_scatter, print_bad_events, draw_CARL_weights, EventInfo_HighCARL
 from sklearn.model_selection import train_test_split
 import yaml
 import copy
@@ -107,7 +107,7 @@ class Loader():
             x1, w1, vlabels1
         )  = HarmonisedLoading(fA = pathA, fB = pathB,
                                features=features, weightFeature=weightFeature,
-                               nentries = int(nentries), TreeName = TreeName, 
+                               nentries = int(nentries), TreeName = TreeName,
                                weight_polarity=weight_polarity, Filter=self.Filter)
 
 
@@ -135,7 +135,7 @@ class Loader():
 
                 # If the std = 0, then skip as this is a singular value feature
                 #   Can happen during zero-padding
-                if x0[column].std == 0 or x1[column].std () == 0:
+                if x0[column].std() == 0 or x1[column].std () == 0:
                     continue
 
                 if debug:
@@ -190,6 +190,7 @@ class Loader():
         x1 = x1[sorted(x1.columns)]
 
         # get metadata, i.e. max, min, mean, std of all the variables in the dataframes
+        metaData = defaultdict()
         if scaling == "standard":
             metaData = {v : {x0[v].mean(), x0[v].std() } for v in  x0.columns }
             logger.info("Storing Z0 Standard scaling metadata: {}".format(metaData))
@@ -198,6 +199,24 @@ class Loader():
             logger.info("Storing minmax scaling metadata: {}".format(metaData))
         X0 = x0.to_numpy()
         X1 = x1.to_numpy()
+
+
+        #Clipping
+        """
+        print(f"<loading.py::loading()>::  Applying upper clipping at percentile 99")
+        clamp_max = np.nanquantile(X0, 0.99, axis=0).astype(int)+1 #Plus 1 to avoid maximum values equal to zero when applying astype(int)
+        clamp_min = None #np.nanquantile(X0, 0, axis=0)
+        ci=0
+        for column_i in x0.columns:
+            if (("Jet_Eta" in column_i) or ("JetCharge" in column_i)):
+                ci = ci+1
+                continue
+
+            X0[:,ci] = np.clip(X0[:,ci], clamp_min, clamp_max[ci])
+            X1[:,ci] = np.clip(X1[:,ci], clamp_min, clamp_max[ci])
+            print(f"For observable {column_i} the clipped value is {clamp_max[ci]}")
+            ci = ci+1
+        """
 
         # Convert weights to numpy
         w0 = w0.to_numpy()
@@ -211,10 +230,10 @@ class Loader():
         y1 = np.ones(x1.shape[0])
 
         # Train, test splitting of input dataset
-        X0_train, X0_test, y0_train, y0_test, w0_train, w0_test = train_test_split(X0, y0, w0, test_size=0.05, random_state=42) # what is "w0_test" for? maybe a split size of 0.05 if ok.
-        X1_train, X1_test, y1_train, y1_test, w1_train, w1_test = train_test_split(X1, y1, w1, test_size=0.05, random_state=42)
-        X0_train, X0_val,  y0_train, y0_val, w0_train, w0_val =  train_test_split(X0_train, y0_train, w0_train, test_size=0.50, random_state=42)
-        X1_train, X1_val,  y1_train, y1_val, w1_train, w1_val =  train_test_split(X1_train, y1_train, w1_train, test_size=0.50, random_state=42)
+        X0_train, X0_test, y0_train, y0_test, w0_train, w0_test = train_test_split(X0, y0, w0, test_size=0.001, random_state=42) # what is "w0_test" for? maybe a split size of 0.05 if ok.
+        X1_train, X1_test, y1_train, y1_test, w1_train, w1_test = train_test_split(X1, y1, w1, test_size=0.001, random_state=42)
+        X0_train, X0_val,  y0_train, y0_val, w0_train, w0_val =  train_test_split(X0_train, y0_train, w0_train, test_size=0.25, random_state=42)
+        X1_train, X1_val,  y1_train, y1_val, w1_train, w1_val =  train_test_split(X1_train, y1_train, w1_train, test_size=0.25, random_state=42)
 
         w0_test = None
         w1_test = None
@@ -355,6 +374,11 @@ class Loader():
                     f.close()
                 tar.close()
 
+            print("<loading.py::loading()>:: INPUT ALREADY CREATED OR LOADED!!!")
+            print("<loading.py::loading()>:: INPUT ALREADY CREATED OR LOADED!!!")
+            print("<loading.py::loading()>:: INPUT ALREADY CREATED OR LOADED!!!")
+            print("<loading.py::loading()>:: INPUT ALREADY CREATED OR LOADED!!!")
+
         return X_train, y_train, X0_train, X1_train, w_train, w0_train, w1_train, metaData
 
 
@@ -369,7 +393,7 @@ class Loader():
         weights = None,
         label = None,
         features=[],
-        plot = False,
+        plot = True,
         nentries = 0,
         global_name="Test",
         plot_ROC = True,
@@ -454,7 +478,10 @@ class Loader():
             binning[idx] = np.linspace(min, max, divisions)
             if verbose:
                 logger.info("<loading.py::load_result>::   Column {}:  min  =  {},  max  =  {}".format(column,min,max))
-                print(binning[idx])       
+                print(binning[idx])
+
+        print(f"<loading.py::load_result>:: metaDataDict.keys() = {metaDataDict.keys()}")
+        draw_CARL_weights(X0, X1, W0, W1, weights, metaDataDict.keys(), global_name, label, nentries, True)
 
         # no point in plotting distributions with too few events, they only look bad
         #if int(nentries) > 5000:
@@ -468,6 +495,7 @@ class Loader():
         if verbose:
             logger.info("<loading.py::load_result>::   Printing weighted distributions")
         # plot reweighted distributions
+
         draw_weighted_distributions(
             X0, X1, W0, W1,
             weights,
@@ -475,7 +503,7 @@ class Loader():
             binning,
             label,
             global_name, nentries, plot, ext_plot_path,
-            normalise,
+            normalise
         )
 
     def validate_result(

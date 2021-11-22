@@ -193,16 +193,23 @@ def CoherentFlattening(df0, df1):
 
         # Now break up each column into elements of max size 'macObjectLen'
         df0_flattened = pd.DataFrame(df0[column].to_list(), columns=[column+str(idx) for idx in range(elemLen0)])
-        #print(df0_flattened)
+        print(df0_flattened)
+        df0_flattened[df0_flattened==-99999] = float("nan") #Convert input dummy values into NaN
         #df0_flattened = df0_flattened.fillna(0)
-        #print(df0_flattened)
-        
+        print(df0_flattened)
+
         # Delete extra dimensions if needed due to non-matching dimensionality of df0 & df1
         if elemLen0 > minObjectLen[column]:
             delColumns0 = [column+str(idx) for idx in range(minObjectLen[column], elemLen0)]
             print("<tools.py::CoherentFlattening()>::   Deleting {}".format(delColumns0))
             for idx in range(minObjectLen[column], elemLen0):
                 del df0_flattened[column+str(idx)]
+
+        if 3 < minObjectLen[column]:
+            delColumns = [column+str(idx) for idx in range(3, minObjectLen[column])]
+            print("<tools.py::CoherentFlattening()>::   Deleting component columns up to the 3rd: {} ".format(delColumns))
+            for idx in range(3,minObjectLen[column]):
+                del df0_flattened[column+str(idx) ]
 
         #print(df[column])
         #print(df_flattened)
@@ -212,6 +219,7 @@ def CoherentFlattening(df0, df1):
 
         # Now break up each column into elements of max size 'macObjectLen'
         df1_flattened = pd.DataFrame(df1[column].to_list(), columns=[column+str(idx) for idx in range(elemLen1)])
+        df1_flattened[df1_flattened==-99999] = float("nan") #Convert input dummy values into NaN
         #df1_flattened = df1_flattened.fillna(0)
 
         # Delete extra dimensions if needed due to non-matching dimensionality of df0 & df1
@@ -220,6 +228,14 @@ def CoherentFlattening(df0, df1):
             print("<tools.py::CoherentFlattening()>::   Deleting {}".format(delColumns1))
             for idx in range(minObjectLen[column], elemLen1):
                 del df1_flattened[column+str(idx) ]
+
+        if 3 < minObjectLen[column]:
+            delColumns = [column+str(idx) for idx in range(3, minObjectLen[column])]
+            print("<tools.py::CoherentFlattening()>::   Deleting component columns up to the 3rd: {} ".format(delColumns))
+            for idx in range(3,minObjectLen[column]):
+                del df1_flattened[column+str(idx) ]
+
+
 
         #print(df[column])
         #print(df_flattened)
@@ -302,7 +318,7 @@ def load(
             df_mask = df.eval( logExp )
             df = df[df_mask]
             weights = weights[df_mask]
-    
+
     # Reset all row numbers
     df = df.reset_index(drop=True)
 

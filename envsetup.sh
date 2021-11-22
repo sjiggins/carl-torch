@@ -19,10 +19,10 @@ elif [[ $(uname -a) == *"slc6"* ]]; then
 fi
 OLD_PYTHONPATH=$PYTHONPATH
 if [ -f "CARL-Torch/bin/activate" ]; then
-    source CARL-Torch/bin/activate
+    source CARLENV/bin/activate
 else
     python -m venv CARL-Torch
-    source CARL-Torch/bin/activate
+    source CARLENV/bin/activate
     PYTHONPATH=$TEMP_PYTHONPATH
     python -m pip install -U pip setuptools wheel
     echo 'Now run `python -m pip install -e .'

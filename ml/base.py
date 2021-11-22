@@ -47,7 +47,7 @@ class Estimator(object):
         self.x_scaling_quantile_down = None
 
         self.divisions = 100 # binning for inputs if requested
-        
+
     def train(self, *args, **kwargs):
         raise NotImplementedError
 
@@ -285,7 +285,7 @@ class Estimator(object):
         print("<base.py::_transform_inputs()>::   Doing Clamping for inputs")
         # clamp value by 25% to 75% quntile
         if isinstance(x, torch.Tensor):
-            clamp_max = torch.tesnor(self.clamp_max, dtype=x.dtype, device=x.device)
+            clamp_max = torch.tensor(self.clamp_max, dtype=x.dtype, device=x.device)
             clamp_min = torch.tensor(self.clamp_min, dtype=x.dtype, device=x.device)
             return torch.clamp(x, min=clamp_min, max=clamp_max)
         else:
@@ -307,7 +307,7 @@ class Estimator(object):
                 else:
                     x_scaled = x - self.x_scaling_means
                     x_scaled /= self.x_scaling_stds
-                
+
                 # Check for nans/nums
                 #x_scaled = torch.tensor(np.nan_to_num(x_scaled, nan=0.0, posinf=0.0, neginf=0.0), dtype=x.dtype, device=x.device )
                 x_scaled = np.nan_to_num(x_scaled, nan=0.0, posinf=0.0, neginf=0.0)
@@ -333,7 +333,7 @@ class Estimator(object):
                 print("<base.py::_transform_inputs()>::   unable to do min-max scaling")
                 x_scaled = x
             # Check for nans/nums
-            x_scaled = np.nan_to_num(x_scaled, nan=0.0, posinf=0.0, neginf=0.0) 
+            x_scaled = np.nan_to_num(x_scaled, nan=0.0, posinf=0.0, neginf=0.0)
 
         return x_scaled
 
