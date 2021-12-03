@@ -36,7 +36,7 @@ parser.add_argument('--batch',  action='store', type=int, dest='batch_size',  de
 parser.add_argument('--per-epoch-plot', action='store_true', dest='per_epoch_plot', default=False, help='plotting train/validation result per epoch.')
 parser.add_argument('--per-epoch-save', action='store_true', dest='per_epoch_save', default=False, help='saving trained model per epoch.')
 parser.add_argument('--nepoch', action='store', dest='nepoch', type=int, default=300, help='Total number of epoch for training.')
-parser.add_argument('--scale-method', action='store', dest='scale_method', type=str, Required=True, default=None, help='scaling method for input data. e.g minmax, standard.')
+parser.add_argument('--scale-method', action='store', dest='scale_method', type=str, default=None, help='scaling method for input data. e.g minmax, standard.')
 parser.add_argument('--weight-clipping', action='store_true', dest='weight_clipping', default=False, help='clipping event weights')
 parser.add_argument('--weight-nsigma', action='store', type=int, dest='weight_nsigma', default=0, help='re-mapping weights')
 parser.add_argument('--polarity', action='store_true', dest="polarity", help='enable event weight polarity feature.')
@@ -229,7 +229,7 @@ train_loss, val_loss, accuracy_train, accuracy_val = estimator.train(
     intermediate_save = intermediate_save,
     optimizer_kwargs=kwargs,
     global_name=global_name,
-    plot_inputs=True,    
+    plot_inputs=True,
     nentries=n,
     loss_type=loss_type,
 )
