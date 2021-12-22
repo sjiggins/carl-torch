@@ -83,10 +83,6 @@ def draw_weighted_distributions(x0, x1, w0, w1,
     for id, column in enumerate(variables):
         #plt.yscale('log')
         print("<plotting.py::draw_weighted_distribution()>::   id: {},   column: {}".format(id,column))
-        if (column=="N_ch0" or column=="N_ch1"):
-            binning[id]=np.linspace(0.,30.,31)
-        if (column=="Ntracks"):
-            binning[id]=np.linspace(0.,350.,36)
         print("<plotting.py::draw_weighted_distribution()>::     binning: {}".format(binning[id]))
         if save: plt.figure(figsize=(14, 10))
         else: plt.subplot(3,4, id)
