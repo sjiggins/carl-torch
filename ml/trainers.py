@@ -253,8 +253,8 @@ class Trainer(object):
                     value.shape,
                     value[0],
                     np.mean(value, axis=0),
-                    np.min(value, axis=0),
-                    np.max(value, axis=0),
+                    np.nanmin(value, axis=0),  # originally np.min()
+                    np.nanmax(value, axis=0),  # originally np.max()
                 )
 
     @staticmethod

@@ -18,11 +18,11 @@ elif [[ $(uname -a) == *"slc6"* ]]; then
     TEMP_PYTHONPATH=/cvmfs/sft.cern.ch/lcg/views/LCG_98bpython3/x86_64-slc6-gcc8-opt/python:/cvmfs/sft.cern.ch/lcg/views/LCG_98bpython3/x86_64-slc6-gcc8-opt/lib
 fi
 OLD_PYTHONPATH=$PYTHONPATH
-if [ -f "CARL/bin/activate" ]; then
-    source CARL-Torch/bin/activate
+if [ -f "CARL-Torch/bin/activate" ]; then
+    source CARLENV/bin/activate
 else
     python -m venv CARL-Torch
-    source CARL-Torch/bin/activate
+    source CARLENV/bin/activate
     PYTHONPATH=$TEMP_PYTHONPATH
     python -m pip install -U pip setuptools wheel
     echo 'Now run `python -m pip install -e .'

@@ -31,6 +31,7 @@ parser.add_option('-w', '--weightFeature',  action='store', type=str, dest='weig
 parser.add_option('-t', '--TreeName',  action='store', type=str, dest='treename',  default='Tree', help='Name of TTree name inside root files')
 parser.add_option('--PlotROC',  action="store_true", dest='plot_ROC',  help='Flag to determine if one should plot ROC')
 parser.add_option('--PlotObsROC',  action="store_true", dest='plot_obs_ROC',  help='Flag to determine if one should plot observable ROCs')
+parser.add_option('--scale-method', action='store', dest='scale_method', type=str, default=None, help='scaling method for input data. e.g minmax, standard.')
 (opts, args) = parser.parse_args()
 nominal  = opts.nominal
 variation = opts.variation
@@ -40,6 +41,7 @@ global_name = opts.global_name
 features = opts.features.split(",")
 weightFeature = opts.weightFeature
 treename = opts.treename
+scale_method=opts.scale_method
 loading = Loader()
 ###########################################
 
@@ -52,6 +54,7 @@ else:
     sys.exit()
 
 carl = RatioEstimator()
+carl.scaling_method = scale_method
 carl.load('models/'+global_name+'_carl_'+str(n))
 #load
 evaluate = ['train']

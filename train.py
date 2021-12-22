@@ -2,13 +2,13 @@ import os
 import sys
 import logging
 import argparse
-import torch
 import tarfile
 import pickle
 import pathlib
 import numpy as np
 from ml import RatioEstimator
 from ml import Loader
+from ml import Filter
 import numpy as np
 from itertools import repeat
 
@@ -30,11 +30,18 @@ parser.add_argument('-w', '--weightFeature',  action='store', type=str, dest='we
 parser.add_argument('-t', '--TreeName',  action='store', type=str, dest='treename',  default='Tree', help='Name of TTree name inside root files')
 parser.add_argument('-b', '--binning',  action='store', type=str, dest='binning',  default=None, help='path to binning yaml file.')
 parser.add_argument('-l', '--layers', action='store', type=int, dest='layers', nargs='*', default=None, help='number of nodes for each layer')
+parser.add_argument('-d', '--dropout-prob', action='store', type=float, dest='dropout_prob', default=None, help='Dropout probability for internal hidden layers')
+parser.add_argument('-r', '--regularise', action='store', type=str, dest='regularise', default=None, help='Regularisation technique for the loss function [L0, L1, L2]')
 parser.add_argument('--batch',  action='store', type=int, dest='batch_size',  default=4096, help='batch size')
 parser.add_argument('--per-epoch-plot', action='store_true', dest='per_epoch_plot', default=False, help='plotting train/validation result per epoch.')
 parser.add_argument('--per-epoch-save', action='store_true', dest='per_epoch_save', default=False, help='saving trained model per epoch.')
-parser.add_argument('--nepoch', action='store', dest='nepoch', type=int, default=500, help='Total number of epoch for training.')
-parser.add_argument('--scale-method', action='store', dest='scale_method', type=str, default=None, help='scaling method for input data. e.g minmax, standard.')
+parser.add_argument('--nepoch', action='store', dest='nepoch', type=int, default=100, help='Total number of epoch for training.')
+parser.add_argument('--scale-method', action='store', dest='scale_method', type=str, default='minmax', help='scaling method for input data. e.g minmax, standard.')
+parser.add_argument('--weight-clipping', action='store_true', dest='weight_clipping', default=False, help='clipping event weights')
+parser.add_argument('--weight-nsigma', action='store', type=int, dest='weight_nsigma', default=0, help='re-mapping weights')
+parser.add_argument('--polarity', action='store_true', dest="polarity", help='enable event weight polarity feature.')
+parser.add_argument('--loss-type', action='store', type=str, dest="loss_type", default="regular", help='a type on how to handle weight in loss function, options are "abs(w)" & "log(abs(w))" ')
+parser.add_argument('--BoolFilter', action='store', dest='BoolFilter', type=str, default=None, help='Comma separated list of boolean logic. e.g. \'a | b\'.')
 opts = parser.parse_args()
 nominal  = opts.nominal
 variation = opts.variation
@@ -51,11 +58,19 @@ per_epoch_plot = opts.per_epoch_plot
 per_epoch_save = opts.per_epoch_save
 nepoch = opts.nepoch
 scale_method = opts.scale_method
+weight_clipping = opts.weight_clipping
+weight_sigma = opts.weight_nsigma
+polarity = opts.polarity
+loss_type = opts.loss_type
+BoolFilter = opts.BoolFilter
 #################################################
 
 #################################################
 # Loading of data from root of numpy arrays
 loading = Loader()
+if BoolFilter != None:
+    InputFilter = Filter(FilterString = BoolFilter)
+    loading.Filter= InputFilter
 
 # Exception handling for input files - .root
 if os.path.exists(p+nominal+'.root') or os.path.exists('data/'+global_name+'/X_train_'+str(n)+'.npy'):
@@ -73,7 +88,7 @@ else:
     sys.exit()
 
 if os.path.exists(f"data/{global_name}/data_out.tar.gz"):
-#    tar = tarfile.open("data_out.tar.gz", "r:gz")
+    # tar = tarfile.open("data_out.tar.gz", "r:gz")
     tar = tarfile.open(f"data/{global_name}/data_out.tar.gz")
     tar.extractall()
     tar.close()
@@ -109,6 +124,11 @@ else:
         noTar=True,
         normalise=False,
         debug=False,
+        weight_preprocess=weight_sigma > 0,
+        weight_preprocess_nsigma=weight_sigma,
+        large_weight_clipping=weight_clipping,
+        weight_polarity=polarity,
+        scaling=scale_method,
     )
     logger.info(" Loaded new datasets ")
 #######################################
@@ -116,13 +136,15 @@ else:
 #######################################
 # Estimate the likelihood ratio using a NN model
 #   -> Calculate number of input variables as rudimentary guess
-structure = ( (len(features)*3, ) * 5)
+structure = n_hidden
 # Use the number of inputs as input to the hidden layer structure
 estimator = RatioEstimator(
     n_hidden=(structure),
-    activation="relu"
+    activation="relu",
 )
 estimator.scaling_method = scale_method
+if opts.dropout_prob is not None:
+    estimator.dropout_prob = opts.dropout_prob
 
 # per epoch plotting
 intermediate_train_plot = None
@@ -142,6 +164,9 @@ if per_epoch_plot:
         "global_name":global_name,
         "ext_binning":binning,
         "verbose" : False,
+        "plot_ROC" : False,
+        "plot_obs_ROC" : False,
+        "normalise" : True, # plotting
     }
     vali_args = {
         "x0":f'data/{global_name}/X0_val_{n}.npy',
@@ -150,12 +175,15 @@ if per_epoch_plot:
         "w1":f'data/{global_name}/w1_val_{n}.npy',
         "metaData":metaData,
         "features":features,
-        "label":"train",
+        "label":"val",
         "plot":True,
         "nentries":n,
         "global_name":global_name,
         "ext_binning":binning,
         "verbose" : False,
+        "plot_ROC" : False,
+        "plot_obs_ROC" : False,
+        "normalise" : True,  # plotting
     }
     intermediate_train_plot = (
         (estimator.evaluate, {"train":x0, "val":f'data/{global_name}/X0_val_{n}.npy'}),
@@ -173,21 +201,37 @@ if per_epoch_save:
         estimator.save, intermediate_save_args
     )
 
+
+# additional options to pytorch training package
+kwargs = {}
+if opts.regularise is not None:
+    logger.info("L2 loss regularisation included.")
+    kwargs={"weight_decay": 1e-5}
+
 # perform training
 train_loss, val_loss, accuracy_train, accuracy_val = estimator.train(
     method='carl',
     batch_size=batch_size,
     n_epochs=nepoch,
     validation_split=0.25,
+    #optimizer="amsgrad",
     x=x,
     y=y,
     w=w,
     x0=x0,
     x1=x1,
+    w0=w0,
+    w1=w1,
     scale_inputs=True,
-    early_stopping=False,
+    early_stopping=True,
+    #early_stopping_patience=20,
     intermediate_train_plot = intermediate_train_plot,
     intermediate_save = intermediate_save,
+    optimizer_kwargs=kwargs,
+    global_name=global_name,
+    plot_inputs=True,
+    nentries=n,
+    loss_type=loss_type,
 )
 
 # saving loss values and final trained models

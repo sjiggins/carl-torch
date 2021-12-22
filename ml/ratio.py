@@ -1,5 +1,10 @@
 from __future__ import absolute_import, division, print_function
 
+import os
+import pickle
+from collections import defaultdict
+from .utils.plotting import draw_weighted_distributions
+
 import logging
 import numpy as np
 import torch
@@ -44,11 +49,14 @@ class RatioEstimator(Estimator):
         w=None,
         x0=None,
         x1=None,
+        w0=None,
+        w1=None,
         x_val=None,
         y_val=None,
         w_val=None,
         alpha=1.0,
         optimizer="amsgrad",
+        optimizer_kwargs=None,
         n_epochs=50,
         batch_size=128,
         initial_lr=0.001,
@@ -66,6 +74,10 @@ class RatioEstimator(Estimator):
         early_stopping_patience=None,
         intermediate_train_plot=None,
         intermediate_save=None,
+        global_name="",
+        plot_inputs=False,
+        nentries=-1,
+        loss_type="regular",
     ):
 
         """
@@ -116,27 +128,32 @@ class RatioEstimator(Estimator):
         logger.info("  Method:                 %s", method)
         logger.info("  Batch size:             %s", batch_size)
         logger.info("  Optimizer:              %s", optimizer)
+        logger.info("  Optimizer kwargs:         {}".format(optimizer_kwargs))
         logger.info("  Epochs:                 %s", n_epochs)
         logger.info("  Learning rate:          %s initially, decaying to %s", initial_lr, final_lr)
         if optimizer == "sgd":
             logger.info("  Nesterov momentum:      %s", nesterov_momentum)
         logger.info("  Validation split:       %s", validation_split)
         logger.info("  Early stopping:         %s", early_stopping)
+        logger.info("  Early stopping patience:         %s", early_stopping_patience)
         logger.info("  Scale inputs:           %s", scale_inputs)
         if limit_samplesize is None:
             logger.info("  Samples:                all")
         else:
             logger.info("  Samples:                %s", limit_samplesize)
         logger.info(f"  N hidden:                 {self.n_hidden}")
+        logger.info(f"  Input loss type:                 {loss_type}")
 
         # Load training data
         logger.info("Loading training data")
         memmap_threshold = 1.0 if memmap else None
-        x  = load_and_check(x, memmap_files_larger_than_gb=memmap_threshold)
-        y  = load_and_check(y, memmap_files_larger_than_gb=memmap_threshold)
-        x0 = load_and_check(x0, memmap_files_larger_than_gb=memmap_threshold)
-        x1 = load_and_check(x1, memmap_files_larger_than_gb=memmap_threshold)
-        w = load_and_check(w, memmap_files_larger_than_gb=memmap_threshold)
+        x  = load_and_check(x, memmap_files_larger_than_gb=memmap_threshold, name="features")
+        y  = load_and_check(y, memmap_files_larger_than_gb=memmap_threshold, name="target")
+        x0 = load_and_check(x0, memmap_files_larger_than_gb=memmap_threshold, name="nominal features")
+        x1 = load_and_check(x1, memmap_files_larger_than_gb=memmap_threshold, name="variation features")
+        w = load_and_check(w, memmap_files_larger_than_gb=memmap_threshold, name="weights")
+        w0 = load_and_check(w0, memmap_files_larger_than_gb=memmap_threshold, name="weight1")
+        w1 = load_and_check(w1, memmap_files_larger_than_gb=memmap_threshold, name="weights2")
 
         # Infer dimensions of problem
         n_samples = x.shape[0]
@@ -145,9 +162,9 @@ class RatioEstimator(Estimator):
 
         external_validation = x_val is not None and y_val is not None
         if external_validation:
-            x_val = load_and_check(x_val, memmap_files_larger_than_gb=memmap_threshold)
-            y_val = load_and_check(y_val, memmap_files_larger_than_gb=memmap_threshold)
-            w_val = load_and_check(w_val, memmap_files_larger_than_gb=memmap_threshold)
+            x_val = load_and_check(x_val, memmap_files_larger_than_gb=memmap_threshold, name="x_val")
+            y_val = load_and_check(y_val, memmap_files_larger_than_gb=memmap_threshold, name="y_val")
+            w_val = load_and_check(w_val, memmap_files_larger_than_gb=memmap_threshold, name="w_val")
             logger.info("Found %s separate validation samples", x_val.shape[0])
 
             assert x_val.shape[1] == n_observables
@@ -159,6 +176,46 @@ class RatioEstimator(Estimator):
             x = self._transform_inputs(x)
             if external_validation:
                 x_val = self._transform_inputs(x_val)
+            # If requested by user then transformed inputs are plotted
+            if plot_inputs:
+                logger.info("Plotting transformed input features for {}".format(global_name))
+                metaData='data/'+global_name+'/metaData_'+str(nentries)+'.pkl'
+                if os.path.exists(metaData):
+                    # Get the meta data containing the keys (input feature anmes)
+                    logger.info("Obtaining input features from metaData_{}.pkl".format(global_name))
+                    metaDataFile = open(metaData, 'rb')
+                    metaDataDict = pickle.load(metaDataFile)
+                    metaDataFile.close()
+                    # Transform the input data for x0, and x1
+                    x0 = self._transform_inputs(x0)
+                    x1 = self._transform_inputs(x1)
+
+                    # Determine binning, and store in dicts
+                    binning = defaultdict()
+                    minmax = defaultdict()
+                    for idx,(key,pair) in enumerate(metaDataDict.items()):
+                        #  Integers values indicate well bounded data, so use full range
+                        intTest = [ (i % 1) == 0  for i in x0[:,idx] ]
+                        intTest = all(intTest) #np.all(intTest == True)
+                        upperThreshold = 100 if intTest else 98
+                        max = np.percentile(x0[:,idx], upperThreshold)
+                        lowerThreshold = 0 if (np.any(x0[:,idx] < 0 ) or intTest) else 0
+                        min = np.percentile(x0[:,idx], lowerThreshold)
+                        minmax[idx] = [min,max]
+                        binning[idx] = np.linspace(min, max, self.divisions)
+                        logger.info("<loading.py::load_result>::   Column {}:  min  =  {},  max  =  {}"
+                              .format(key,min,max))
+                    draw_weighted_distributions(x0, x1,
+                                                w0, w1,
+                                                np.ones(w0.size),
+                                                metaDataDict.keys(),
+                                                binning,
+                                                "train-input", #label
+                                                global_name,
+                                                w0.size if w0.size < w1.size else w1.size,
+                                                True, #plot
+                                                None)
+
         else:
             self.initialize_input_transform(x, False, overwrite=False)
 
@@ -194,10 +251,14 @@ class RatioEstimator(Estimator):
         if w is None:
             w = len(x0)/len(x1)
             logger.info("Passing weight %s to the loss function to account for imbalanced dataset: ", w) #sjiggins
-        loss_functions, loss_labels, loss_weights = get_loss(method, alpha, w)
+        loss_functions, loss_labels, loss_weights = get_loss(method, alpha, w, loss_type)
 
         # Optimizer
         opt, opt_kwargs = get_optimizer(optimizer, nesterov_momentum)
+        # If optimizer_kwargs set by user then append
+        #opt_kwargs = dict( opt_kwargs, optimizer_kwargs )
+        if optimizer_kwargs is not None:
+            opt_kwargs.update( optimizer_kwargs )
 
         # Train model
         logger.info("Training model")
@@ -245,8 +306,7 @@ class RatioEstimator(Estimator):
         x = load_and_check(x)
 
         # Scale observables
-        logger.info("Scaling before obtaining CARL weights")
-        x = self._transform_inputs(x)
+        x = self._transform_inputs(x, scaling=self.scaling_method)
 
         # Restrict features
         if self.features is not None:

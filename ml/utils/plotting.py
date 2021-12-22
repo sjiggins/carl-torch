@@ -5,6 +5,7 @@ import logging
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as font_manager
 import multiprocessing
 import math
 from functools import partial
@@ -24,6 +25,18 @@ hist_settings_alt = {'alpha': 0.25, 'color':'orange'}
 hist_settings_CARL = {'histtype':'step', 'color':'black', 'linewidth':1, 'linestyle':'--'}
 hist_settings_CARL_ratio = {'color':'black', 'linewidth':1, 'linestyle':'--'}
 #hist_settings1_step = {'color':'black', 'linewidth':1, 'linestyle':'--'}
+
+do_dbug_plot = False
+if do_dbug_plot:
+    try:
+        import pickle
+        with open("addInvSample.pkl", "rb") as f:
+            addInvSample = pickle.load(f)
+    except Exception as e:
+        print(e)
+        addInvSample = None
+else:
+    addInvSample = None
 
 
 def draw_unweighted_distributions(x0, x1,
@@ -58,20 +71,23 @@ def draw_weighted_distributions(x0, x1, w0, w1,
                                 binning, label,
                                 legend,
                                 n,
-                                save = False,
+                                save = True,
                                 ext_plot_path=None,
                                 normalise=True):
+
+    font = font_manager.FontProperties(family='Symbol',
+                                       style='normal', size=14)
+    plt.rcParams['legend.title_fontsize'] = 18
     plt.figure(figsize=(14, 10))
     #columns = range(len(variables))
-
     for id, column in enumerate(variables):
+        #plt.yscale('log')
         print("<plotting.py::draw_weighted_distribution()>::   id: {},   column: {}".format(id,column))
         if (column=="N_ch0" or column=="N_ch1"):
             binning[id]=np.linspace(0.,25.,25)
         print("<plotting.py::draw_weighted_distribution()>::     binning: {}".format(binning[id]))
         if save: plt.figure(figsize=(14, 10))
         else: plt.subplot(3,4, id)
-        #plt.yscale('log')
         w0 = w0.flatten()
         w1 = w1.flatten()
         w_carl = w0*weights
@@ -79,14 +95,31 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             w0 = w0/w0.sum()
             w1 = w1/w1.sum()
             w_carl = w_carl/w_carl.sum()
-        plt.hist(x0[:,id], bins = binning[id], weights = w0, label = "nominal", **hist_settings_nom)
-        plt.hist(x0[:,id], bins = binning[id], weights = w_carl, label = 'nominal*CARL', **hist_settings_CARL)
-        plt.hist(x1[:,id], bins = binning[id], weights = w1, label = "alternative", **hist_settings_alt)
-        plt.xlabel('%s'%(column), horizontalalignment='right',x=1)
-        plt.legend(frameon=False,title = '%s sample'%label )
+
+        plt.hist(x0[:,id], bins = binning[id], weights = w0, label = "nominal", **hist_settings_nom)#, log=True)
+        plt.hist(x0[:,id], bins = binning[id], weights = w_carl, label = 'nominal*CARL', **hist_settings_CARL)#, log=True)
+        plt.hist(x1[:,id], bins = binning[id], weights = w1, label = "alternative", **hist_settings_alt)#, log=True)
+        #plt.yscale('log')
+        if addInvSample:
+            print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+            _setting = {'histtype':'step', 'linewidth':2, 'color':'red'}
+            _x0 = addInvSample[0].to_numpy()
+            _w0 = addInvSample[1].to_numpy().flatten()
+            plt.hist(_x0[:,id], bins = binning[id], weights = _w0, label = "Non-splited nominal Inverted fraction", **_setting)
+
+            _inv_setting = {'histtype':'step', 'linewidth':3, 'color':'pink'}
+            if column == "polarity":
+                mul_scale = -1
+            else:
+                mul_scale = 1
+            _w0= (addInvSample[1]*-1).to_numpy().flatten()
+            plt.hist(_x0[:,id]*mul_scale, bins = binning[id], weights = _w0, label = "Non-splited nominal fraction", **_inv_setting)
+
+        plt.xlabel('%s'%(column), horizontalalignment='right',x=1, fontsize = 18)
+        plt.legend(frameon=False,title = '%s sample'%(label), prop=font )
         axes = plt.gca()
-        plt.xticks(fontsize=14)
-        plt.yticks(fontsize=14)
+        plt.xticks(fontsize=16)#14)
+        plt.yticks(fontsize=16)#14)
 
         # Calculate maximum and minimum of y-axis
         y_min, y_max = axes.get_ylim()
@@ -153,9 +186,10 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             x0_error = np.array(x0_error)
             x1_error = np.array(x1_error)
 
-            plt.step( xref, yref, where="post", label="alternative / alternative", **hist_settings_alt )
-            plt.step( edge1[:-1], x1_ratio, where="post", label="nominal / alternative", **hist_settings_nom)
-            plt.step( edgecarl[:-1], carl_ratio, where="post", label = '(nominal*CARL) / alternative', **hist_settings_CARL_ratio)
+            plt.step( xref, yref, where="post", label= "alt / alt", **hist_settings_alt )
+            plt.step( edge1[:-1], x1_ratio, where="post", label="nom / alt", **hist_settings_nom)
+            plt.step( edgecarl[:-1], carl_ratio, where="post", label = '(nominal*CARL) / alt', **hist_settings_CARL_ratio)
+
             #plt.fill_between(edge[:,-1], 1.0, x1_ratio)
             yref_error = np.ones(len(edge1))
             yref_error_up = 2* np.sqrt( np.power(x1_error,2) + np.power(x0_error, 2)) # height from bottom
@@ -181,42 +215,126 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             #         #alpha=0.25,
             #         #label='uncertainty band')
 
-            plt.xlabel('%s'%(column), horizontalalignment='right',x=1)
-            plt.legend(frameon=False,title = '%s sample'%(label) )
+            plt.xlabel('%s'%(column), horizontalalignment='right',x=1, fontsize = 16)
+            plt.legend(frameon=False,title = '%s sample'%(label))
             axes = plt.gca()
             axes.set_ylim([0.5, 1.6])
-            plt.yticks(np.arange(0.5,1.6,0.1))
+            plt.xticks(fontsize=14)
+            plt.yticks(np.arange(0.5,1.6,0.1), fontsize=14)
             plt.savefig(f"{output_name}_ratio.png")
             plt.clf()
             plt.close()
+            #import sys
+            #if (label=='val'): sys.exit()
 
-def weight_obs_data(x0, x1, w0, w1, max_evts=100000):
+def draw_resampled_ratio(x0, w0, x1, w1, ratioName=''):
+    bins = np.linspace(np.amin(x0), np.amax(x0) ,50)
+    n0, _, _ = plt.hist(x0, weights=w0, bins=bins, label='original', **hist_settings_nom)
+    n1, _, _ = plt.hist(x1, weights=w1, bins=bins, label='resampled', **hist_settings_alt)
+    plt.clf()
+
+    ratio = [n1i/n0i-1 if n0i!=0 else -1 for (n0i,n1i) in zip(n0,n1)]
+
+    #error
+    x0_error = []
+    x1_error = []
+    width = abs(bins[1] - bins[0] )
+    for xbin in bins:
+        # Form masks for all event that match condition
+        mask0 = (x0 < (xbin + width)) & (x0 > (xbin - width))
+        mask1 = (x1 < (xbin + width)) & (x1 > (xbin - width))
+        # Form bin error
+        binsqrsum_x0 = np.sum(w0[mask0]**2)
+        binsqrsum_x1 = np.sum(w1[mask1]**2)
+        binsqrsum_x0 = math.sqrt(binsqrsum_x0)
+        binsqrsum_x1 = math.sqrt(binsqrsum_x1)
+        ratio_binsqrsum_x0 = binsqrsum_x0
+        # Form relative error
+        binsqrsum_x0 = binsqrsum_x0/w0[mask0].sum()
+        binsqrsum_x1 = binsqrsum_x1/w1[mask1].sum()
+
+        x0_error.append(binsqrsum_x0 if binsqrsum_x0 > 0 else 0.0)
+        x1_error.append(binsqrsum_x1 if binsqrsum_x1 > 0 else 0.0)
+
+    # Convert error lists to numpy arrays
+    x0_error = np.array(x0_error)
+    x1_error = np.array(x1_error)
+
+    bin_centers = [ (bins[i+1]+bins[i])/2 for i in range(len(bins)-1)]
+    ones = [1 for b in bin_centers]
+    plt.hist(bin_centers, weights=ratio, bins=bins, bottom=ones, label='ratio', histtype='step') #, **hist_settings_CARL_ratio)
+
+    yref_error = np.ones(len(bins))
+    yref_error_up = 2* np.sqrt( np.power(x1_error,2) + np.power(x0_error, 2)) # height from bottom
+    yref_error_down = yref_error - np.sqrt(np.power(x1_error, 2) + np.power(x0_error,2))
+
+
+    plt.bar( x=bins[:-1],
+             height=yref_error_up[:-1], bottom = yref_error_down[:-1],
+             color='red',
+             width=np.diff(bins),
+             align='edge',
+             alpha=0.25,
+             label='uncertainty band')
+
+    plt.ylabel('resampled / original')
+    plt.legend(frameon=False )
+    axes = plt.gca()
+    plt.savefig(f'plots/ratio_{ratioName}.png')
+    plt.clf()
+    plt.close()
+
+def weight_obs_data(x0, x1, w0, w1, ratioName=''):
 
     # Remove negative probabilities - maintains proportionality still by abs()
-    w0 = abs(w0)
-    w1 = abs(w1)
-
-    # Calculate the minimum size so as to ensure we have equal number of events in each class
-    x0_len = x0.shape[0]
-    x1_len = x1.shape[0]
-    minEvts = x0_len if x0_len < x1_len else x1_len
-    minEvts = minEvts if minEvts < max_evts else max_evts
+    w0_abs = abs(w0)
+    w1_abs = abs(w1)
 
     # Dataset 0 probability proportionality sub-sampling
-    w0 = w0 / w0.sum()
-    w_x0 = np.random.choice(x0, size=minEvts, p = w0)
+    x0_len = x0.shape[0]
+    w0_abs_sum = int(w0_abs.sum())
+    w0_abs = w0_abs / w0_abs.sum()
+    weighted_data0 = np.random.choice(range(x0_len), w0_abs_sum, p = w0_abs)
+    w_x0 = x0.copy()[weighted_data0]
+
+    # set of +-1 weights, depending on the sign of the original weight
+    w0_ones = np.ones(x0_len)
+    w0_ones[w0<0] = -1
+    w_w0 = w0_ones.copy()[weighted_data0]
 
     # Dataset 1 probability proportionality sub-sampling
-    w1 = w1 / w1.sum()
-    w_x1 = np.random.choice(x1, size=minEvts, p = w1)
+    x1_len = x1.shape[0]
+    w1_abs_sum = int(w1_abs.sum())
+    w1_abs = w1_abs / w1_abs.sum()
+    weighted_data1 = np.random.choice(range(x1_len), w1_abs_sum, p = w1_abs)
+    w_x1 = x1.copy()[weighted_data1]
+
+    # set of +-1 weights, depending on the sign of the original weight
+    w1_ones = np.ones(x1_len)
+    w1_ones[w1<0] = -1
+    w_w1 = w1_ones.copy()[weighted_data1]
 
     # Concatenate all data
     x_all = np.append(w_x0,w_x1)
-    y_all = np.zeros(minEvts*2)
-    y_all[minEvts:] = 1
-    return (x_all,y_all)
+    y_all = np.zeros(w0_abs_sum+w1_abs_sum)
+    y_all[w0_abs_sum:] = 1
+    w_all = np.concatenate([w_w0, w_w1])
 
-def obs_roc_curve(x, y_true):
+    #===========================================================================
+    if ratioName!='':
+        draw_resampled_ratio(x0, w0, w_x0, w_w0, ratioName+'_x0')
+        draw_resampled_ratio(x1, w1, w_x1, w_w1, ratioName+'_x1')
+    #===========================================================================
+
+    ## no resampling
+    # x_all = np.append(x0,x1)
+    # y_all = np.zeros(x0.shape[0]+x1.shape[0])
+    # y_all[x0.shape[0]:] = 1
+    # w_all = np.concatenate([w0, w1])
+
+    return (x_all,y_all,w_all)
+
+def obs_roc_curve(x, y_true, weights):
 
     # Determine the maximum range
     #maxRange = np.amax(x)
@@ -236,9 +354,11 @@ def obs_roc_curve(x, y_true):
     for idx,edge in enumerate(ClassBoundaries):
         tpr[idx] = 0.0
         fpr[idx] = 0.0
-        #print("       -> Edge:  {}".format(idx))
+        # print("-> Edge:  {}".format(idx))
         y_pred =  x < edge
-        tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+
+        tn, fp, fn, tp = confusion_matrix(y_true, y_pred, sample_weight=weights).ravel()
+
         tpr[idx] = tp/(tp+fn)
         fpr[idx] = fp/(tn+fp)
         #print("       -> tpr:  {}".format(tpr))
@@ -246,14 +366,16 @@ def obs_roc_curve(x, y_true):
 
     return fpr, tpr
 
-def resampled_obs_and_roc(original, target, w0, w1):
-    (data, labels) = weight_obs_data(original, target, w0, w1)
-    fpr, tpr  = obs_roc_curve(data, labels)
+def resampled_obs_and_roc(original, target, w0, w1, ratioName=''):
+
+    (data, labels, weights) = weight_obs_data(original, target, w0, w1, ratioName)
+    fpr, tpr  = obs_roc_curve(data, labels, weights)
     #roc_auc = auc(fpr, tpr)
     roc_auc = np.trapz(tpr, x=fpr)
-    return fpr,tpr,roc_auc,data,labels
 
-def draw_Obs_ROC(X0, X1, W0, W1, weights, label, legend, n, plot = True):
+    return fpr,tpr,roc_auc,data,labels,weights
+
+def draw_Obs_ROC(X0, X1, W0, W1, weights, label, legend, n, plot = True, plot_resampledRatio = False):
     plt.figure(figsize=(8, 6))
     W0 = W0.flatten()
     W1 = W1.flatten()
@@ -264,8 +386,14 @@ def draw_Obs_ROC(X0, X1, W0, W1, weights, label, legend, n, plot = True):
         x1 = X1[:,idx]
 
         # Form the resampled data based on probability of each event
-        fpr_t,tpr_t,roc_auc_t,data_t,labels_t = resampled_obs_and_roc(x0, x1, W0, W1)
-        fpr_tC,tpr_tC,roc_auc_tC,data_tr,labels_tr = resampled_obs_and_roc(x0, x1, W0*weights, W1)
+
+        # file names for the ratios
+        ratioNameNominal = 'nom_alt' if plot_resampledRatio else ''
+        ratioNameWeighted = 'carlW_alt' if plot_resampledRatio else ''
+        #
+        fpr_t,tpr_t,roc_auc_t,data_t,labels_t,weights_t = resampled_obs_and_roc(x0, x1, W0, W1, ratioName=ratioNameNominal)
+        fpr_tC,tpr_tC,roc_auc_tC,data_tr,labels_tr,weights_tr = resampled_obs_and_roc(x0, x1, W0*weights, W1, ratioName=ratioNameWeighted)
+
         plt.plot(fpr_t, tpr_t, label=r"no weight, AUC=%.3f" % roc_auc_t)
         plt.plot(fpr_tC, tpr_tC, label=r"CARL weight, AUC=%.3f" % roc_auc_tC)
         plt.plot([0, 1], [0, 1], 'k--')
@@ -286,9 +414,9 @@ def draw_Obs_ROC(X0, X1, W0, W1, weights, label, legend, n, plot = True):
 
         # Plot variables used in ROC calculation
         bins = np.linspace(np.amin(x0), np.amax(x0) ,50)
-        plt.hist(data_t[labels_t==0], bins=bins, label=r"Nominal", **hist_settings_nom)
-        plt.hist(data_tr[labels_tr==0], bins=bins, label=r"Nominal * CARL", **hist_settings_CARL)
-        plt.hist(data_tr[labels_tr==1], bins=bins, label=r"Alternative", **hist_settings_alt)
+        plt.hist(data_t[labels_t==0],   bins=bins, weights=weights_t[labels_t==0], label=r"Nominal", **hist_settings_nom)
+        plt.hist(data_tr[labels_tr==0], bins=bins, weights=weights_tr[labels_tr==0], label=r"Nominal * CARL", **hist_settings_CARL)
+        plt.hist(data_tr[labels_tr==1], bins=bins, weights=weights_tr[labels_tr==1], label=r"Alternative", **hist_settings_alt)
         plt.title('Resampled proportional to weights (obs: {})'.format(idx))
         plt.xlabel('Obseravble {}'.format(idx))
         plt.ylabel('Events')
@@ -298,51 +426,45 @@ def draw_Obs_ROC(X0, X1, W0, W1, weights, label, legend, n, plot = True):
             plt.savefig('plots/roc_inputs_nominalVs%s_%s_%s_%s.png'%(legend,label,idx,n))
             plt.clf()
 
-def weight_data(x0, x1, w0, w1, max_evts=100000):
+def weight_data(x0, x1, w0, w1):
 
     # Remove negative probabilities - maintains proportionality still by abs()
     w0 = abs(w0)
     w1 = abs(w1)
+    #ratio = w1.sum()/w0.sum()
+
+    x0_len = x0.shape[0]
+    w0_sum = int(w0.sum())
+    #if (w0_sum < 100000):
+    #    w0_sum = 100000
+    print(f"<plotting.py::weight_data()>  w0_sum={w0_sum}")
+    w0 = w0 / w0.sum()
+    weighted_data0 = np.random.choice(range(x0_len), int(w0_sum*0.01), p = w0)
+    w_x0 = x0.copy()[weighted_data0]
+
+    x1_len = x1.shape[0]
+    w1_sum = int(w1.sum())
+    #if (w0_sum < 100000):
+    #    w1_sum = 100000*ratio
+    print(f"<plotting.py::weight_data()>  w1_sum={w1_sum}")
+    w1 = w1 / w1.sum()
+    weighted_data1 = np.random.choice(range(x1_len), int(w1_sum*0.01), p = w1)
+    w_x1 = x1.copy()[weighted_data1]
 
     # Calculate the minimum size so as to ensure we have equal number of events in each class
-    x0_len = x0.shape[0]
-    x1_len = x1.shape[0]
-    minEvts = x0_len if x0_len < x1_len else x1_len
-    minEvts = minEvts if minEvts < max_evts else max_evts
-
-    x0_len = x0.shape[0]
-    w0 = w0 / w0.sum()
-    weighted_data0 = np.random.choice(range(x0_len), x0_len, p = w0)
-    w_x0 = x0.copy()[weighted_data0]
-    w0   = w0.copy()[weighted_data0]
-    #w_x0 = np.random.choice(x0, size=minEvts, p = w0)
-
-    x1_len = x1.shape[0]
-    w1 = w1 / w1.sum()
-    weighted_data1 = np.random.choice(range(x1_len), x1_len, p = w1)
-    w_x1 = x1.copy()[weighted_data1]
-    w1   = w1.copy()[weighted_data1]
-    #w_x1 = np.random.choice(x1, size=minEvts, p = w1)
-
-    # Cap the two to equal size
+    minEvts = min([len(w_x0),len(w_x1)])
     w_x0 = w_x0[ 0:minEvts, :]
     w_x1 = w_x1[ 0:minEvts, :]
-    w0   = w0[0:minEvts]
-    w1   = w1[0:minEvts]
 
     x_all = np.vstack((w_x0,w_x1))
-    #y_all = np.zeros(x0_len+x1_len)
-    y_all = np.zeros(minEvts*2)
-    y_all[minEvts:] = 1
-    w_all = np.append( w0, w1)
-    return (x_all,y_all,w_all)
+    y_all = np.zeros(2*len(w_x0))
+    y_all[len(w_x0):] = 1
+
+    return (x_all,y_all)
 
 def resampled_discriminator_and_roc(original, target, w0, w1):
-    #w0 = abs(w0) # Done in function below 'weight_data'
-    #w1 = abs(w1)
-    (data, labels, W) = weight_data(original, target, w0, w1)
-    #W = np.concatenate([w0 / w0.sum(), w1 / w1.sum()])
-    Xtr, Xts, Ytr, Yts, Wtr, Wts = train_test_split(data, labels, W, random_state=42, train_size=0.51, test_size=0.49)
+    (data, labels) = weight_data(original, target, w0, w1)
+    Xtr, Xts, Ytr, Yts = train_test_split(data, labels, random_state=42, train_size=0.51, test_size=0.49)
 
     discriminator = MLPRegressor(tol=1e-05, activation="logistic",
                                  hidden_layer_sizes=(original.shape[1],original.shape[1], original.shape[1]),
@@ -398,10 +520,8 @@ def plot_calibration_curve(y, probs_raw, probs_cal, global_name, save = False):
     #        #print("probs_raw:   {}".format(i))
     #        #print("probs_cal:   {}".format(j))
 
-
-
-    frac_of_pos_raw, mean_pred_value_raw = calibration_curve(y, probs_raw, n_bins=50)
-    frac_of_pos_cal, mean_pred_value_cal = calibration_curve(y, probs_cal, n_bins=50)
+    frac_of_pos_raw, mean_pred_value_raw = calibration_curve(y, probs_raw, n_bins=50)#, normalize=True)
+    frac_of_pos_cal, mean_pred_value_cal = calibration_curve(y, probs_cal, n_bins=50)#, normalize=True)
 
     ax1.plot(mean_pred_value_raw, frac_of_pos_raw, "s-", label='uncalibrated', **hist_settings_nom)
     ax1.plot(mean_pred_value_cal, frac_of_pos_cal, "s-", label='calibrated', **hist_settings_alt)
@@ -442,3 +562,109 @@ def draw_scatter(weightsCT, weightsCA, legend, do, n):
     plt.savefig("plots/scatter_weights_%s_%s_%s.png"%(do, legend, n))
     plt.clf()
     plt.close()
+
+def print_bad_events(x0, x1, w0, w1, weights, variables):
+
+    w0 = w0.flatten()
+    w1 = w1.flatten()
+    w_carl = w0*weights
+
+    bad_events = []
+    for entry in range(len(w_carl)):
+        if np.isnan(w_carl[entry]):
+            bad_events.append(entry)
+            print("Entry {} has weight with NaN value".format(entry))
+        if np.isinf(w_carl[entry]):
+            bad_events.append(entry)
+            print("Entry {} has weight with Inf value".format(entry))
+
+    for bad_entry in bad_events:
+        for id, column in enumerate(variables):
+            print("For bad event {}, the observable {} is {} in nominal sample".format(bad_entry, column, x0[bad_entry,id]))
+            #print("For bad event {}, the observable {} is {} in alternative sample".format(bad_entry, column, x1[entry,id]))
+
+
+def draw_CARL_weights(x0, x1, w0, w1, weightCT, variables, legend, label, n, save = True):
+    font = font_manager.FontProperties(family='Symbol',
+                                       style='normal', size=13)
+    plt.rcParams['legend.title_fontsize'] = 13
+    plt.yscale('log')
+    plt.xscale('log')
+    print(f"<plotting.py::draw_CARL_weights>::   Function called properly for sample {label}")
+
+    arr_w = np.array(weightCT)
+    mean = np.nanmean(arr_w, axis=0)
+    std = np.nanstd(arr_w, axis=0)
+    binning = np.linspace(mean-2*std,mean+10*std,50)
+    print(f"<plotting.py::draw_CARL_weights>::   Mean of weight vector = {mean}")
+    print(f"<plotting.py::draw_CARL_weights>::   Std of weight vector = {std}")
+    print("<plotting.py::draw_CARL_weights>::   binning: {}".format(binning))
+
+    EntriesHighCARL = []
+    for entry in range(len(weightCT)):
+        if ((np.isnan(weightCT[entry])) or np.isinf(weightCT[entry])):
+            EntriesHighCARL.append(entry)
+        if weightCT[entry]>(mean+5*std):
+            EntriesHighCARL.append(entry)
+            print(f"<plotting.py::draw_CARL_weights>::   Entry {entry} has large CARL weight value = {weightCT[entry]}")
+        if weightCT[entry]<=0:
+            EntriesHighCARL.append(entry)
+            print(f"<plotting.py::draw_CARL_weights>::   Entry {entry} has invalid CARL weight value = {weightCT[entry]}")
+
+    plt.hist(weightCT, bins = binning, label = "%s sample"%(label), **hist_settings_nom)
+    plt.xlabel('CARL weight', horizontalalignment='right',x=1, fontsize=13)
+    plt.xticks(fontsize=13)
+    plt.tick_params(axis="x", labelsize=13)
+    plt.yticks(fontsize=13)
+    plt.legend(frameon=False, prop=font)
+
+
+    print("<plotting.py::draw_CARL_weights>::   CARL weights histogram created")
+
+    if save:
+        create_missing_folders([f"plots/{legend}"])
+        output_name = f"plots/{legend}/CARLweights_{legend}_{label}_{n}"
+
+        plt.savefig(f"{output_name}.png")
+        plt.clf()
+        plt.close()
+
+        print("<plotting.py::draw_CARL_weights>::   CARL weights histogram saved")
+
+    EventInfo_HighCARL(x0, x1, w0, w1, weightCT, variables, legend, label, EntriesHighCARL)
+
+def EventInfo_HighCARL(x0, x1, w0, w1, weights, variables, legend, label, EntriesList):
+
+    print(f"<plotting.py::EventInfo_HighCARL>::   Function called properly for sample {label}")
+
+    w0 = w0.flatten()
+    w1 = w1.flatten()
+    w_carl = w0*weights
+
+    with open(f"plots/{legend}/EventInfo_HighCARL_{legend}_{label}.txt", "w+") as file:
+        print("<plotting.py::EventInfo_HighCARL>::   File opened successfully")
+        for entry in EntriesList:
+            line = "Entry "+str(entry)+": MC weight = "+str(w0[entry])+", CARL weight = "+str(weights[entry])+", MC*CARL weight = "+str(w_carl[entry])+"\n"
+            print(f"<plotting.py::EventInfo_HighCARL>::  {line}")
+            file.write(line)
+            for id, column in enumerate(variables):
+                 file.write(f"Entry {entry}: {column} = {x0[entry,id]}\n")
+
+def draw_CARL_weights_transform_inputs(x0, weightCT, variables):
+
+    EntriesHighCARL = []
+    for entry in range(len(weightCT)):
+        if ((np.isnan(weightCT[entry])) or np.isinf(weightCT[entry])):
+            EntriesHighCARL.append(entry)
+
+    EventInfo_HighCARL_transform_inputs(x0, weightCT, variables, EntriesHighCARL)
+
+def EventInfo_HighCARL_transform_inputs(x0, weights, variables, EntriesList):
+    legend = "3000000_gpu_try100_2jets_manualObs_perJet_ktsplitting_lundz4_pTrel3"
+    with open(f"plots/{legend}/EventInfo_HighCARL_{legend}_val_transform_inputs_InitializeOverwrite.txt", "w+") as file:
+        print("<plotting.py::EventInfo_HighCARL_transform_inputs>::   File opened successfully")
+        for entry in EntriesList:
+            line = "Entry "+str(entry)+": CARL weight = "+str(weights[entry])+"\n"
+            file.write(line)
+            for id, column in enumerate(variables):
+                 file.write(f"Entry {entry}: {column} = {x0[entry,id]}\n")
