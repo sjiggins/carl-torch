@@ -5,6 +5,7 @@ import logging
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as font_manager
 import multiprocessing
 import math
 from functools import partial
@@ -73,19 +74,22 @@ def draw_weighted_distributions(x0, x1, w0, w1,
                                 save = True,
                                 ext_plot_path=None,
                                 normalise=True):
+
+    font = font_manager.FontProperties(family='Symbol',
+                                       style='normal', size=14)
+    plt.rcParams['legend.title_fontsize'] = 18
     plt.figure(figsize=(14, 10))
     #columns = range(len(variables))
     for id, column in enumerate(variables):
         #plt.yscale('log')
         print("<plotting.py::draw_weighted_distribution()>::   id: {},   column: {}".format(id,column))
         if (column=="N_ch0" or column=="N_ch1"):
-            binning[id]=np.linspace(0.,30.,30)
+            binning[id]=np.linspace(0.,30.,31)
         if (column=="Ntracks"):
-            binning[id]=np.linspace(0.,350.,35)
+            binning[id]=np.linspace(0.,350.,36)
         print("<plotting.py::draw_weighted_distribution()>::     binning: {}".format(binning[id]))
         if save: plt.figure(figsize=(14, 10))
         else: plt.subplot(3,4, id)
-        #plt.yscale('log')
         w0 = w0.flatten()
         w1 = w1.flatten()
         w_carl = w0*weights
@@ -96,7 +100,7 @@ def draw_weighted_distributions(x0, x1, w0, w1,
         plt.hist(x0[:,id], bins = binning[id], weights = w0, label = "nominal", **hist_settings_nom)#, log=True)
         plt.hist(x0[:,id], bins = binning[id], weights = w_carl, label = 'nominal*CARL', **hist_settings_CARL)#, log=True)
         plt.hist(x1[:,id], bins = binning[id], weights = w1, label = "alternative", **hist_settings_alt)#, log=True)
-        plt.yscale('log')
+        #plt.yscale('log')
         if addInvSample:
             print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
             _setting = {'histtype':'step', 'linewidth':2, 'color':'red'}
@@ -112,11 +116,11 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             _w0= (addInvSample[1]*-1).to_numpy().flatten()
             plt.hist(_x0[:,id]*mul_scale, bins = binning[id], weights = _w0, label = "Non-splited nominal fraction", **_inv_setting)
 
-        plt.xlabel('%s'%(column), horizontalalignment='right',x=1)
-        plt.legend(frameon=False,title = '%s sample'%(label) )
+        plt.xlabel('%s'%(column), horizontalalignment='right',x=1, fontsize = 18)
+        plt.legend(frameon=False,title = '%s sample'%(label), prop=font )
         axes = plt.gca()
-        plt.xticks(fontsize=14)
-        plt.yticks(fontsize=14)
+        plt.xticks(fontsize=16)#14)
+        plt.yticks(fontsize=16)#14)
 
         # Calculate maximum and minimum of y-axis
         y_min, y_max = axes.get_ylim()
@@ -211,14 +215,17 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             #         #alpha=0.25,
             #         #label='uncertainty band')
 
-            plt.xlabel('%s'%(column), horizontalalignment='right',x=1)
-            plt.legend(frameon=False,title = '%s sample'%(label) )
+            plt.xlabel('%s'%(column), horizontalalignment='right',x=1, fontsize = 16)
+            plt.legend(frameon=False,title = '%s sample'%(label))
             axes = plt.gca()
             axes.set_ylim([0.5, 1.6])
-            plt.yticks(np.arange(0.5,1.6,0.1))
+            plt.xticks(fontsize=14)
+            plt.yticks(np.arange(0.5,1.6,0.1), fontsize=14)
             plt.savefig(f"{output_name}_ratio.png")
             plt.clf()
             plt.close()
+            #import sys
+            #if (label=='val'): sys.exit()
 
 def draw_resampled_ratio(x0, w0, x1, w1, ratioName=''):
     bins = np.linspace(np.amin(x0), np.amax(x0) ,50)
@@ -576,6 +583,9 @@ def print_bad_events(x0, x1, w0, w1, weights, variables):
 
 
 def draw_CARL_weights(x0, x1, w0, w1, weightCT, variables, legend, label, n, save = True):
+    font = font_manager.FontProperties(family='Symbol',
+                                       style='normal', size=13)
+    plt.rcParams['legend.title_fontsize'] = 13
     plt.yscale('log')
     plt.xscale('log')
     print(f"<plotting.py::draw_CARL_weights>::   Function called properly for sample {label}")
@@ -599,9 +609,13 @@ def draw_CARL_weights(x0, x1, w0, w1, weightCT, variables, legend, label, n, sav
             EntriesHighCARL.append(entry)
             print(f"<plotting.py::draw_CARL_weights>::   Entry {entry} has invalid CARL weight value = {weightCT[entry]}")
 
-    plt.hist(weightCT, bins = binning, label = label, **hist_settings_nom)
-    plt.xlabel('CARL weight', horizontalalignment='right',x=1)
-    plt.legend(frameon=False)
+    plt.hist(weightCT, bins = binning, label = "%s sample"%(label), **hist_settings_nom)
+    plt.xlabel('CARL weight', horizontalalignment='right',x=1, fontsize=13)
+    plt.xticks(fontsize=13)
+    plt.tick_params(axis="x", labelsize=13)
+    plt.yticks(fontsize=13)
+    plt.legend(frameon=False, prop=font)
+
 
     print("<plotting.py::draw_CARL_weights>::   CARL weights histogram created")
 
