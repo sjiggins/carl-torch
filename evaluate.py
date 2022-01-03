@@ -81,7 +81,7 @@ for i in evaluate:
     w_max = np.nanquantile(w, 0.99)
     w_min = None
     w = np.clip(w, w_min, w_max)
-    print(f"Clipped value for {i} is {w_max}")
+    print(f"Clipped value for {i} is {w_max} ")
 
     print("w = {}".format(w))
     print("<evaluate.py::__init__>::   Loading Result for {}".format(i))
