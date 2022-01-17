@@ -107,7 +107,7 @@ class Loader():
             x1, w1, vlabels1
         )  = HarmonisedLoading(fA = pathA, fB = pathB,
                                features=features, weightFeature=weightFeature,
-                               nentries = int(nentries), TreeName = TreeName, 
+                               nentries = int(nentries), TreeName = TreeName,
                                weight_polarity=weight_polarity, Filter=self.Filter)
 
 
@@ -212,13 +212,8 @@ class Loader():
         y1 = np.ones(x1.shape[0])
 
         # Train, test splitting of input dataset
-        X0_train, X0_test, y0_train, y0_test, w0_train, w0_test = train_test_split(X0, y0, w0, test_size=0.05, random_state=42) # what is "w0_test" for? maybe a split size of 0.05 if ok.
-        X1_train, X1_test, y1_train, y1_test, w1_train, w1_test = train_test_split(X1, y1, w1, test_size=0.05, random_state=42)
-        X0_train, X0_val,  y0_train, y0_val, w0_train, w0_val =  train_test_split(X0_train, y0_train, w0_train, test_size=0.50, random_state=42)
-        X1_train, X1_val,  y1_train, y1_val, w1_train, w1_val =  train_test_split(X1_train, y1_train, w1_train, test_size=0.50, random_state=42)
-
-        w0_test = None
-        w1_test = None
+        X0_train, X0_val,  y0_train, y0_val, w0_train, w0_val =  train_test_split(X0, y0, w0, test_size=0.50, random_state=42)
+        X1_train, X1_val,  y1_train, y1_val, w1_train, w1_val =  train_test_split(X1, y1, w1, test_size=0.50, random_state=42)
 
         #cliping large weights, and replace it by 1.0
         raw_w0_train = None
@@ -455,7 +450,7 @@ class Loader():
             binning[idx] = np.linspace(min, max, divisions)
             if verbose:
                 logger.info("<loading.py::load_result>::   Column {}:  min  =  {},  max  =  {}".format(column,min,max))
-                print(binning[idx])       
+                print(binning[idx])
 
         # no point in plotting distributions with too few events, they only look bad
         #if int(nentries) > 5000:
