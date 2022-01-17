@@ -3,12 +3,30 @@ import sys
 import logging
 #import optparse
 import numpy as np
-from arg_handler import arg_handler
+#from arg_handler import arg_handler
 from ml import RatioEstimator
 from ml.utils.loading import Loader
 
 #################################################
-opts, args = arg_handler_eval()
+parser = optparse.OptionParser(usage="usage: %prog [opts]", version="%prog 1.0")
+parser.add_option('-n', '--nominal',   action='store', type=str, dest='nominal',   default='', help='Nominal sample name (root file name excluding the .root extension)')
+parser.add_option('-v', '--variation', action='store', type=str, dest='variation', default='', help='Variation sample name (root file name excluding the .root extension)')
+parser.add_option('-e', '--nentries',  action='store', type=str, dest='nentries',  default=1000, help='specify the number of events to do the training on, None means full sample')
+parser.add_option('-p', '--datapath',  action='store', type=str, dest='datapath',  default='./Inputs/', help='path to where the data is stored')
+parser.add_option('-g', '--global_name',  action='store', type=str, dest='global_name',  default='Test', help='Global name for identifying this run - used in folder naming and output naming')
+parser.add_option('-f', '--features',  action='store', type=str, dest='features',  default='', help='Comma separated list of features within tree')
+parser.add_option('-w', '--weightFeature',  action='store', type=str, dest='weightFeature',  default='', help='Name of event weights feature in TTree')
+parser.add_option('-t', '--TreeName',  action='store', type=str, dest='treename',  default='Tree', help='Name of TTree name inside root files')
+parser.add_option('--PlotROC',  action="store_true", dest='plot_ROC',  help='Flag to determine if one should plot ROC')
+parser.add_option('--PlotObsROC',  action="store_true", dest='plot_obs_ROC',  help='Flag to determine if one should plot observable ROCs')
+parser.add_option('--PlotResampleRatio',  action="store_true", dest='plot_resampledRatio',  help='Flag to determine if one should plot a ratio of resampled vs original distribution')
+parser.add_option('-m', '--model', action='store', type=str, dest='model', default=None, help='path to the model.')
+parser.add_option('-b', '--binning',  action='store', type=str, dest='binning',  default=None, help='path to binning yaml file.')
+parser.add_option('--normalise', action='store_true', dest='normalise', default=False, help='enforce normalization when plotting')
+parser.add_option('--rawWeight',  action="store_true", dest='raw_weight',  help='Flag to use raw event weight')
+parser.add_option('--scale-method', action='store', dest='scale_method', type=str, default=None, help='scaling method for input data. e.g minmax, standard.')
+opts, args = parser.parse_args()
+#opts, args = arg_handler_eval()
 nominal  = opts.nominal
 variation = opts.variation
 n = opts.nentries
@@ -53,7 +71,7 @@ for i in evaluate:
     # to screen should already be printed
     if carl_weight_protection:
         w = np.nan_to_num(w, nan=1.0, posinf=1.0, neginf=1.0)
-    
+
     # Weight clipping if requested by user
     if carl_weight_clipping:
         carl_w_clipping = np.percentile(w, w_threshold)
