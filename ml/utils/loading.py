@@ -212,8 +212,8 @@ class Loader():
         y1 = np.ones(x1.shape[0])
 
         # Train, test splitting of input dataset
-        X0_train, X0_val,  y0_train, y0_val, w0_train, w0_val =  train_test_split(X0, y0, w0, test_size=0.50, random_state=42)
-        X1_train, X1_val,  y1_train, y1_val, w1_train, w1_val =  train_test_split(X1, y1, w1, test_size=0.50, random_state=42)
+        X0_train, X0_val, y0_train, y0_val, w0_train, w0_val =  train_test_split(X0, y0, w0, test_size=0.50, random_state=42)
+        X1_train, X1_val, y1_train, y1_val, w1_train, w1_val =  train_test_split(X1, y1, w1, test_size=0.50, random_state=42)
 
         #cliping large weights, and replace it by 1.0
         raw_w0_train = None
@@ -297,58 +297,54 @@ class Loader():
 
         # save data
         if folder is not None and save:
-            np.save(folder + global_name + "/X_train_" +str(nentries)+".npy", X_train)
-            np.save(folder + global_name + "/y_train_" +str(nentries)+".npy", y_train)
-            np.save(folder + global_name + "/w_train_" +str(nentries)+".npy", w_train)
+            # dict for tracking items being saved
+            saving_items = {
+                "X_train" : X_train,
+                "y_train" : y_train,
+                "w_train" : w_train,
+                "X_val" : np.vstack([X0_val, X1_val]),
+                "y_val" : np.concatenate((y0_val, y1_val), axis=None),
+                "w_val" : np.concatenate((w0_val, w1_val), axis=None),
+                "X0_val" : X0_val,
+                "X1_val" : X1_val,
+                "w0_val" : w0_val,
+                "w1_val" : w1_val,
+                "X0_train" : X0_train,
+                "X1_train" : X1_train,
+                "w0_train" : w0_train,
+                "w1_train" : w1_train,
+            }
+            # record the list of names before saving
+            saving_items_names = list(saving_items.keys())
+            # use pop to iterate through
+            for name in saving_items:
+                np.save(f"{folder}/{global_name}/{name}_{nentries}.npy", saving_items.pop(name))
 
-            X_val = np.vstack([X0_val, X1_val])
-            np.save(folder + global_name + "/X_val_"   +str(nentries)+".npy", X_val)
-            X_val = None
-
-            y_val = np.concatenate((y0_val, y1_val), axis=None)
-            np.save(folder + global_name + "/y_val_"   +str(nentries)+".npy", y_val)
-            y_val = None
-
-            w_val = np.concatenate((w0_val, w1_val), axis=None)
-            np.save(folder + global_name + "/w_val_"   +str(nentries)+".npy", w_val)
-            w_val = None
-
-            np.save(folder + global_name + "/X0_val_"  +str(nentries)+".npy", X0_val)
-            np.save(folder + global_name + "/X1_val_"  +str(nentries)+".npy", X1_val)
-            np.save(folder + global_name + "/w0_val_"  +str(nentries)+".npy", w0_val)
-            np.save(folder + global_name + "/w1_val_"  +str(nentries)+".npy", w1_val)
-            np.save(folder + global_name + "/X0_train_"+str(nentries)+".npy", X0_train)
-            np.save(folder + global_name + "/X1_train_"+str(nentries)+".npy", X1_train)
-            np.save(folder + global_name + "/w0_train_"  +str(nentries)+".npy", w0_train)
-            np.save(folder + global_name + "/w1_train_"  +str(nentries)+".npy", w1_train)
             if large_weight_clipping or weight_preprocess:
-                np.save(folder + global_name + "/w0_train_raw_"  +str(nentries)+".npy", raw_w0_train)
-                np.save(folder + global_name + "/w1_train_raw_"  +str(nentries)+".npy", raw_w1_train)
-                np.save(folder + global_name + "/w0_val_raw_"  +str(nentries)+".npy", raw_w0_val)
-                np.save(folder + global_name + "/w1_val_raw_"  +str(nentries)+".npy", raw_w1_val)
-            f = open(folder + global_name + "/metaData_"+str(nentries)+".pkl", "wb")
-            pickle.dump(metaData, f)
-            f.close()
+                raw_saving_items = {
+                    "w0_train_raw" : raw_w0_train,
+                    "w1_train_raw" : raw_w1_train,
+                    "w0_val_raw" : raw_w0_val,
+                    "w1_val_raw" : raw_w1_val,
+                }
+                for name in raw_saving_items:
+                    np.save(f"{folder}/{global_name}/{name}_{nentries}.npy", raw_saving_items.pop(name))
+                    np.save(folder + global_name + "/w0_train_raw_"  +str(nentries)+".npy", raw_w0_train)
+
+            # saving metadata
+            metadata_fname = f"{folder}/{global_name}/metaData_{nentries}.pkl"
+            with open(metadata_fname, "wb") as f:
+                pickle.dump(metaData, f)
+
             #Tar data files if training is done on GPU
             if torch.cuda.is_available() and not noTar:
                 plot = False #don't plot on GPU...
                 tar = tarfile.open("data_out.tar.gz", "w:gz")
-                for name in [folder + global_name + "/X_train_" +str(nentries)+".npy",
-                             folder + global_name + "/y_train_" +str(nentries)+".npy",
-                             folder + global_name + "/X_val_"   +str(nentries)+".npy",
-                             folder + global_name + "/y_val_"   +str(nentries)+".npy",
-                             folder + global_name + "/X0_val_"  +str(nentries)+".npy",
-                             folder + global_name + "/X1_val_"  +str(nentries)+".npy",
-                             folder + global_name + "/w0_val_"  +str(nentries)+".npy",
-                             folder + global_name + "/w1_val_"  +str(nentries)+".npy",
-                             folder + global_name + "/X0_train_"+str(nentries)+".npy",
-                             folder + global_name + "/X1_train_"+str(nentries)+".npy",
-                             folder + global_name + "/w0_train_"  +str(nentries)+".npy",
-                             folder + global_name + "/w1_train_"  +str(nentries)+".npy"]:
+                tar_list = [f"{folder}/{global_name}/{_name}_{nentries}.py" for _name in saving_items_names]
+                for name in tar_list:
                     tar.add(name)
-                    f = open(folder + global_name + "/metaData_"+str(nentries)+".pkl", "wb")
-                    pickle.dump(metaData, f)
-                    f.close()
+                    with open(metadata_fname, "wb") as f:
+                        pickle.dump(metaData, f)
                 tar.close()
 
         return X_train, y_train, X0_train, X1_train, w_train, w0_train, w1_train, metaData
