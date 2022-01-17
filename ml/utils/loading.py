@@ -447,7 +447,7 @@ class Loader():
             #  as integer values indicate well bounded data
             intTest = [ (i % 1) == 0  for i in X0[:,idx] ]
             intTest = all(intTest) #np.all(intTest == True)
-            upperThreshold = 100 if intTest else 98
+            upperThreshold = 100 if intTest or np.any(X0[:,idx] < 0) else 98
             max = np.percentile(X0[:,idx], upperThreshold)
             lowerThreshold = 0 if (np.any(X0[:,idx] < 0 ) or intTest) else 0
             min = np.percentile(X0[:,idx], lowerThreshold)

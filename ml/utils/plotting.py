@@ -5,6 +5,7 @@ import logging
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as font_manager
 import multiprocessing
 import math
 from functools import partial
@@ -13,7 +14,8 @@ from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import roc_curve, auc, confusion_matrix
 from sklearn.neural_network import MLPRegressor
 from sklearn.calibration import calibration_curve
-
+import wasserstein
+import scipy as scipy
 
 import torch
 from .tools import create_missing_folders
@@ -46,6 +48,7 @@ def draw_unweighted_distributions(x0, x1,
                                   legend,
                                   n,
                                   save = False):
+
     plt.figure(figsize=(14, 10))
     columns = range(len(variables))
     for id, column in enumerate(columns, 1):
@@ -73,14 +76,22 @@ def draw_weighted_distributions(x0, x1, w0, w1,
                                 save = False,
                                 ext_plot_path=None,
                                 normalise=True):
-    plt.figure(figsize=(14, 10))
-    #columns = range(len(variables))
+    # Formatting
+    font = font_manager.FontProperties(family='Symbol',
+                                       style='normal', size=12)
+    plt.rcParams['legend.title_fontsize'] = 14
+
 
     for id, column in enumerate(variables):
+        #fig, axes = plt.subplots(3, sharex=True, figsize=(12,10))
+        fig = plt.figure(figsize=(12,10))
+        gs = fig.add_gridspec(3, hspace=0, height_ratios=[5,2,2])
+        axes = gs.subplots(sharex=True)
+        fig.suptitle("Differential Cross-section & Mapping Performance")
         print("<plotting.py::draw_weighted_distribution()>::   id: {},   column: {}".format(id,column))
         print("<plotting.py::draw_weighted_distribution()>::     binning: {}".format(binning[id]))
-        if save: plt.figure(figsize=(14, 10))
-        else: plt.subplot(3,4, id)
+        #if save: axes[0].figure(figsize=(14, 10))
+        #else: axes[0].plt.subplot(3,4, id)
         #plt.yscale('log')
         w0 = w0.flatten()
         w1 = w1.flatten()
@@ -89,15 +100,16 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             w0 = w0/w0.sum()
             w1 = w1/w1.sum()
             w_carl = w_carl/w_carl.sum()
-        plt.hist(x0[:,id], bins = binning[id], weights = w0, label = "nominal", **hist_settings_nom)
-        plt.hist(x0[:,id], bins = binning[id], weights = w_carl, label = 'nominal*CARL', **hist_settings_CARL)
-        plt.hist(x1[:,id], bins = binning[id], weights = w1, label = legend, **hist_settings_alt)
+        nom_count, nom_bin, nom_bars = axes[0].hist(x0[:,id], bins = binning[id], weights = w0, label = "nominal", **hist_settings_nom, density=True)
+        carl_count, carl_bin, carl_bars = axes[0].hist(x0[:,id], bins = binning[id], weights = w_carl, label = 'nominal*CARL', **hist_settings_CARL, density=True)
+        alt_count, alt_bins, alt_bars = axes[0].hist(x1[:,id], bins = binning[id], weights = w1, label = legend, **hist_settings_alt, density=True)
+        axes[0].grid(axis='x', color='silver')
         if addInvSample:
             print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
             _setting = {'histtype':'step', 'linewidth':2, 'color':'red'}
             _x0 = addInvSample[0].to_numpy()
             _w0 = addInvSample[1].to_numpy().flatten()
-            plt.hist(_x0[:,id], bins = binning[id], weights = _w0, label = "Non-splited nominal Inverted fraction", **_setting)
+            axes[0].hist(_x0[:,id], bins = binning[id], weights = _w0, label = "Non-splited nominal Inverted fraction", **_setting)
 
             _inv_setting = {'histtype':'step', 'linewidth':3, 'color':'pink'}
             if column == "polarity":
@@ -105,17 +117,58 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             else:
                 mul_scale = 1
             _w0= (addInvSample[1]*-1).to_numpy().flatten()
-            plt.hist(_x0[:,id]*mul_scale, bins = binning[id], weights = _w0, label = "Non-splited nominal fraction", **_inv_setting)
+            axes[0].hist(_x0[:,id]*mul_scale, bins = binning[id], weights = _w0, label = "Non-splited nominal fraction", **_inv_setting)
 
-        plt.xlabel('%s'%(column), horizontalalignment='right',x=1)
-        plt.legend(frameon=False,title = '%s sample'%(label) )
-        axes = plt.gca()
-        plt.xticks(fontsize=14)
-        plt.yticks(fontsize=14)
+        axes[0].set_xlabel('%s'%(column), horizontalalignment='right',x=1)
+        axes[0].legend(frameon=False,title = '%s sample'%(label), prop=font )
+        axes[0].set_ylabel(r"$\frac{1}{N} \cdot \frac{d \sigma}{dx}$", horizontalalignment='center',x=1, fontsize=18)
+        #axes[0].legend.get_title().set_fontsize('14')
+        #axes = plt.gca()
+        #axes[0].set_xticks(fontsize=14)
+        #axes[0].set_yticks(fontsize=14)
+
+        # Calculate the chi^[2}
+        nom_alt_chi, nom_alt_p = scipy.stats.chisquare(f_obs=nom_count, f_exp=alt_count)
+        carl_alt_chi, carl_alt_p = scipy.stats.chisquare(f_obs=carl_count, f_exp=alt_count)
+        # Result string
+        nom_alt_chi_res = "$\chi^{2}$ ="+" {},  p-value = {}".format(nom_alt_chi,nom_alt_p)
+        carl_alt_chi_res = "$\chi^{2}$ ="+" {},  p-value = {}".format(carl_alt_chi,carl_alt_p)
+        logger.info("{}".format(nom_alt_chi_res))
+        logger.info("{}".format(carl_alt_chi_res))
+        
+        # KL-divergence
+        ########### SciPy ##########
+        #nom_alt_KL = scipy.special.kl_div(nom_count, alt_count)
+        #carl_alt_KL = scipy.special.kl_div(carl_count, alt_count)
+        ## Result string
+        #nom_alt_KL_res = "KL(nom,alt) = {}".format(nom_alt_KL)
+        #carl_alt_KL_res = "KL(carl,alt) = {}".format(carl_alt_KL)
+        ############################
+        ########### Custom #########
+        nom_alt_KL = compute_kl_divergence(x0[:,id], w0, x1[:,id], w1, len(binning[id]))
+        carl_alt_KL = compute_kl_divergence(x0[:,id], w0, x0[:,id], w_carl, len(binning[id]))
+        ## Result string
+        nom_alt_KL_res = "KL(nom,alt) = {}".format(nom_alt_KL)
+        carl_alt_KL_res = "KL(carl,alt) = {}".format(carl_alt_KL)
+        ############################        
+        logger.info("{}".format(nom_alt_KL_res))
+        logger.info("{}".format(carl_alt_KL_res))
+
+        # Calculate the EMD
+        #emd = wasserstein.EMD()
+        #emd_var_val = emd(w0, x0[:,id], w1, x1[:,id])
+        #print('EMD:', emd)
+        #print('EMD var. value:', emd_var_val)
+
+        # Ad metrics to plot
+        #axes[0].text(0.2, 0.9, s=nom_alt_chi_res, horizontalalignment='center', verticalalignment='center', transform=axes[0].transAxes)
+        #axes[0].text(0.2, 0.85, s=carl_alt_chi_res, horizontalalignment='center', verticalalignment='center', transform=axes[0].transAxes)
+        #axes[0].text(0.2, 0.8, s=nom_alt_KL_res, horizontalalignment='center', verticalalignment='center', transform=axes[0].transAxes)
+        #axes[0].text(0.2, 0.75, s=carl_alt_KL_res, horizontalalignment='center', verticalalignment='center', transform=axes[0].transAxes)
 
         # Calculate maximum and minimum of y-axis
-        y_min, y_max = axes.get_ylim()
-        axes.set_ylim([y_min*0.9, y_max*2])
+        y_min, y_max = axes[0].get_ylim()
+        axes[0].set_ylim([y_min*0.9, y_max*1.5])
         if save:
             # Create folder for storing plots and Form output name and then save
             if ext_plot_path:
@@ -125,15 +178,15 @@ def draw_weighted_distributions(x0, x1, w0, w1,
                 create_missing_folders([f"plots/{legend}"])
                 output_name = f"plots/{legend}/w_{column}_nominalVs{legend}_{label}_{n}"
 
-            plt.savefig(f"{output_name}.png")
-            plt.clf()
-            plt.close()
-            plt.figure(figsize=(10, 8)) # this line is needed to keep same canvas size
+            #plt.savefig(f"{output_name}.png")
+            #plt.clf()
+            #plt.close()
+            #plt.figure(figsize=(10, 8)) # this line is needed to keep same canvas size
 
             # ratio plot
-            x0_hist, edge0 = np.histogram(x0[:,id], bins = binning[id], weights = w0)
-            x1_hist, edge1 = np.histogram(x1[:,id], bins = binning[id], weights = w1)
-            carl_hist, edgecarl = np.histogram(x0[:,id], bins = binning[id], weights = w_carl)
+            x0_hist, edge0 = np.histogram(x0[:,id], bins = binning[id], weights = w0, density=True)
+            x1_hist, edge1 = np.histogram(x1[:,id], bins = binning[id], weights = w1, density=True)
+            carl_hist, edgecarl = np.histogram(x0[:,id], bins = binning[id], weights = w_carl, density=True)
             #x1_ratio = x1_hist/x0_hist
             x1_ratio = x0_hist/x1_hist
             #carl_ratio = carl_hist/x0_hist
@@ -144,9 +197,15 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             #   -> Now generate the x and y points of the reference line
             yref = [1.0,1.0]
 
-            ## Generate error bands for the reference histogram
+            ## Generate error bands and residue for the reference histogram
             x0_error = []
             x1_error = []
+            residue = []
+            residue_carl = []
+            # Normalise weights to unity
+            w0 = w0*(1.0/np.sum(w0))
+            w1 = w1*(1.0/np.sum(w1))
+            w_carl = w_carl*(1.0/np.sum(w_carl))
             if len(binning[id]) > 1:
                 width = abs(binning[id][1] - binning[id][0] )
                 for xbin in binning[id]:
@@ -156,31 +215,43 @@ def draw_weighted_distributions(x0, x1, w0, w1,
                     # Form bin error
                     binsqrsum_x0 = np.sum(w0[mask0]**2)
                     binsqrsum_x1 = np.sum(w1[mask1]**2)
+                    binsqrsum_x0_carl = np.sum(w_carl[mask0]**2)
                     binsqrsum_x0 = math.sqrt(binsqrsum_x0)
                     binsqrsum_x1 = math.sqrt(binsqrsum_x1)
+                    binsqrsum_x0_carl = math.sqrt(binsqrsum_x0_carl)
+                    # Form residue
+                    res_num = np.sum(w1[mask1]) - np.sum(w0[mask0])
+                    res_denom = math.sqrt(binsqrsum_x0**2 + binsqrsum_x1**2)
+                    # Form residue (CARL)
+                    res_num_carl = np.sum(w1[mask1]) - np.sum(w_carl[mask0])
+                    res_denom_carl = math.sqrt(binsqrsum_x0_carl**2 + binsqrsum_x1**2)
                     # Form relative error
                     binsqrsum_x0 = binsqrsum_x0/w0[mask0].sum()
                     binsqrsum_x1 = binsqrsum_x1/w1[mask1].sum()
 
-                    x0_error.append(binsqrsum_x0 if binsqrsum_x0 > 0 else 0.0 )
+                    # Save residual
+                    x0_error.append(binsqrsum_x0 if binsqrsum_x0 > 0 else 0.0)
                     x1_error.append(binsqrsum_x1 if binsqrsum_x1 > 0 else 0.0)
+                    residue.append(res_num/res_denom if binsqrsum_x0+binsqrsum_x1 > 0 else 0.0)
+                    residue_carl.append(res_num_carl/res_denom_carl if binsqrsum_x0_carl+binsqrsum_x1 > 0 else 0.0)
                     #print("binsqrsum_x0:  {}".format(binsqrsum_x0))
                     #print("binsqrsum_x1:  {}".format(binsqrsum_x1))
-
-
-            #else:
-            #    # Fill in errors with 0 as could not determine bin width
-            #    x0_hist_error =
-            #    x1_hist_error =
+                    #print("residue     :  {}".format(res_num/res_denom))
 
 
             # Convert error lists to numpy arrays
             x0_error = np.array(x0_error)
             x1_error = np.array(x1_error)
+            residue  = np.array(residue)
+            residue_carl  = np.array(residue_carl)
 
-            plt.step( xref, yref, where="post", label=legend+" / "+legend, **hist_settings_alt )
-            plt.step( edge1[:-1], x1_ratio, where="post", label="nom / "+legend, **hist_settings_nom)
-            plt.step( edgecarl[:-1], carl_ratio, where="post", label = '(nominal*CARL) / '+legend, **hist_settings_CARL_ratio)
+            ## Ratio error
+            print("ratio")
+            #axes[1].step( xref, yref, where="post", label=legend+" / "+legend, **hist_settings_alt )
+            axes[1].step( xref, yref, where="post", **hist_settings_alt )
+            axes[1].step( edge1[:-1], x1_ratio, where="post", label="nom / "+legend, **hist_settings_nom)
+            axes[1].step( edgecarl[:-1], carl_ratio, where="post", label = '(nominal*CARL) / '+legend, **hist_settings_CARL_ratio)
+            axes[1].grid(axis='x', color='silver')
             #plt.fill_between(edge[:,-1], 1.0, x1_ratio)
             yref_error = np.ones(len(edge1))
             yref_error_up = 2* np.sqrt( np.power(x1_error,2) + np.power(x0_error, 2)) # height from bottom
@@ -190,31 +261,78 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             #print("x0_error:    {}".format(x0_error))
             #print("x1_error:    {}".format(x1_error))
             #print("width:       {}".format(np.diff(edge1)))
+            
+            #plt.bar( x=edge1, height=yref_error+x1_error, bottom = yref_error-x1_error, width=np.diff(edge1), align='edge', linewidth=0, color='red', alpha=0.25, zorder=-1, label='uncertainty band')
+            axes[1].bar( x=edge1[:-1],
+                             height=yref_error_up[:-1], bottom = yref_error_down[:-1],
+                             color='red',
+                             width=np.diff(edge1),
+                             align='edge',
+                             alpha=0.25,
+                             label='uncertainty band')
+                   #         #width=np.diff(edge1),
+                   #         #align='edge',
+                   #         #linewidth=0,
+                   #         #color='red',
+                   #         #alpha=0.25,
+                   #         #label='uncertainty band')
+            
+            axes[1].set_ylabel("Ratio", horizontalalignment='center',x=1)
+            axes[1].set_xlabel('%s'%(column), horizontalalignment='right',x=1)
+            axes[1].legend(frameon=False, ncol=2)#,title = '%s sample'%(label) ) # We want two columns, and the uncertainty band is in the 2nd column
+            #axes_1 = plt.gca()
+            axes[1].set_ylim([0.5, 1.6])
+            axes[1].set_yticks(np.arange(0.5,1.6,0.1))
+            #plt.savefig(f"{output_name}_ratio.png")
+            #plt.clf()
+            #plt.close()
+
+
+            ## Residual
+            print("residual")
+            yref = [0.0,0.0]
+            ref = axes[2].step( xref, yref, where="post", label=legend+" / "+legend, **hist_settings_alt )
+            nom = axes[2].step( edge1, residue, where="post", label="nom / "+legend, **hist_settings_nom)
+            carl = axes[2].step( edgecarl, residue_carl, where="post", label = '(nominal*CARL) / '+legend, **hist_settings_CARL_ratio)
+            axes[2].grid(axis='x', color='silver')
+            #plt.fill_between(edge[:,-1], 1.0, x1_ratio)
+            yref_error = np.zeros(len(edge1))
+            yref_error_up = np.full(len(edge1), 1)
+            yref_error_down = np.full(len(edge1), -1)
+            yref_3error_up = np.full(len(edge1), 3)
+            yref_3error_down = np.full(len(edge1), -3)
+            yref_5error_up = np.full(len(edge1), 5)
+            yref_5error_down = np.full(len(edge1), -5)
+            #print("edg1:    {}".format(edge1))
+            #print("yref_error:    {}".format(yref_error))
+            #print("x0_error:    {}".format(x0_error))
+            #print("x1_error:    {}".format(x1_error))
+            #print("width:       {}".format(np.diff(edge1)))
 
             #plt.bar( x=edge1, height=yref_error+x1_error, bottom = yref_error-x1_error, width=np.diff(edge1), align='edge', linewidth=0, color='red', alpha=0.25, zorder=-1, label='uncertainty band')
-            plt.bar( x=edge1[:-1],
-                     height=yref_error_up[:-1], bottom = yref_error_down[:-1],
-                     color='red',
-                     width=np.diff(edge1),
-                     align='edge',
-                     alpha=0.25,
-                     label='uncertainty band')
-            #         #width=np.diff(edge1),
-            #         #align='edge',
-            #         #linewidth=0,
-            #         #color='red',
-            #         #alpha=0.25,
-            #         #label='uncertainty band')
-
-            plt.xlabel('%s'%(column), horizontalalignment='right',x=1)
-            plt.legend(frameon=False,title = '%s sample'%(label) )
-            axes = plt.gca()
-            axes.set_ylim([0.5, 1.6])
-            plt.yticks(np.arange(0.5,1.6,0.1))
-            plt.savefig(f"{output_name}_ratio.png")
-            plt.clf()
-            plt.close()
-
+            FiveSigma = axes[2].fill_between(edge1, yref_5error_down, yref_5error_up, color='lightcoral', alpha=0.5, label = "5$\sigma$")
+            ThreeSigma = axes[2].fill_between(edge1, yref_3error_down, yref_3error_up, color='bisque', alpha=0.75, label = "3$\sigma$")
+            OneSigma = axes[2].fill_between(edge1, yref_error_down, yref_error_up, color='olivedrab', alpha=0.5, label = "1$\sigma$")
+            
+            axes[2].set_ylabel("Residual", horizontalalignment='center',x=1)
+            axes[2].set_xlabel('%s'%(column), horizontalalignment='right',x=1)
+            axes[2].legend(frameon=False,
+                           ncol=3,
+                           #title = '%s sample'%(label), 
+                           handles=[OneSigma,ThreeSigma,FiveSigma],#,ref,nom,carl], 
+                           labels = ["1$\sigma$", "3$\sigma$", "5$\sigma$"])#,("{} / {}").format(legend,legend), ("nom / {}").format(legend),("(nominal*CARL) / {}").format(legend)] )
+            #axes = plt.gca()
+            axes[2].set_ylim([-8, 8])
+            axes[2].set_yticks(np.arange(-8,8,1.0))
+            #fig.savefig(f"{output_name}_residual.png")
+            fig.savefig(f"{output_name}.png")
+            fig.clf()
+            axes = [a_ele.clear() for a_ele in axes]
+            #fig.close()
+            
+            #if id > 1:
+            #    return
+            
 def draw_resampled_ratio(x0, w0, x1, w1, ratioName=''):
     bins = np.linspace(np.amin(x0), np.amax(x0) ,50)
     n0, _, _ = plt.hist(x0, weights=w0, bins=bins, label='original', **hist_settings_nom)
@@ -541,3 +659,40 @@ def draw_scatter(weightsCT, weightsCA, legend, do, n):
     plt.savefig("plots/scatter_weights_%s_%s_%s.png"%(do, legend, n))
     plt.clf()
     plt.close()
+
+
+def compute_probs(data, weights, n=100): 
+    h, e = np.histogram(data, weights=weights, bins=n)
+    p = h/np.sum(weights) #data.shape[0]
+    return e, p
+
+def support_intersection(p, q): 
+    sup_int = (
+        list(
+            filter(
+                lambda x: (x[0]!=0) & (x[1]!=0), zip(p, q)
+            )
+        )
+    )
+    return sup_int
+
+def get_probs(list_of_tuples): 
+    p = np.array([p[0] for p in list_of_tuples])
+    q = np.array([p[1] for p in list_of_tuples])
+    return p, q
+
+def kl_divergence(p, q): 
+    return np.sum(p*np.log(p/q))
+
+def compute_kl_divergence(train_sample, train_weights, test_sample, test_weights, n_bins=10): 
+    """
+    Computes the KL Divergence using the support 
+    intersection between two different samples
+    """
+    e, p = compute_probs(train_sample, train_weights, n=n_bins)
+    _, q = compute_probs(test_sample, test_weights, n=e)
+
+    list_of_tuples = support_intersection(p, q)
+    p, q = get_probs(list_of_tuples)
+    
+    return kl_divergence(p, q)

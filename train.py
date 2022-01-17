@@ -12,9 +12,7 @@ from ml import Filter
 import numpy as np
 from itertools import repeat
 
-
 logger = logging.getLogger(__name__)
-
 
 #################################################
 # Arugment parsing

@@ -6,6 +6,8 @@ from ml import RatioEstimator
 from ml.utils.loading import Loader
 from ml.calibration import CalibratedClassifier
 from ml.base import Estimator
+import numpy as np
+
 
 #parser = optparse.OptionParser(usage="usage: %prog [opts]", version="%prog 1.0")
 #parser.add_option('-s', '--samples',   action='store', type=str, dest='samples',   default='dilepton', help='samples to derive weights for. Sherpa 2.2.8 ttbar dilepton')
@@ -57,15 +59,24 @@ carl = RatioEstimator()
 carl.scaling_method = scale_method
 carl.load('models/'+global_name+'_carl_'+str(n))
 #load
-evaluate = ['train']
+#evaluate = ['train']
 X = 'data/'+global_name+'/X_train_'+str(n)+'.npy'
 y = 'data/'+global_name+'/y_train_'+str(n)+'.npy'
 w = 'data/'+global_name+'/w_train_'+str(n)+'.npy'
 r_hat, s_hat = carl.evaluate(X)
+r_hat = np.nan_to_num(r_hat, nan=1.0, posinf=1.0, neginf=1.0)
+s_hat = np.nan_to_num(s_hat, nan=1.0, posinf=1.0, neginf=1.0)
+# Temporary weight clipping
+r_hat[r_hat > 1.0] = 1.0
+r_hat[r_hat < 0.0] = 0.0
+s_hat[s_hat > 1.0] = 1.0
+s_hat[s_hat < 0.0] = 0.0
+
+
 calib = CalibratedClassifier(carl, global_name=global_name)
 calib.fit(X=X,y=y,w=w)
 p0, p1, r_cal = calib.predict(X=X)
-w_cal = 1/r_cal
+#w_cal = 1/r_cal
 loading.load_calibration(y_true = y,
                          p1_raw = s_hat, 
                          p1_cal = p1, 
@@ -75,6 +86,7 @@ loading.load_calibration(y_true = y,
 )
 
 evaluate = ['train', 'val']
+#evaluate = ['val']
 for i in evaluate:
     p0, p1, r_cal = calib.predict(X ='data/'+global_name+'/X0_'+i+'_'+str(n)+'.npy')
     w = 1./r_cal

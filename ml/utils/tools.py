@@ -11,7 +11,10 @@ import pandas as pd
 # from torch.nn import functional as F
 from collections import defaultdict
 # from contextlib import contextmanager
-# import pickle
+# import pickle 
+from time import process_time # For sub-process timing
+#import cudf
+import torch
 
 logger = logging.getLogger(__name__)
 
@@ -270,25 +273,32 @@ def load(
             DataFrame of feasures, event weight, and labels
     """
     # grab our data and iterate over chunks of it with uproot
-    print("Uproot open file")
+    logger.info("<{}> Uproot open file".format(process_time()))
     file = uproot.open(f)
 
     # Now get the Tree
-    print("Getting TTree from file")
+    logger.info("<{}> Getting TTree from file".format(process_time()))
     X_tree = file[t]
 
     # Check that features were set by user, if not then will use all features
     #   -  may double up on weight feature but will warn user
     if not features:
         # Set the features to all keys in tree - warn user!!!
-        print("<tools.py::load()>::   Attempting extract features however user did not define values. Using all keys inside TTree as features.")
+        logger.info("Attempting extract features however user did not define values. Using all keys inside TTree as features.")
         features = X_tree.keys()
 
     # Extract the pandas dataframe - warning about jagged arrays
     #df = X_tree.pandas.df(features, flatten=False)
+    logger.info("<{}> Converting uproot array to panda's dataframe".format(process_time()))
     df = pd.DataFrame(X_tree.arrays(features, library="np", entry_stop=n))
+    # Implement GPU capable dataframe loading/caching, as we want to speed up data processing - needs a docker image for library "cp"
+    #if torch.cuda.is_available() and False:
+    #    df = cudf.DataFrame(X_tree.arrays(features, library="cp", entry_stop=n))
+    #else:
+    #    df = pd.DataFrame(X_tree.arrays(features, library="np", entry_stop=n))
 
     # Extract the weights from the Tree if specificed
+    logger.info("<{}> Obtaining data point weights (dataframe)".format(process_time()))
     if weightFeature == "DummyEvtWeight":
         dweights = np.ones(len(df.index))
         weights = pd.DataFrame(data=dweights, index=range(len(df.index)), columns=[weightFeature])
@@ -297,6 +307,7 @@ def load(
 
     # Apply filtering if set by user
     if Filter != None:
+        logger.info("<{}> Applying filtering".format(process_time()))
         for logExp in Filter.FilterList:
             #df_mask = pd.eval( logExp, target = df)
             df_mask = df.eval( logExp )
@@ -304,16 +315,19 @@ def load(
             weights = weights[df_mask]
     
     # Reset all row numbers
+    logger.info("<{}> Re-setting row numbers in panda dataframes due to filtering or shuffling of dataset".format(process_time()))
     df = df.reset_index(drop=True)
 
-    # For the moment one should siply use the features
+    # For the moment one should simply use the features
     if weight_polarity:
+        logger.info("<{}> Converting all weights to positive and adding weight polarity as new additonal training feature".format(process_time()))
         polarity_name = "polarity"
         df[polarity_name] = weights[weightFeature].apply(lambda x: 1 if x >= 0 else -1)
         labels  = features + [polarity_name]
     else:
         labels = features
 
+    logger.info("<{}> Completed dataframe loading".format(process_time()))
     return (df, weights, labels)
 
 
