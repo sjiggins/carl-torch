@@ -14,11 +14,12 @@ from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import roc_curve, auc, confusion_matrix
 from sklearn.neural_network import MLPRegressor
 from sklearn.calibration import calibration_curve
-import wasserstein
+# import wasserstein
 import scipy as scipy
 
 import torch
 from .tools import create_missing_folders
+from . import statistic
 
 logger = logging.getLogger(__name__)
 hist_settings_nom = {'alpha': 0.25, 'color':'blue'}
@@ -135,7 +136,7 @@ def draw_weighted_distributions(x0, x1, w0, w1,
         carl_alt_chi_res = "$\chi^{2}$ ="+" {},  p-value = {}".format(carl_alt_chi,carl_alt_p)
         logger.info("{}".format(nom_alt_chi_res))
         logger.info("{}".format(carl_alt_chi_res))
-        
+
         # KL-divergence
         ########### SciPy ##########
         #nom_alt_KL = scipy.special.kl_div(nom_count, alt_count)
@@ -145,12 +146,12 @@ def draw_weighted_distributions(x0, x1, w0, w1,
         #carl_alt_KL_res = "KL(carl,alt) = {}".format(carl_alt_KL)
         ############################
         ########### Custom #########
-        nom_alt_KL = compute_kl_divergence(x0[:,id], w0, x1[:,id], w1, len(binning[id]))
-        carl_alt_KL = compute_kl_divergence(x0[:,id], w0, x0[:,id], w_carl, len(binning[id]))
+        nom_alt_KL = statistic.compute_kl_divergence(x0[:,id], w0, x1[:,id], w1, len(binning[id]))
+        carl_alt_KL = statistic.compute_kl_divergence(x0[:,id], w0, x0[:,id], w_carl, len(binning[id]))
         ## Result string
         nom_alt_KL_res = "KL(nom,alt) = {}".format(nom_alt_KL)
         carl_alt_KL_res = "KL(carl,alt) = {}".format(carl_alt_KL)
-        ############################        
+        ############################
         logger.info("{}".format(nom_alt_KL_res))
         logger.info("{}".format(carl_alt_KL_res))
 
@@ -261,7 +262,7 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             #print("x0_error:    {}".format(x0_error))
             #print("x1_error:    {}".format(x1_error))
             #print("width:       {}".format(np.diff(edge1)))
-            
+
             #plt.bar( x=edge1, height=yref_error+x1_error, bottom = yref_error-x1_error, width=np.diff(edge1), align='edge', linewidth=0, color='red', alpha=0.25, zorder=-1, label='uncertainty band')
             axes[1].bar( x=edge1[:-1],
                              height=yref_error_up[:-1], bottom = yref_error_down[:-1],
@@ -276,7 +277,7 @@ def draw_weighted_distributions(x0, x1, w0, w1,
                    #         #color='red',
                    #         #alpha=0.25,
                    #         #label='uncertainty band')
-            
+
             axes[1].set_ylabel("Ratio", horizontalalignment='center',x=1)
             axes[1].set_xlabel('%s'%(column), horizontalalignment='right',x=1)
             axes[1].legend(frameon=False, ncol=2)#,title = '%s sample'%(label) ) # We want two columns, and the uncertainty band is in the 2nd column
@@ -313,13 +314,13 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             FiveSigma = axes[2].fill_between(edge1, yref_5error_down, yref_5error_up, color='lightcoral', alpha=0.5, label = "5$\sigma$")
             ThreeSigma = axes[2].fill_between(edge1, yref_3error_down, yref_3error_up, color='bisque', alpha=0.75, label = "3$\sigma$")
             OneSigma = axes[2].fill_between(edge1, yref_error_down, yref_error_up, color='olivedrab', alpha=0.5, label = "1$\sigma$")
-            
+
             axes[2].set_ylabel("Residual", horizontalalignment='center',x=1)
             axes[2].set_xlabel('%s'%(column), horizontalalignment='right',x=1)
             axes[2].legend(frameon=False,
                            ncol=3,
-                           #title = '%s sample'%(label), 
-                           handles=[OneSigma,ThreeSigma,FiveSigma],#,ref,nom,carl], 
+                           #title = '%s sample'%(label),
+                           handles=[OneSigma,ThreeSigma,FiveSigma],#,ref,nom,carl],
                            labels = ["1$\sigma$", "3$\sigma$", "5$\sigma$"])#,("{} / {}").format(legend,legend), ("nom / {}").format(legend),("(nominal*CARL) / {}").format(legend)] )
             #axes = plt.gca()
             axes[2].set_ylim([-8, 8])
@@ -329,10 +330,10 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             fig.clf()
             axes = [a_ele.clear() for a_ele in axes]
             #fig.close()
-            
+
             #if id > 1:
             #    return
-            
+
 def draw_resampled_ratio(x0, w0, x1, w1, ratioName=''):
     bins = np.linspace(np.amin(x0), np.amax(x0) ,50)
     n0, _, _ = plt.hist(x0, weights=w0, bins=bins, label='original', **hist_settings_nom)
@@ -659,40 +660,3 @@ def draw_scatter(weightsCT, weightsCA, legend, do, n):
     plt.savefig("plots/scatter_weights_%s_%s_%s.png"%(do, legend, n))
     plt.clf()
     plt.close()
-
-
-def compute_probs(data, weights, n=100): 
-    h, e = np.histogram(data, weights=weights, bins=n)
-    p = h/np.sum(weights) #data.shape[0]
-    return e, p
-
-def support_intersection(p, q): 
-    sup_int = (
-        list(
-            filter(
-                lambda x: (x[0]!=0) & (x[1]!=0), zip(p, q)
-            )
-        )
-    )
-    return sup_int
-
-def get_probs(list_of_tuples): 
-    p = np.array([p[0] for p in list_of_tuples])
-    q = np.array([p[1] for p in list_of_tuples])
-    return p, q
-
-def kl_divergence(p, q): 
-    return np.sum(p*np.log(p/q))
-
-def compute_kl_divergence(train_sample, train_weights, test_sample, test_weights, n_bins=10): 
-    """
-    Computes the KL Divergence using the support 
-    intersection between two different samples
-    """
-    e, p = compute_probs(train_sample, train_weights, n=n_bins)
-    _, q = compute_probs(test_sample, test_weights, n=e)
-
-    list_of_tuples = support_intersection(p, q)
-    p, q = get_probs(list_of_tuples)
-    
-    return kl_divergence(p, q)
