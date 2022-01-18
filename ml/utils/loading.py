@@ -317,7 +317,7 @@ class Loader():
             # record the list of names before saving
             saving_items_names = list(saving_items.keys())
             # use pop to iterate through
-            for name in saving_items:
+            for name in saving_items_names:
                 np.save(f"{folder}/{global_name}/{name}_{nentries}.npy", saving_items.pop(name))
 
             if large_weight_clipping or weight_preprocess:
@@ -327,7 +327,7 @@ class Loader():
                     "w0_val_raw" : raw_w0_val,
                     "w1_val_raw" : raw_w1_val,
                 }
-                for name in raw_saving_items:
+                for name in list(raw_saving_items.keys()):
                     np.save(f"{folder}/{global_name}/{name}_{nentries}.npy", raw_saving_items.pop(name))
                     np.save(folder + global_name + "/w0_train_raw_"  +str(nentries)+".npy", raw_w0_train)
 
