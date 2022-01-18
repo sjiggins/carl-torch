@@ -535,16 +535,21 @@ def weight_data(x0, x1, w0, w1):
     w0 = abs(w0)
     w1 = abs(w1)
 
+    # Yuzhan: w0 need to be weighted properly during Ntuple generation?
+    # getting very large w0_sum and w1_sum -> huge array allocation
+
     x0_len = x0.shape[0]
     w0_sum = int(w0.sum())
     w0 = w0 / w0.sum()
-    weighted_data0 = np.random.choice(x0_len, w0_sum, p = w0)
+    #weighted_data0 = np.random.choice(x0_len, w0_sum, p = w0)
+    weighted_data0 = np.random.choice(x0_len, x0_len, p = w0)
     w_x0 = x0.copy()[weighted_data0]
 
     x1_len = x1.shape[0]
     w1_sum = int(w1.sum())
     w1 = w1 / w1.sum()
-    weighted_data1 = np.random.choice(x1_len, w1_sum, p = w1)
+    #weighted_data1 = np.random.choice(x1_len, w1_sum, p = w1)
+    weighted_data1 = np.random.choice(x1_len, x1_len, p = w1)
     w_x1 = x1.copy()[weighted_data1]
 
     # Calculate the minimum size so as to ensure we have equal number of events in each class
