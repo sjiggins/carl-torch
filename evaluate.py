@@ -1,7 +1,7 @@
 import os
 import sys
 import logging
-#import optparse
+import optparse
 import numpy as np
 #from arg_handler import arg_handler
 from ml import RatioEstimator
@@ -25,6 +25,7 @@ parser.add_option('-b', '--binning',  action='store', type=str, dest='binning', 
 parser.add_option('--normalise', action='store_true', dest='normalise', default=False, help='enforce normalization when plotting')
 parser.add_option('--rawWeight',  action="store_true", dest='raw_weight',  help='Flag to use raw event weight')
 parser.add_option('--scale-method', action='store', dest='scale_method', type=str, default=None, help='scaling method for input data. e.g minmax, standard.')
+parser.add_option('-o', '--output', action='store', dest='output', type=str, default=".", help='output directory.')
 opts, args = parser.parse_args()
 #opts, args = arg_handler_eval()
 nominal  = opts.nominal
@@ -40,15 +41,18 @@ binning = opts.binning
 normalise = opts.normalise
 raw_weight = opts.raw_weight
 scale_method = opts.scale_method
+output = opts.output
 #################################################
 
 
 logger = logging.getLogger(__name__)
-if os.path.exists('data/'+global_name+'/X_train_'+str(n)+'.npy') and os.path.exists('data/'+global_name+'/metaData_'+str(n)+'.pkl'):
+train_data = f'{output}/data/{global_name}/X_train_{n}.npy'
+metadata = f'{output}/data/{global_name}/metaData_{n}.pkl'
+if os.path.exists(train_data) and os.path.exists(metadata):
     logger.info(" Doing evaluation of model trained with datasets: [{}, {}], with {} events.".format(nominal, variation, n))
 else:
-    logger.info(" No data set directory of the form {}.".format('data/'+global_name+'/X_train_'+str(n)+'.npy'))
-    logger.info(" No datasets available for evaluation of model trained with datasets: [{},{}] with {} events.".format(nominal, variation, n))
+    logger.info(f"No data set directory of the form {train_data}.")
+    logger.info("No datasets available for evaluation of model trained with datasets: [{},{}] with {} events.".format(nominal, variation, n))
     logger.info("ABORTING")
     sys.exit()
 
@@ -58,12 +62,12 @@ carl.scaling_method = scale_method
 if model:
     carl.load(model)
 else:
-    carl.load('models/'+global_name+'_carl_'+str(n))
+    carl.load(f'{output}/models/'+global_name+'_carl_'+str(n))
 evaluate = ['train','val']
 raw_w = "raw_" if raw_weight else ""
 for i in evaluate:
     logger.info("Running evaluation for {}".format(i))
-    r_hat, s_hat = carl.evaluate(x='data/'+global_name+'/X0_'+i+'_'+str(n)+'.npy')
+    r_hat, s_hat = carl.evaluate(x=f'{output}/data/{global_name}/X0_{i}_{n}.npy')
     logger.info("s_hat = {}".format(s_hat))
     logger.info("r_hat = {}".format(r_hat))
     w = 1./r_hat   # I thought r_hat = p_{1}(x) / p_{0}(x) ???
@@ -80,11 +84,11 @@ for i in evaluate:
     print("w = {}".format(w))
     print("<evaluate.py::__init__>::   Loading Result for {}".format(i))
     loading.load_result(
-        x0=f'data/{global_name}/X0_{i}_{n}.npy',
-        x1=f'data/{global_name}/X1_{i}_{n}.npy',
-        w0=f'data/{global_name}/w0_{i}_{raw_w}{n}.npy',
-        w1=f'data/{global_name}/w1_{i}_{raw_w}{n}.npy',
-        metaData=f'data/{global_name}/metaData_{n}.pkl',
+        x0=f'{output}/data/{global_name}/X0_{i}_{n}.npy',
+        x1=f'{output}/data/{global_name}/X1_{i}_{n}.npy',
+        w0=f'{output}/data/{global_name}/w0_{i}_{raw_w}{n}.npy',
+        w1=f'{output}/data/{global_name}/w1_{i}_{raw_w}{n}.npy',
+        metaData=f'{output}/data/{global_name}/metaData_{n}.pkl',
         weights=w,
         features=features,
         #weightFeature=weightFeature,
@@ -104,5 +108,7 @@ for i in evaluate:
     )
 # Evaluate performance
 print("<evaluate.py::__init__>::   Evaluate Performance of Model")
-carl.evaluate_performance(x='data/'+global_name+'/X_val_'+str(n)+'.npy',
-                          y='data/'+global_name+'/y_val_'+str(n)+'.npy')
+carl.evaluate_performance(
+    x=f'{output}/data/{global_name}/X_val_{n}.npy',
+    y=f'{output}/data/{global_name}/y_val_{n}.npy',
+)
