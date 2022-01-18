@@ -89,8 +89,8 @@ def draw_weighted_distributions(x0, x1, w0, w1,
         gs = fig.add_gridspec(3, hspace=0, height_ratios=[5,2,2])
         axes = gs.subplots(sharex=True)
         fig.suptitle("Differential Cross-section & Mapping Performance")
-        print("<plotting.py::draw_weighted_distribution()>::   id: {},   column: {}".format(id,column))
-        print("<plotting.py::draw_weighted_distribution()>::     binning: {}".format(binning[id]))
+        print("<plotting.py::draw_weighted_distribution()>::id: {}, column: {}".format(id,column))
+        print("<plotting.py::draw_weighted_distribution()>::binning: {}".format(binning[id]))
         #if save: axes[0].figure(figsize=(14, 10))
         #else: axes[0].plt.subplot(3,4, id)
         #plt.yscale('log')
@@ -538,13 +538,13 @@ def weight_data(x0, x1, w0, w1):
     x0_len = x0.shape[0]
     w0_sum = int(w0.sum())
     w0 = w0 / w0.sum()
-    weighted_data0 = np.random.choice(range(x0_len), w0_sum, p = w0)
+    weighted_data0 = np.random.choice(x0_len, w0_sum, p = w0)
     w_x0 = x0.copy()[weighted_data0]
 
     x1_len = x1.shape[0]
     w1_sum = int(w1.sum())
     w1 = w1 / w1.sum()
-    weighted_data1 = np.random.choice(range(x1_len), w1_sum, p = w1)
+    weighted_data1 = np.random.choice(x1_len, w1_sum, p = w1)
     w_x1 = x1.copy()[weighted_data1]
 
     # Calculate the minimum size so as to ensure we have equal number of events in each class
