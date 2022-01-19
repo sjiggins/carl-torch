@@ -1,8 +1,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import six
-import logging
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 import numpy as np
 import time
 import torch
@@ -11,6 +10,10 @@ from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 from torch.nn.utils import clip_grad_norm_
 from sklearn.metrics import accuracy_score
+
+from .utils import statistic
+
+import logging
 logger = logging.getLogger(__name__)
 
 class NanException(Exception):
@@ -99,6 +102,9 @@ class Trainer(object):
         verbose="some",
         intermediate_train_plot=None,
         intermediate_save=None,
+        x0_data = None,
+        x1_data = None,
+        ratio_estimator = None,
     ):
         self._timer(start="ALL")
         self._timer(start="check data")
@@ -149,6 +155,10 @@ class Trainer(object):
         logger.debug("Beginning main training loop")
         losses_train, losses_val, accuracy_train, accuracy_val = [], [], [], []
         self._timer(stop="initialize training")
+
+        # Yuzhan: list for tracking statistical distances
+        kl_div_values = defaultdict(list)
+        wasserstein_dist_values = defaultdict(list)
 
         # Loop over epochs
         for i_epoch in range(epochs):
@@ -201,6 +211,26 @@ class Trainer(object):
             )
             self._timer(stop="report epoch")
 
+            # computing statistic on trained data and model
+            self._timer(start="statistical distiance")
+            # getting the ratio model
+            x0_names, x0_features, w0 = x0_data
+            x1_names, x1_features, w1 = x1_data
+            w0 = w0.flatten()
+            w1 = w1.flatten()
+            _r_hat, _s_hat = ratio_estimator.evaluate(x0_features)
+            _carl_w = 1.0/_r_hat
+            for _name_id, (_x0, _x1) in enumerate(zip(x0_features.T, x1_features.T)):
+                kl_carl = statistic.compute_kl_divergence(_x1, w1, _x0, _carl_w)
+                wasserstein_dist = statistic.wasserstein(_x1, w1, _x0, _carl_w)
+                _name = x0_names[_name_id]
+                kl_div_values[_name].append(kl_carl)
+                wasserstein_dist_values[_name].append(wasserstein_dist)
+            for _name in x0_names:
+                np.save(f"{_name}_kl.npy", np.array(kl_div_values[_name]))
+                np.save(f"{_name}_wasserstain.npy", np.array(wasserstein_dist_values[_name]))
+            self._timer(stop="statistical distiance")
+
             # do intermediate plotting and saving
             if verbose_epoch:
                 if intermediate_train_plot:
@@ -222,10 +252,10 @@ class Trainer(object):
                     save_args.update({"filename":new_fname})
                     saver(**save_args)
                     save_args.update({"filename":m_filename})
-                    np.save(f"{new_fname}_loss_train.py", np.array(losses_train))
-                    np.save(f"{new_fname}_loss_val.py", np.array(losses_val))
-                    np.save(f"{new_fname}_accu_train.py", np.array(accuracy_train))
-                    np.save(f"{new_fname}_accu_val.py", np.array(accuracy_val))
+                    np.save(f"{new_fname}_loss_train.npy", np.array(losses_train))
+                    np.save(f"{new_fname}_loss_val.npy", np.array(losses_val))
+                    np.save(f"{new_fname}_accu_train.npy", np.array(accuracy_train))
+                    np.save(f"{new_fname}_accu_val.npy", np.array(accuracy_val))
                     self._timer(stop="intermediate save")
 
         self._timer(start="early stopping")
