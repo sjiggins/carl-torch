@@ -1,3 +1,6 @@
+import numpy as np
+from scipy.stats import wasserstein_distance
+
 def compute_probs(data, weights, n=100):
     h, e = np.histogram(data, weights=weights, bins=n)
     p = h/np.sum(weights) #data.shape[0]
@@ -19,7 +22,9 @@ def get_probs(list_of_tuples):
     return p, q
 
 def kl_divergence(p, q):
-    return np.sum(p*np.log(p/q))
+    log_term = p*np.log(p/q)
+    log_term = np.nan_to_num(log_term, nan=0.0, posinf = 0.0, neginf=0.0)
+    return np.sum(log_term)
 
 def compute_kl_divergence(train_sample, train_weights, test_sample, test_weights, n_bins=10):
     """
@@ -33,3 +38,9 @@ def compute_kl_divergence(train_sample, train_weights, test_sample, test_weights
     p, q = get_probs(list_of_tuples)
 
     return kl_divergence(p, q)
+
+def wasserstein(x0, w0, x1, w1):
+    """
+    all the weights have to be non-negative
+    """
+    return wasserstein_distance(x0, x1, np.abs(w0), np.abs(w1))
