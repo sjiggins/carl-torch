@@ -26,6 +26,7 @@ parser.add_option('--normalise', action='store_true', dest='normalise', default=
 parser.add_option('--rawWeight',  action="store_true", dest='raw_weight',  help='Flag to use raw event weight')
 parser.add_option('--scale-method', action='store', dest='scale_method', type=str, default=None, help='scaling method for input data. e.g minmax, standard.')
 parser.add_option('-o', '--output', action='store', dest='output', type=str, default=".", help='output directory.')
+parser.add_option('--weight-clipping', action='store_true', dest='weight_clipping', default=False, help='clipping event weights')
 opts, args = parser.parse_args()
 #opts, args = arg_handler_eval()
 nominal  = opts.nominal
@@ -42,6 +43,7 @@ normalise = opts.normalise
 raw_weight = opts.raw_weight
 scale_method = opts.scale_method
 output = opts.output
+carl_weight_clipping = opts.weight_clipping
 #################################################
 
 
@@ -73,8 +75,8 @@ for i in evaluate:
     w = 1./r_hat   # I thought r_hat = p_{1}(x) / p_{0}(x) ???
     # Correct nan's and inf's to 1.0 corrective weights as they are useless in this instance. Warning
     # to screen should already be printed
-    if carl_weight_protection:
-        w = np.nan_to_num(w, nan=1.0, posinf=1.0, neginf=1.0)
+    #if carl_weight_protection:
+    w = np.nan_to_num(w, nan=1.0, posinf=1.0, neginf=1.0)
 
     # Weight clipping if requested by user
     if carl_weight_clipping:
