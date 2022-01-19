@@ -210,7 +210,7 @@ class Loader():
         # Target labels
         y0 = np.zeros(x0.shape[0])
         y1 = np.ones(x1.shape[0])
-
+        
         # Train, test splitting of input dataset
         X0_train, X0_val, y0_train, y0_val, w0_train, w0_val =  train_test_split(X0, y0, w0, test_size=0.50, random_state=42)
         X1_train, X1_val, y1_train, y1_val, w1_train, w1_val =  train_test_split(X1, y1, w1, test_size=0.50, random_state=42)
@@ -318,7 +318,14 @@ class Loader():
             saving_items_names = list(saving_items.keys())
             # use pop to iterate through
             for name in saving_items_names:
-                np.save(f"{folder}/{global_name}/{name}_{nentries}.npy", saving_items.pop(name))
+                m_data = saving_items.pop(name)
+                # check nans and inf
+                n_nans = np.sum(np.isnan(m_data))
+                n_infs = np.sum(np.isinf(m_data))
+                if n_nans or n_infs:
+                    n_finite = np.sum(np.isfinite(m_data))
+                    logger.warning(f"{name} contains {n_nans=}, {n_infs=}, {n_finite=}")
+                np.save(f"{folder}/{global_name}/{name}_{nentries}.npy", m_data)
 
             if large_weight_clipping or weight_preprocess:
                 raw_saving_items = {

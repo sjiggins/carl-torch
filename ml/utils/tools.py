@@ -11,7 +11,7 @@ import pandas as pd
 # from torch.nn import functional as F
 from collections import defaultdict
 # from contextlib import contextmanager
-# import pickle 
+# import pickle
 from time import process_time # For sub-process timing
 #import cudf
 import torch
@@ -163,6 +163,12 @@ def HarmonisedLoading(
         frac_x1, frac_w1 = GenerateFractionSamples(x1, w1)
         x0, w0 = AddInvertWeight(x0, w0, frac_x1, frac_x1)
 
+    # removing Nans and Inf
+    x0.fillna(0, inplace=True)
+    w0.fillna(0, inplace=True)
+    x1.fillna(0, inplace=True)
+    w1.fillna(0, inplace=True)
+
     return x0, w0, vlabels0, x1, w1, vlabels1
 
 
@@ -199,7 +205,7 @@ def CoherentFlattening(df0, df1):
         #print(df0_flattened)
         #df0_flattened = df0_flattened.fillna(0)
         #print(df0_flattened)
-        
+
         # Delete extra dimensions if needed due to non-matching dimensionality of df0 & df1
         if elemLen0 > minObjectLen[column]:
             delColumns0 = [column+str(idx) for idx in range(minObjectLen[column], elemLen0)]
@@ -313,7 +319,7 @@ def load(
             df_mask = df.eval( logExp )
             df = df[df_mask]
             weights = weights[df_mask]
-    
+
     # Reset all row numbers
     logger.info("<{}> Re-setting row numbers in panda dataframes due to filtering or shuffling of dataset".format(process_time()))
     df = df.reset_index(drop=True)
