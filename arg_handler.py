@@ -39,7 +39,8 @@ def arg_handler_train():
 
 # Arugment parsing main function for evaluation step
 def arg_handler_eval():
-    parser = argparse.ArgumentParser(usage="usage: %prog [opts]", version="%prog 1.0")
+    parser = argparse.ArgumentParser(usage="usage: %prog [opts]")
+    parser.add_argument('--version', action='version', version='%(prog)s 1.0')
     parser.add_argument('-n', '--nominal',   action='store', type=str, dest='nominal',   default='', help='Nominal sample name (root file name excluding the .root extension)')
     parser.add_argument('-v', '--variation', action='store', type=str, dest='variation', default='', help='Variation sample name (root file name excluding the .root extension)')
     parser.add_argument('-e', '--nentries',  action='store', type=str, dest='nentries',  default=1000, help='specify the number of events to do the training on, None means full sample')

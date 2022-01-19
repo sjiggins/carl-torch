@@ -7,16 +7,16 @@ import pathlib
 import numpy as np
 from itertools import repeat
 
-from .ml import RatioEstimator
-from .ml import Loader
-from .ml import Filter
-from .arg_handler import arg_handler_train
+from ml import RatioEstimator
+from ml import Loader
+from ml import Filter
+from arg_handler import arg_handler_train
 
 logger = logging.getLogger(__name__)
 
 #################################################
 # Arugment parsing
-opts, args = arg_handler_train()
+opts = arg_handler_train()
 nominal  = opts.nominal
 variation = opts.variation
 n = opts.nentries

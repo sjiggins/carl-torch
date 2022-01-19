@@ -3,14 +3,14 @@ import sys
 import logging
 import numpy as np
 
-from .ml import RatioEstimator
-from .ml.utils.loading import Loader
-from .arg_handler import arg_handler_eval
+from ml import RatioEstimator
+from ml.utils.loading import Loader
+from arg_handler import arg_handler_eval
 
 logger = logging.getLogger(__name__)
 
 #################################################
-opts, args = arg_handler_eval()
+opts = arg_handler_eval()
 nominal  = opts.nominal
 variation = opts.variation
 n = opts.nentries
