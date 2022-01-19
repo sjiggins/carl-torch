@@ -22,3 +22,4 @@ torch>=1.6.0
 torchvision>=0.7.0
 uproot==4.0.11
 pyyaml==5.4.1
+formulate
