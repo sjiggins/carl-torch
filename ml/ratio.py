@@ -169,6 +169,12 @@ class RatioEstimator(Estimator):
 
             assert x_val.shape[1] == n_observables
 
+        # trying to load metadata
+        metaDataDict = None
+        metaData=f"data/{global_name}/metaData_{nentries}.pkl"
+        if os.path.exists(metaData):
+            with open(metaData, "rb") as metaDataFile:
+                metaDataDict = pickle.load(metaDataFile)
 
         # Scale features
         if scale_inputs:
@@ -178,14 +184,11 @@ class RatioEstimator(Estimator):
                 x_val = self._transform_inputs(x_val)
             # If requested by user then transformed inputs are plotted
             if plot_inputs:
-                logger.info("Plotting transformed input features for {}".format(global_name))
-                metaData='data/'+global_name+'/metaData_'+str(nentries)+'.pkl'
-                if os.path.exists(metaData):
+                logger.info(f"Plotting transformed input features for {global_name}")
+                if metaDataDict:
                     # Get the meta data containing the keys (input feature anmes)
-                    logger.info("Obtaining input features from metaData_{}.pkl".format(global_name))
-                    metaDataFile = open(metaData, 'rb')
-                    metaDataDict = pickle.load(metaDataFile)
-                    metaDataFile.close()
+                    logger.info(f"Obtaining input features from metaData {metaData}")
+
                     # Transform the input data for x0, and x1
                     x0 = self._transform_inputs(x0)
                     x1 = self._transform_inputs(x1)
@@ -205,14 +208,14 @@ class RatioEstimator(Estimator):
                         binning[idx] = np.linspace(min, max, self.divisions)
                         logger.info("<loading.py::load_result>::   Column {}:  min  =  {},  max  =  {}"
                               .format(key,min,max))
-                    draw_weighted_distributions(x0, x1, 
+                    draw_weighted_distributions(x0, x1,
                                                 w0, w1,
                                                 np.ones(w0.size),
                                                 metaDataDict.keys(),
                                                 binning,
                                                 "train-input", #label
-                                                global_name, 
-                                                w0.size if w0.size < w1.size else w1.size, 
+                                                global_name,
+                                                w0.size if w0.size < w1.size else w1.size,
                                                 True, #plot
                                                 None)
 
@@ -283,6 +286,9 @@ class RatioEstimator(Estimator):
             early_stopping_patience=early_stopping_patience,
             intermediate_train_plot = intermediate_train_plot,
             intermediate_save = intermediate_save,
+            x0_data = (list(metaDataDict.keys()), x0, w0),
+            x1_data = (list(metaDataDict.keys()), x1, w1),
+            ratio_estimator = self, # just pass the estimation itself for evaluate
         )
         return result
 
