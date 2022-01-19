@@ -1,46 +1,22 @@
 import os
 import sys
 import logging
-import argparse
 import tarfile
 import pickle
 import pathlib
 import numpy as np
-from ml import RatioEstimator
-from ml import Loader
-from ml import Filter
-import numpy as np
 from itertools import repeat
+
+from .ml import RatioEstimator
+from .ml import Loader
+from .ml import Filter
+from .arg_handler import arg_handler_train
 
 logger = logging.getLogger(__name__)
 
 #################################################
 # Arugment parsing
-parser = argparse.ArgumentParser(usage="usage: %(prog)s [opts]")
-parser.add_argument('--version', action='version', version='%(prog)s 1.0')
-parser.add_argument('-n', '--nominal',   action='store', type=str, dest='nominal',   default='', help='Nominal sample name (root file name excluding the .root extension)')
-parser.add_argument('-v', '--variation', action='store', type=str, dest='variation', default='', help='Variation sample name (root file name excluding the .root extension)')
-parser.add_argument('-e', '--nentries',  action='store', type=int, dest='nentries',  default=1000, help='specify the number of events to do the training on, None means full sample')
-parser.add_argument('-p', '--datapath',  action='store', type=str, dest='datapath',  default='./Inputs/', help='path to where the data is stored')
-parser.add_argument('-g', '--global_name',  action='store', type=str, dest='global_name',  default='Test', help='Global name for identifying this run - used in folder naming and output naming')
-parser.add_argument('-f', '--features',  action='store', type=str, dest='features',  default='', help='Comma separated list of features within tree')
-parser.add_argument('-w', '--weightFeature',  action='store', type=str, dest='weightFeature',  default='DummyEvtWeight', help='Name of event weights feature in TTree')
-parser.add_argument('-t', '--TreeName',  action='store', type=str, dest='treename',  default='Tree', help='Name of TTree name inside root files')
-parser.add_argument('-b', '--binning',  action='store', type=str, dest='binning',  default=None, help='path to binning yaml file.')
-parser.add_argument('-l', '--layers', action='store', type=int, dest='layers', nargs='*', default=None, help='number of nodes for each layer')
-parser.add_argument('-d', '--dropout-prob', action='store', type=float, dest='dropout_prob', default=None, help='Dropout probability for internal hidden layers')
-parser.add_argument('-r', '--regularise', action='store', type=str, dest='regularise', default=None, help='Regularisation technique for the loss function [L0, L1, L2]')
-parser.add_argument('--batch',  action='store', type=int, dest='batch_size',  default=4096, help='batch size')
-parser.add_argument('--per-epoch-plot', action='store_true', dest='per_epoch_plot', default=False, help='plotting train/validation result per epoch.')
-parser.add_argument('--per-epoch-save', action='store_true', dest='per_epoch_save', default=False, help='saving trained model per epoch.')
-parser.add_argument('--nepoch', action='store', dest='nepoch', type=int, default=300, help='Total number of epoch for training.')
-parser.add_argument('--scale-method', action='store', dest='scale_method', type=str, default=None, help='scaling method for input data. e.g minmax, standard.')
-parser.add_argument('--weight-clipping', action='store_true', dest='weight_clipping', default=False, help='clipping event weights')
-parser.add_argument('--weight-nsigma', action='store', type=int, dest='weight_nsigma', default=0, help='re-mapping weights')
-parser.add_argument('--polarity', action='store_true', dest="polarity", help='enable event weight polarity feature.')
-parser.add_argument('--loss-type', action='store', type=str, dest="loss_type", default="regular", help='a type on how to handle weight in loss function, options are "abs(w)" & "log(abs(w))" ')
-parser.add_argument('--BoolFilter', action='store', dest='BoolFilter', type=str, default=None, help='Comma separated list of boolean logic. e.g. \'a | b\'.')
-opts = parser.parse_args()
+opts, args = arg_handler_train()
 nominal  = opts.nominal
 variation = opts.variation
 n = opts.nentries
@@ -64,47 +40,47 @@ BoolFilter = opts.BoolFilter
 #################################################
 
 #################################################
-# Loading of data from root of numpy arrays
-loading = Loader()
-if BoolFilter != None:
-    InputFilter = Filter(FilterString = BoolFilter)
-    loading.Filter= InputFilter
-
-# Exception handling for input files - .root
-if os.path.exists(p+nominal+'.root') or os.path.exists('data/'+global_name+'/X_train_'+str(n)+'.npy'):
-    logger.info(" Doing training of model with datasets: %s with %s  events.", nominal, n)
-else:
-    logger.info(" Trying to do training of model with datasets: %s with %s  events.", nominal, n)
-    logger.info(" This file or directory does not exist.")
-    sys.exit()
-
-if os.path.exists(p+variation+'.root') or os.path.exists('data/'+global_name+'/X_train_'+str(n)+'.npy'):
-    logger.info(" Doing training of model with datasets: %s with %s  events.", variation, n)
-else:
-    logger.info(" Trying to do training of model with datasets: %s with %s  events.", variation, n)
-    logger.info(" This file or directory does not exist.")
-    sys.exit()
-
 if os.path.exists(f"data/{global_name}/data_out.tar.gz"):
     # tar = tarfile.open("data_out.tar.gz", "r:gz")
     tar = tarfile.open(f"data/{global_name}/data_out.tar.gz")
     tar.extractall()
     tar.close()
 
+logger.info(f"Trying to do training of model with datasets: {nominal=}, {variation=}, {n} events")
+logger.info("Checkfing input files")
+# path to ROOT Ntuples files and list of preprocessed numpy arrays
+input_ntuple_files = [
+    f"{p}/{nominal}.root",
+    f"{p}/{variation}.root",
+]
+preprocessed_np_files = [
+    f"data/{global_name}/X_train_{n}.npy",
+    f"data/{global_name}/y_train_{n}.npy",
+    f"data/{global_name}/w_train_{n}.npy",
+    f"data/{global_name}/X0_train_{n}.npy",
+    f"data/{global_name}/w0_train_{n}.npy",
+    f"data/{global_name}/X1_train_{n}.npy",
+    f"data/{global_name}/w1_train_{n}.npy",
+    f"data/{global_name}/metaData_{n}.pkl"
+]
 # Check if already pre-processed numpy arrays exist
-if os.path.exists('data/'+global_name+'/X_train_'+str(n)+'.npy'):
-    logger.info(" Loaded existing datasets ")
-    x='data/'+global_name+'/X_train_'+str(n)+'.npy'
-    y='data/'+global_name+'/y_train_'+str(n)+'.npy'
-    w='data/'+global_name+'/w_train_'+str(n)+'.npy'
-    x0='data/'+global_name+'/X0_train_'+str(n)+'.npy'
-    w0='data/'+global_name+'/w0_train_'+str(n)+'.npy'
-    x1='data/'+global_name+'/X1_train_'+str(n)+'.npy'
-    w1='data/'+global_name+'/w1_train_'+str(n)+'.npy'
-    f = open('data/'+global_name+'/metaData_'+str(n)+".pkl","rb")
-    metaData = pickle.load(f)
-    f.close()
+if all(map(os.path.exists, preprocessed_np_files)):
+    x, y, w, x0, w0, x1, w1, metadata_file = preprocessed_np_files
+    with open(metadata_file, "rb") as f:
+        metaData = pickle.load(f)
 else:
+    # if missing any of the pre-processed files
+    # try to check Ntuple files and run loading
+    if not all(map(os.path.exists, input_ntuple_files)):
+        logger.warning(f"Unable to find N-tuple files {input_ntuple_files}")
+        sys.exit()
+
+    # prepare loading of data from root of numpy arrays
+    loading = Loader()
+    if BoolFilter != None:
+        InputFilter = Filter(FilterString = BoolFilter)
+        loading.Filter= InputFilter
+
     x, y, x0, x1, w, w0, w1, metaData = loading.loading(
         folder=f"{pathlib.Path('./data/').resolve()}/",
         plot=True,
@@ -117,8 +93,8 @@ else:
         correlation=True,
         preprocessing=False,
         nentries=n,
-        pathA=p+nominal+".root",
-        pathB=p+variation+".root",
+        pathA=f"{p}/{nominal}.root",
+        pathB=f"{p}/{variation}.root",
         noTar=True,
         normalise=False,
         debug=False,
