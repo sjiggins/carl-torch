@@ -206,6 +206,12 @@ if opts.regularise is not None:
     logger.info("L2 loss regularisation included.")
     kwargs={"weight_decay": 1e-5}
 
+# getting n_workers for DataLoader
+try:
+    n_workers = len(os.sched_getaffinity(0))
+except Exception:
+    n_workers = os.cpu_count()
+
 # perform training
 train_loss, val_loss, accuracy_train, accuracy_val = estimator.train(
     method='carl',
@@ -230,6 +236,7 @@ train_loss, val_loss, accuracy_train, accuracy_val = estimator.train(
     plot_inputs=True,
     nentries=n,
     loss_type=loss_type,
+    n_workers=n_workers,
 )
 
 # saving loss values and final trained models
