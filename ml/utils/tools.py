@@ -273,6 +273,12 @@ def load(
             to positive (>=0) event weight, and -1 will be assigned to negative (< 0)
             event weight.
 
+        Filter : instance of Filter.Filter, optional
+            An instance of Filter.Filter that contains (numpy) expression that
+            can be evaluated by panda.dataframe.eval.
+            (Essentially the expressing is evaluete by panda.eval(), with
+            default backend `numexpr`)
+
     Return:
         ( pandas.DataFrame, pandas.DataFrame, list(str) ) :
 
@@ -316,7 +322,14 @@ def load(
         logger.info("<{}> Applying filtering".format(process_time()))
         for logExp in Filter.FilterList:
             #df_mask = pd.eval( logExp, target = df)
-            df_mask = df.eval( logExp )
+            if all([var in df for var in Filter.variables]):
+                df_mask = df.eval(logExp)
+            else:
+                # if the logExp contains variables that are not in the df, it will
+                # throw a KeyError. We need to load missing variables into a
+                # temporary dataframe, then compute the mask.
+                df_filter = pd.DataFrame(X_tree.arrays(Filter.variables, library="np", entry_stop=n))
+                df_mask = df_filter.eval(logExp)
             df = df[df_mask]
             weights = weights[df_mask]
 
