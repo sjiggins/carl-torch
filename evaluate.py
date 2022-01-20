@@ -25,7 +25,7 @@ normalise = opts.normalise
 raw_weight = opts.raw_weight
 scale_method = opts.scale_method
 output = opts.output
-carl_weight_clipping = opts.weight_clipping
+carl_weight_clipping = opts.carl_weight_clipping
 #################################################
 
 

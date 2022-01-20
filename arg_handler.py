@@ -39,11 +39,11 @@ def arg_handler_train():
 
 # Arugment parsing main function for evaluation step
 def arg_handler_eval():
-    parser = argparse.ArgumentParser(usage="usage: %prog [opts]")
+    parser = argparse.ArgumentParser(usage="usage: %(prog)s [opts]")
     parser.add_argument('--version', action='version', version='%(prog)s 1.0')
     parser.add_argument('-n', '--nominal',   action='store', type=str, dest='nominal',   default='', help='Nominal sample name (root file name excluding the .root extension)')
     parser.add_argument('-v', '--variation', action='store', type=str, dest='variation', default='', help='Variation sample name (root file name excluding the .root extension)')
-    parser.add_argument('-e', '--nentries',  action='store', type=str, dest='nentries',  default=1000, help='specify the number of events to do the training on, None means full sample')
+    parser.add_argument('-e', '--nentries',  action='store', type=int, dest='nentries',  default=1000, help='specify the number of events to do the training on, None means full sample')
     parser.add_argument('-p', '--datapath',  action='store', type=str, dest='datapath',  default='./Inputs/', help='path to where the data is stored')
     parser.add_argument('-g', '--global_name',  action='store', type=str, dest='global_name',  default='Test', help='Global name for identifying this run - used in folder naming and output naming')
     parser.add_argument('-f', '--features',  action='store', type=str, dest='features',  default='', help='Comma separated list of features within tree')
