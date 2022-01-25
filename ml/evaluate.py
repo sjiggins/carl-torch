@@ -36,7 +36,7 @@ def evaluate_ratio_model(
         # Do we need this as ml/models.py::forward() defined implicitely that the output of the network is:
         #      s_hat = torch.sigmoid(s_hat)  where s_hat at this point is the network last layer
         #      r_hat = (1-s_hat) / s_hat = p_{1}(x) / p_{0}(x)
-        #s_hat = torch.sigmoid(s_hat) 
+        #s_hat = torch.sigmoid(s_hat)
         # Copy back tensors to CPU
         if run_on_gpu:
             r_hat = r_hat.cpu()
@@ -73,6 +73,10 @@ def evaluate_performance_model(
         _, logit  = model(xs)
         probs = torch.sigmoid(logit)
         y_pred = torch.round(probs)
+        # Note that if y_pred is a CUDA tensor, it needs to be detached
+        # before converting to numpy array
+        if run_on_gpu:
+            y_pred = y_pred.cpu().numpy()
         print("confusion matrix ",confusion_matrix(ys, y_pred))
         print(classification_report(ys, y_pred))
         fpr, tpr, auc_thresholds = roc_curve(ys, y_pred)
