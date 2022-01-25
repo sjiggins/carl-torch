@@ -28,6 +28,7 @@ def arg_handler_train():
     parser.add_argument('--batch',  action='store', type=int, dest='batch_size',  default=4096, help='batch size')
     parser.add_argument('--per-epoch-plot', action='store_true', dest='per_epoch_plot', default=False, help='plotting train/validation result per epoch.')
     parser.add_argument('--per-epoch-save', action='store_true', dest='per_epoch_save', default=False, help='saving trained model per epoch.')
+    parser.add_argument('--per-epoch-stats', action='store_true', dest='per_epoch_stats', default=False, help='calculate statistical distance of the model per epoch.')
     parser.add_argument('--nepoch', action='store', dest='nepoch', type=int, default=300, help='Total number of epoch for training.')
     parser.add_argument('--scale-method', action='store', dest='scale_method', type=str, default="minmax", help='scaling method for input data. e.g minmax, standard.')
     parser.add_argument('--weight-clipping', action='store_true', dest='weight_clipping', default=False, help='clipping event weights')

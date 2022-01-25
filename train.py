@@ -30,6 +30,7 @@ n_hidden = tuple(opts.layers) if opts.layers != None else tuple( repeat( (len(fe
 batch_size = opts.batch_size
 per_epoch_plot = opts.per_epoch_plot
 per_epoch_save = opts.per_epoch_save
+per_epoch_stats = opts.per_epoch_stats
 nepoch = opts.nepoch
 scale_method = opts.scale_method
 weight_clipping = opts.weight_clipping
@@ -203,6 +204,7 @@ train_loss, val_loss, accuracy_train, accuracy_val = estimator.train(
     #early_stopping_patience=20,
     intermediate_train_plot = intermediate_train_plot,
     intermediate_save = intermediate_save,
+    intermediate_stats_dist = per_epoch_stats,
     optimizer_kwargs=kwargs,
     global_name=global_name,
     plot_inputs=True,
