@@ -1,23 +1,16 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
-import os
-import time
 import logging
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as font_manager
-import multiprocessing
 import math
-from functools import partial
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import roc_curve, auc, confusion_matrix
 from sklearn.neural_network import MLPRegressor
 from sklearn.calibration import calibration_curve
-# import wasserstein
 import scipy as scipy
 
-import torch
 from .tools import create_missing_folders
 from . import statistic
 
@@ -529,27 +522,30 @@ def draw_Obs_ROC(X0, X1, W0, W1, weights, label, legend, n, plot = True, plot_re
             plt.savefig('plots/roc_inputs_nominalVs%s_%s_%s_%s.png'%(legend,label,idx,n))
             plt.clf()
 
-def weight_data(x0, x1, w0, w1):
+def weight_data(x0, x1, w0, w1, max_events=1000000):
+    """
+    Resample data with given feasture x0 and x1 with corresponding weights w0 and w1
+    max_events is the maximum number of events to be resample if w0.sum() is too
+    large to be allocated.
+    """
 
     # Remove negative probabilities - maintains proportionality still by abs()
     w0 = abs(w0)
     w1 = abs(w1)
 
-    # Yuzhan: w0 need to be weighted properly during Ntuple generation?
-    # getting very large w0_sum and w1_sum -> huge array allocation
+    # Yuzhan: the integrated number of events can be huge (w0_sum)
+    # This will cause memory allocation problem when resampling.
 
     x0_len = x0.shape[0]
-    w0_sum = int(w0.sum())
-    w0 = w0 / w0.sum()
-    #weighted_data0 = np.random.choice(x0_len, w0_sum, p = w0)
-    weighted_data0 = np.random.choice(x0_len, x0_len, p = w0)
+    w0_sum = w0.sum()
+    w0 = w0 / w0_sum
+    weighted_data0 = np.random.choice(x0_len, min(max_events, int(w0_sum)), p = w0)
     w_x0 = x0.copy()[weighted_data0]
 
     x1_len = x1.shape[0]
-    w1_sum = int(w1.sum())
-    w1 = w1 / w1.sum()
-    #weighted_data1 = np.random.choice(x1_len, w1_sum, p = w1)
-    weighted_data1 = np.random.choice(x1_len, x1_len, p = w1)
+    w1_sum = w1.sum()
+    w1 = w1 / w1_sum
+    weighted_data1 = np.random.choice(x1_len, min(max_events, int(w1_sum)), p = w1)
     w_x1 = x1.copy()[weighted_data1]
 
     # Calculate the minimum size so as to ensure we have equal number of events in each class
@@ -631,7 +627,7 @@ def plot_calibration_curve(y, probs_raw, probs_cal, global_name, save = False):
     ax1.set_ylabel("Fraction of positives")
     ax1.set_ylim([-0.05, 1.05])
     ax1.legend(loc="lower right")
-    ax1.set_title(f'Calibration plot')
+    ax1.set_title('Calibration plot')
 
     ax2.hist(probs_raw, range=(0, 1), bins=50, label='uncalibrated', lw=2, **hist_settings_nom)
     ax2.hist(probs_cal, range=(0, 1), bins=50, label='calibrated', lw=2, **hist_settings_alt)
