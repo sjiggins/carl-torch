@@ -160,21 +160,17 @@ if per_epoch_plot:
         "normalise" : True,  # plotting
     }
     intermediate_train_plot = (
-        (estimator.evaluate, {"train":x0, "val":f'data/{global_name}/X0_val_{n}.npy'}),
+        {"train":x0, "val":f'data/{global_name}/X0_val_{n}.npy'},
         (loading.load_result, {"train":train_args, "val":vali_args}),
     )
 if per_epoch_save:
-    intermediate_save_args = {
+    intermediate_save = {
         "filename" : f"{global_name}_carl_{n}",
         "x" : x,
         "metaData" : metaData,
         "save_model" : True,
         "export_model" : True,
     }
-    intermediate_save = (
-        estimator.save, intermediate_save_args
-    )
-
 
 # additional options to pytorch training package
 kwargs = {}

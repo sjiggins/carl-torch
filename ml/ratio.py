@@ -74,6 +74,7 @@ class RatioEstimator(Estimator):
         early_stopping_patience=None,
         intermediate_train_plot=None,
         intermediate_save=None,
+        intermediate_stats_dist=False,
         global_name="",
         plot_inputs=False,
         nentries=-1,
@@ -263,6 +264,22 @@ class RatioEstimator(Estimator):
         if optimizer_kwargs is not None:
             opt_kwargs.update( optimizer_kwargs )
 
+        # prepare data for x0 and x1 separately for intermediate calculation
+        # Note: for `data` argument in RatioTrainer.train,
+        # maybe it's better to pass all the x0,x1,w0,x,y etc,
+        # and run packaging within this method? This allows us to reuse part
+        # of the data for intermediate calculation.
+        if intermediate_stats_dist:
+            feature_data = {
+                "feature_names" : list(metaDataDict.keys()),
+                "x0" : x0,
+                "w0" : w0,
+                "x1" : x1,
+                "w1" : w1,
+            }
+        else:
+            feature_data = None
+
         # Train model
         logger.info("Training model")
         trainer = RatioTrainer(self.model, n_workers=n_workers)
@@ -286,9 +303,9 @@ class RatioEstimator(Estimator):
             early_stopping_patience=early_stopping_patience,
             intermediate_train_plot = intermediate_train_plot,
             intermediate_save = intermediate_save,
-            x0_data = (list(metaDataDict.keys()), x0, w0),
-            x1_data = (list(metaDataDict.keys()), x1, w1),
-            ratio_estimator = self, # just pass the estimation itself for evaluate
+            intermediate_stats_dist = intermediate_stats_dist,
+            feature_data = feature_data,
+            estimator = self, # just pass the RatioEstimator object itself for intermediate evaluate and save
         )
         return result
 

@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import pathlib
 import six
 from collections import OrderedDict, defaultdict
 import numpy as np
@@ -84,7 +85,7 @@ class Trainer(object):
 
     def train(
         self,
-        data,
+        data, # packed training data, including both nominal and variation
         loss_functions,
         loss_weights=None,
         loss_labels=None,
@@ -100,11 +101,11 @@ class Trainer(object):
         early_stopping_patience=None,
         clip_gradient=None,
         verbose="some",
-        intermediate_train_plot=None,
-        intermediate_save=None,
-        x0_data = None,
-        x1_data = None,
-        ratio_estimator = None,
+        intermediate_train_plot=None, # dict of loading.load_result args
+        intermediate_save=None, # dict of estimator.save args
+        intermediate_stats_dist = False, # calculate statistical distance after each epoch
+        feature_data = None,
+        estimator = None, # instance of base.Estimator that calls the Trainer.train
     ):
         self._timer(start="ALL")
         self._timer(start="check data")
@@ -157,8 +158,15 @@ class Trainer(object):
         self._timer(stop="initialize training")
 
         # Yuzhan: list for tracking statistical distances
-        kl_div_values = defaultdict(list)
-        wasserstein_dist_values = defaultdict(list)
+        if intermediate_stats_dist and feature_data:
+            kl_div_values = defaultdict(list)
+            wasserstein_values = defaultdict(list)
+            w0 = feature_data["w0"].flatten()
+            w1 = feature_data["w1"].flatten()
+            x0_features = feature_data["x0"]
+            x1_features = feature_data["x1"]
+            feature_names = feature_data["feature_names"]
+            x0_x1_zipped = zip(x0_features.T, x1_features.T)
 
         # Loop over epochs
         for i_epoch in range(epochs):
@@ -211,46 +219,51 @@ class Trainer(object):
             )
             self._timer(stop="report epoch")
 
-            # computing statistic on trained data and model
-            self._timer(start="statistical distiance")
-            # getting the ratio model
-            x0_names, x0_features, w0 = x0_data
-            x1_names, x1_features, w1 = x1_data
-            w0 = w0.flatten()
-            w1 = w1.flatten()
-            _r_hat, _s_hat = ratio_estimator.evaluate(x0_features)
-            _carl_w = 1.0/_r_hat
-            for _name_id, (_x0, _x1) in enumerate(zip(x0_features.T, x1_features.T)):
-                kl_carl = statistic.compute_kl_divergence(_x1, w1, _x0, _carl_w)
-                wasserstein_dist = statistic.wasserstein(_x1, w1, _x0, _carl_w)
-                _name = x0_names[_name_id]
-                kl_div_values[_name].append(kl_carl)
-                wasserstein_dist_values[_name].append(wasserstein_dist)
-            for _name in x0_names:
-                np.save(f"{_name}_kl.npy", np.array(kl_div_values[_name]))
-                np.save(f"{_name}_wasserstain.npy", np.array(wasserstein_dist_values[_name]))
-            self._timer(stop="statistical distiance")
+            # computing statistic on data and model after epoch training
+            if intermediate_stats_dist:
+                self._timer(start="statistical distiance")
+                # using estimator.evaluate to compute results from x0 features
+                # assuming CARL method for now, but this can be generalized for others
+                _r_hat, _s_hat = estimator.evaluate(x0_features)
+                _carl_w = 1.0/_r_hat
+                for _name_id, (_x0, _x1) in enumerate(x0_x1_zipped):
+                    _name = feature_names[_name_id]
+                    stats_method = "KL-divergence"
+                    self._timer(start=stats_method)
+                    kl_carl = statistic.compute_kl_divergence(_x1, w1, _x0, _carl_w)
+                    kl_div_values[_name].append(kl_carl)
+                    self._timer(stop=stats_method)
+                    stats_method = "Wasserstein distance"
+                    self._timer(start=stats_method)
+                    wasserstein_dist = statistic.wasserstein(_x1, w1, _x0, _carl_w)
+                    wasserstein_values[_name].append(wasserstein_dist)
+                    self._timer(stop=stats_method)
+                for _name in feature_names:
+                    np.save(pathlib.Path(f"stats_dist/{_name}_kl.npy"), np.array(kl_div_values[_name]))
+                    np.save(pathlib.Path(f"stats_dist/{_name}_wasserstain.npy"), np.array(wasserstein_values[_name]))
+                self._timer(stop="statistical distiance")
 
             # do intermediate plotting and saving
             if verbose_epoch:
-                if intermediate_train_plot:
+                if intermediate_train_plot and estimator:
                     self._timer(start="intermediate train plot")
-                    m_evaluator, m_plotter = intermediate_train_plot
+                    m_data, m_plotter = intermediate_train_plot
+                    m_plotter, m_plot_args = m_plotter
                     for type in ["train", "val"]:
-                        m_r_hat, m_s_hat = m_evaluator[0](m_evaluator[1][type])
-                        m_plotter[1][type].update({"ext_plot_path":f"epoch_plot_{i_epoch}_{type}"})
+                        m_r_hat, m_s_hat = estimator.evaluate(m_data[type])
                         m_carl_w = 1.0/m_r_hat
-                        m_plotter[1][type].update({"weights":m_carl_w})
-                        m_plotter[1][type].update({"label":type})
-                        m_plotter[0](**m_plotter[1][type])
+                        m_plot_args[type].update({"ext_plot_path":f"epoch_plot_{i_epoch}_{type}"})
+                        m_plot_args[type].update({"weights":m_carl_w})
+                        m_plot_args[type].update({"label":type})
+                        m_plotter(**m_plot_args[type])
                     self._timer(stop="intermediate train plot")
-                if intermediate_save:
+                if intermediate_save and estimator:
                     self._timer(start="intermediate save")
-                    saver, save_args = intermediate_save
+                    save_args = intermediate_save
                     m_filename = save_args['filename']
                     new_fname = f"models/epoch_{i_epoch}/{m_filename}"
                     save_args.update({"filename":new_fname})
-                    saver(**save_args)
+                    estimator.save(**save_args)
                     save_args.update({"filename":m_filename})
                     np.save(f"{new_fname}_loss_train.npy", np.array(losses_train))
                     np.save(f"{new_fname}_loss_val.npy", np.array(losses_val))
