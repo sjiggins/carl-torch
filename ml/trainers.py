@@ -167,6 +167,9 @@ class Trainer(object):
             x1_features = feature_data["x1"]
             feature_names = feature_data["feature_names"]
             x0_x1_zipped = zip(x0_features.T, x1_features.T)
+            stats_output_dir = pathlib.Path("stats_dist/")
+            stats_output_dir.mkdir(parents=True, exist_ok=True)
+            stats_output_dir = stats_output_dir.resolve()
 
         # Loop over epochs
         for i_epoch in range(epochs):
@@ -239,8 +242,8 @@ class Trainer(object):
                     wasserstein_values[_name].append(wasserstein_dist)
                     self._timer(stop=stats_method)
                 for _name in feature_names:
-                    np.save(pathlib.Path(f"stats_dist/{_name}_kl.npy"), np.array(kl_div_values[_name]))
-                    np.save(pathlib.Path(f"stats_dist/{_name}_wasserstain.npy"), np.array(wasserstein_values[_name]))
+                    np.save(f"{stats_output_dir}/{_name}_kl.npy", np.array(kl_div_values[_name]))
+                    np.save(f"{stats_output_dir}/{_name}_wasserstain.npy", np.array(wasserstein_values[_name]))
                 self._timer(stop="statistical distiance")
 
             # do intermediate plotting and saving
