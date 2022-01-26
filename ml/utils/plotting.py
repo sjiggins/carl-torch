@@ -393,9 +393,9 @@ def weight_obs_data(x0, x1, w0, w1, ratioName='', max_nevents=1000000):
 
     # Dataset 0 probability proportionality sub-sampling
     x0_len = x0.shape[0]
-    w0_abs_sum = w0_abs.sum()
-    w0_abs = w0_abs / w0_abs_sum
-    weighted_data0 = np.random.choice(x0_len, min(max_nevents, int(w0_abs_sum)), p = w0_abs)
+    w0_abs_sum = int(w0_abs.sum())
+    w0_abs = w0_abs / w0_abs.sum()
+    weighted_data0 = np.random.choice(x0_len, min(max_nevents, w0_abs_sum), p = w0_abs)
     w_x0 = x0.copy()[weighted_data0]
 
     # set of +-1 weights, depending on the sign of the original weight
@@ -405,9 +405,9 @@ def weight_obs_data(x0, x1, w0, w1, ratioName='', max_nevents=1000000):
 
     # Dataset 1 probability proportionality sub-sampling
     x1_len = x1.shape[0]
-    w1_abs_sum = w1_abs.sum()
-    w1_abs = w1_abs / w1_abs_sum
-    weighted_data1 = np.random.choice(x1_len, min(max_nevents, int(w1_abs_sum)), p = w1_abs)
+    w1_abs_sum = int(w1_abs.sum())
+    w1_abs = w1_abs / w1_abs.sum()
+    weighted_data1 = np.random.choice(x1_len, min(max_nevents, w1_abs_sum), p = w1_abs)
     w_x1 = x1.copy()[weighted_data1]
 
     # set of +-1 weights, depending on the sign of the original weight
@@ -594,7 +594,7 @@ def draw_ROC(X0, X1, W0, W1, weights, label, legend, n, plot = True):
     plt.tight_layout()
     if plot:
         ofigure = pathlib.Path(f"plots/roc_nominalVs{legend}_{label}_{n}.png")
-        ofigure.mkdir(parents=True, exist_ok=True)
+        ofigure.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(ofigure.resolve())
         plt.clf()
     logger.info("CARL weighted %s AUC is %.3f"%(label,roc_auc_tC))
