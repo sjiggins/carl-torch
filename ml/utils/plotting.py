@@ -385,7 +385,7 @@ def draw_resampled_ratio(x0, w0, x1, w1, ratioName=''):
     plt.clf()
     plt.close()
 
-def weight_obs_data(x0, x1, w0, w1, ratioName='', max_nevents=1000000):
+def weight_obs_data(x0, x1, w0, w1, ratioName='', max_nevents=100000000):
 
     # Remove negative probabilities - maintains proportionality still by abs()
     w0_abs = abs(w0)
@@ -416,8 +416,9 @@ def weight_obs_data(x0, x1, w0, w1, ratioName='', max_nevents=1000000):
     w_w1 = w1_ones.copy()[weighted_data1]
 
     # Concatenate all data
-    x_all = np.append(w_x0,w_x1)
-    y_all = np.zeros(w0_abs_sum+w1_abs_sum)
+    sum_w0_w1 = w0_abs_sum + w1_abs_sum
+    x_all = np.append(w_x0, w_x1)
+    y_all = np.zeros(min(sum_w0_w1, 2*max_nevents))
     y_all[w0_abs_sum:] = 1
     w_all = np.concatenate([w_w0, w_w1])
 
@@ -523,11 +524,11 @@ def draw_Obs_ROC(X0, X1, W0, W1, weights, label, legend, n, plot = True, plot_re
             plt.savefig('plots/roc_inputs_nominalVs%s_%s_%s_%s.png'%(legend,label,idx,n))
             plt.clf()
 
-def weight_data(x0, x1, w0, w1, max_nevents=1000000):
+def weight_data(x0, x1, w0, w1, max_nevents=100000000):
     """
     Resample data with given feasture x0 and x1 with corresponding weights w0 and w1
-    max_events is the maximum number of events to be resample if w0.sum() is too
-    large to be allocated.
+    max_nevents is the maximum number of events to be resample if w0.sum() is too
+    large to be allocated. 100000000*float64 = 0.8 GB
     """
 
     # Remove negative probabilities - maintains proportionality still by abs()
