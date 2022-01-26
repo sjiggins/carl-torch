@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 import logging
+import pathlib
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as font_manager
@@ -592,7 +593,9 @@ def draw_ROC(X0, X1, W0, W1, weights, label, legend, n, plot = True):
     plt.legend(loc="lower right", title = label)
     plt.tight_layout()
     if plot:
-        plt.savefig('plots/roc_nominalVs%s_%s_%s.png'%(legend,label, n))
+        ofigure = pathlib.Path(f"plots/roc_nominalVs{legend}_{label}_{n}.png")
+        ofigure.mkdir(parents=True, exist_ok=True)
+        plt.savefig(ofigure.resolve())
         plt.clf()
     logger.info("CARL weighted %s AUC is %.3f"%(label,roc_auc_tC))
     logger.info("Unweighted %s AUC is %.3f"%(label,roc_auc_t))
