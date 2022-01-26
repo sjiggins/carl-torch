@@ -384,7 +384,7 @@ def draw_resampled_ratio(x0, w0, x1, w1, ratioName=''):
     plt.clf()
     plt.close()
 
-def weight_obs_data(x0, x1, w0, w1, ratioName=''):
+def weight_obs_data(x0, x1, w0, w1, ratioName='', max_nevents=1000000):
 
     # Remove negative probabilities - maintains proportionality still by abs()
     w0_abs = abs(w0)
@@ -392,9 +392,9 @@ def weight_obs_data(x0, x1, w0, w1, ratioName=''):
 
     # Dataset 0 probability proportionality sub-sampling
     x0_len = x0.shape[0]
-    w0_abs_sum = int(w0_abs.sum())
-    w0_abs = w0_abs / w0_abs.sum()
-    weighted_data0 = np.random.choice(range(x0_len), w0_abs_sum, p = w0_abs)
+    w0_abs_sum = w0_abs.sum()
+    w0_abs = w0_abs / w0_abs_sum
+    weighted_data0 = np.random.choice(x0_len, min(max_nevents, int(w0_abs_sum)), p = w0_abs)
     w_x0 = x0.copy()[weighted_data0]
 
     # set of +-1 weights, depending on the sign of the original weight
@@ -404,9 +404,9 @@ def weight_obs_data(x0, x1, w0, w1, ratioName=''):
 
     # Dataset 1 probability proportionality sub-sampling
     x1_len = x1.shape[0]
-    w1_abs_sum = int(w1_abs.sum())
-    w1_abs = w1_abs / w1_abs.sum()
-    weighted_data1 = np.random.choice(range(x1_len), w1_abs_sum, p = w1_abs)
+    w1_abs_sum = w1_abs.sum()
+    w1_abs = w1_abs / w1_abs_sum
+    weighted_data1 = np.random.choice(x1_len, min(max_nevents, int(w1_abs_sum)), p = w1_abs)
     w_x1 = x1.copy()[weighted_data1]
 
     # set of +-1 weights, depending on the sign of the original weight
@@ -522,7 +522,7 @@ def draw_Obs_ROC(X0, X1, W0, W1, weights, label, legend, n, plot = True, plot_re
             plt.savefig('plots/roc_inputs_nominalVs%s_%s_%s_%s.png'%(legend,label,idx,n))
             plt.clf()
 
-def weight_data(x0, x1, w0, w1, max_events=1000000):
+def weight_data(x0, x1, w0, w1, max_nevents=1000000):
     """
     Resample data with given feasture x0 and x1 with corresponding weights w0 and w1
     max_events is the maximum number of events to be resample if w0.sum() is too
@@ -539,13 +539,13 @@ def weight_data(x0, x1, w0, w1, max_events=1000000):
     x0_len = x0.shape[0]
     w0_sum = w0.sum()
     w0 = w0 / w0_sum
-    weighted_data0 = np.random.choice(x0_len, min(max_events, int(w0_sum)), p = w0)
+    weighted_data0 = np.random.choice(x0_len, min(max_nevents, int(w0_sum)), p = w0)
     w_x0 = x0.copy()[weighted_data0]
 
     x1_len = x1.shape[0]
     w1_sum = w1.sum()
     w1 = w1 / w1_sum
-    weighted_data1 = np.random.choice(x1_len, min(max_events, int(w1_sum)), p = w1)
+    weighted_data1 = np.random.choice(x1_len, min(max_nevents, int(w1_sum)), p = w1)
     w_x1 = x1.copy()[weighted_data1]
 
     # Calculate the minimum size so as to ensure we have equal number of events in each class
