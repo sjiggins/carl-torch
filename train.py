@@ -185,7 +185,7 @@ try:
 except Exception:
     n_workers = os.cpu_count()
 
-if intermediate_stats_dist:
+if per_epoch_stats:
     stats_method_list = ["compute_kl_divergence", "wasserstein"]
 else:
     stats_method_list = []
