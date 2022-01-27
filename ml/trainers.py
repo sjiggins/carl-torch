@@ -241,10 +241,10 @@ class Trainer(object):
                 for _name_id, (_x0, _x1) in enumerate(x0_x1_zipped):
                     _name = feature_names[_name_id]
                     for _stats_method_name, _stats_method in stats_methods.items():
-                        self._timer(start=_method_name)
+                        self._timer(start=_stats_method_name)
                         _value = _stats_method(_x0, _carl_w, _x1, w1)
                         stats_values[_stats_method_name][_name].append(_value)
-                        self._timer(stop=_method_name)
+                        self._timer(stop=_stats_method_name)
                 for _method_name, _stats_value in stats_values.items():
                     for _name in feature_names:
                         np.save(f"{stats_output_dir}/{_name}_{_method_name}.npy", np.array(_stats_value[_name]))
