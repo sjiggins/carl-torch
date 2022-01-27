@@ -185,6 +185,11 @@ try:
 except Exception:
     n_workers = os.cpu_count()
 
+if intermediate_stats_dist:
+    stats_method_list = ["compute_kl_divergence", "wasserstein"]
+else:
+    stats_method_list = []
+
 # perform training
 train_loss, val_loss, accuracy_train, accuracy_val = estimator.train(
     method='carl',
@@ -205,6 +210,7 @@ train_loss, val_loss, accuracy_train, accuracy_val = estimator.train(
     intermediate_train_plot = intermediate_train_plot,
     intermediate_save = intermediate_save,
     intermediate_stats_dist = per_epoch_stats,
+    stats_method_list = stats_method_list,
     optimizer_kwargs=kwargs,
     global_name=global_name,
     plot_inputs=True,

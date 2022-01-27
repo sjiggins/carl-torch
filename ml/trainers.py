@@ -104,6 +104,7 @@ class Trainer(object):
         intermediate_train_plot=None, # dict of loading.load_result args
         intermediate_save=None, # dict of estimator.save args
         intermediate_stats_dist = False, # calculate statistical distance after each epoch
+        stats_method_list = [], # list of statistical method for computing the distance.
         feature_data = None,
         estimator = None, # instance of base.Estimator that calls the Trainer.train
     ):
@@ -158,9 +159,10 @@ class Trainer(object):
         self._timer(stop="initialize training")
 
         # Yuzhan: list for tracking statistical distances
-        if intermediate_stats_dist and feature_data:
-            kl_div_values = defaultdict(list)
-            wasserstein_values = defaultdict(list)
+        # the methods are expecting to receive dataset (trained, trained_w, expect, expect_w)
+        stats_methods = {}
+        stats_values = {}
+        if intermediate_stats_dist and feature_data and stats_method_list:
             w0 = feature_data["w0"].flatten()
             w1 = feature_data["w1"].flatten()
             x0_features = feature_data["x0"]
@@ -170,6 +172,13 @@ class Trainer(object):
             stats_output_dir = pathlib.Path("stats_dist/")
             stats_output_dir.mkdir(parents=True, exist_ok=True)
             stats_output_dir = stats_output_dir.resolve()
+            for _method_name in stats_method_list:
+                _method = getattr(statistic, _method_name, None)
+                if _method is not None:
+                    stats_methods[_method_name] = _method
+                    stats_values[_method_name] = defaultdict(list)
+            logger.info(f"list of registered statistical methods: {stats_methods.keys()}")
+
 
         # Loop over epochs
         for i_epoch in range(epochs):
@@ -231,19 +240,14 @@ class Trainer(object):
                 _carl_w = 1.0/_r_hat
                 for _name_id, (_x0, _x1) in enumerate(x0_x1_zipped):
                     _name = feature_names[_name_id]
-                    stats_method = "KL-divergence"
-                    self._timer(start=stats_method)
-                    kl_carl = statistic.compute_kl_divergence(_x1, w1, _x0, _carl_w)
-                    kl_div_values[_name].append(kl_carl)
-                    self._timer(stop=stats_method)
-                    stats_method = "Wasserstein distance"
-                    self._timer(start=stats_method)
-                    wasserstein_dist = statistic.wasserstein(_x1, w1, _x0, _carl_w)
-                    wasserstein_values[_name].append(wasserstein_dist)
-                    self._timer(stop=stats_method)
-                for _name in feature_names:
-                    np.save(f"{stats_output_dir}/{_name}_kl.npy", np.array(kl_div_values[_name]))
-                    np.save(f"{stats_output_dir}/{_name}_wasserstain.npy", np.array(wasserstein_values[_name]))
+                    for _stats_method_name, _stats_method in stats_methods.items():
+                        self._timer(start=_method_name)
+                        _value = _stats_method(_x0, _carl_w, _x1, w1)
+                        stats_values[_stats_method_name][_name].append(_value)
+                        self._timer(stop=_method_name)
+                for _method_name, _stats_value in stats_values.items():
+                    for _name in feature_names:
+                        np.save(f"{stats_output_dir}/{_name}_{_method_name}.npy", np.array(_stats_value[_name]))
                 self._timer(stop="statistical distiance")
 
             # do intermediate plotting and saving

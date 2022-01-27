@@ -75,6 +75,7 @@ class RatioEstimator(Estimator):
         intermediate_train_plot=None,
         intermediate_save=None,
         intermediate_stats_dist=False,
+        stats_method_list = [],
         global_name="",
         plot_inputs=False,
         nentries=-1,
@@ -304,6 +305,7 @@ class RatioEstimator(Estimator):
             intermediate_train_plot = intermediate_train_plot,
             intermediate_save = intermediate_save,
             intermediate_stats_dist = intermediate_stats_dist,
+            stats_method_list = stats_method_list,
             feature_data = feature_data,
             estimator = self, # just pass the RatioEstimator object itself for intermediate evaluate and save
         )
