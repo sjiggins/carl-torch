@@ -37,6 +37,7 @@ class Loader():
         plot=False,
         global_name="Test",
         features=[],
+        spectator_features=[],
         weightFeature="DummyEvtWeight",
         TreeName = "Tree",
         x0 = None,
@@ -61,25 +62,37 @@ class Loader():
         """
         Parameters
         ----------
-        folder : str or None
-            Path to the folder where the resulting samples should be saved (ndarrays in .npy format). Default value:            None.
-        plot : bool, optional
+        folder : str, default=None
+            Path to the folder where the resulting samples should be saved (ndarrays in .npy format).
+
+        plot : bool, optional, default=False
             make validation plots
-        global_name : str
+
+        global_name : str, optional, default="Test"
             Name of containing folder for executed training or evaluation run
-        do : str
-            Decide what samples to use. Can either be Sherpa Vs Madgraph ('sherpaVsMG5'), Renormalization scale up vs down ('mur') or qsf scale up vs down ('qsf')
-            Default value: 'sherpaVsMG5'
+
+        features: list, default=[]
+            list of features for training.
+
+        spectator_features: list, default=[]
+            list of features that DOES NOT go into the training.
+            Use for examining the performace of a trained model on non-trained features.
+
+        weightFeature: str, default="DummyEvtWeight"
+            name of the branch in the ROOT N-tuples used for the event weight.
+            If default is used, all event weights are assume to be 1.0
+
         x0 : dataframe of none
             Either pass a dataframe as in notebook, or None to load sample according to do option.
+
         x1 : dataframe of none
             Either pass a dataframe as in notebook, or None to load sample according to do option.
-        randomize : bool, optional
-            Randomize training sample. Default value:
-            False
-        save : bool, optional
-            Save training ans test samples. Default value:
-            False
+
+        randomize : bool, optional, default=False
+            Randomize training sample.
+
+        save : bool, optional, default=False
+            Save training ans test samples.
 
         weight_preprocess: bool, optional
             event weigth pre-processing by mapping event weights that are larger N*standard deviation to the mean value.
@@ -210,7 +223,7 @@ class Loader():
         # Target labels
         y0 = np.zeros(x0.shape[0])
         y1 = np.ones(x1.shape[0])
-        
+
         # Train, test splitting of input dataset
         X0_train, X0_val, y0_train, y0_val, w0_train, w0_val =  train_test_split(X0, y0, w0, test_size=0.50, random_state=42)
         X1_train, X1_val, y1_train, y1_val, w1_train, w1_val =  train_test_split(X1, y1, w1, test_size=0.50, random_state=42)
