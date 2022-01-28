@@ -14,7 +14,7 @@ from collections import defaultdict
 # import pickle
 from time import process_time # For sub-process timing
 #import cudf
-import torch
+# import torch
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +84,7 @@ def HarmonisedLoading(
     fA="",
     fB="",
     features=[],
+    spectators=[],
     weightFeature="DummyEvtWeight",
     nentries=0,
     TreeName="Tree",
@@ -106,6 +107,10 @@ def HarmonisedLoading(
 
         features: list(str)
             list of features (branch name) in the N-tuple TTree.
+
+        spectators: list(str)
+            list of features that will not be in the training.
+            Only serves as spectator to the trained model.
 
         weightFeasure: str, default="DummyEvtWeight"
             name of the weigth branch in TTree.
@@ -132,9 +137,10 @@ def HarmonisedLoading(
     """
 
 
-    x0, w0, vlabels0 = load(
+    x0, spec_x0, w0, vlabels0 = load(
         f = fA,
         features=features,
+        spectators=spectators,
         weightFeature=weightFeature,
         n=int(nentries),
         t=TreeName,
@@ -142,9 +148,10 @@ def HarmonisedLoading(
         weight_polarity=weight_polarity,
     )
 
-    x1, w1, vlabels1 = load(
+    x1, spec_x1, w1, vlabels1 = load(
         f=fB,
         features=features,
+        spectators=spectators,
         weightFeature=weightFeature,
         n=int(nentries),
         t=TreeName,
@@ -153,6 +160,8 @@ def HarmonisedLoading(
     )
 
     x0, x1 = CoherentFlattening(x0,x1)
+    spec_x0 = flatten_nested_column(spec_x0)
+    spec_x1 = flatten_nested_column(spec_x1)
 
     # hard-coding the event weight inverting here for the moment
     # TODO: make this optional
@@ -169,8 +178,7 @@ def HarmonisedLoading(
     x1.fillna(0, inplace=True)
     w1.fillna(0, inplace=True)
 
-    return x0, w0, vlabels0, x1, w1, vlabels1
-
+    return x0, w0, vlabels0, spec_x0, x1, w1, vlabels1, spec_x1
 
 
 def CoherentFlattening(df0, df1):
@@ -179,6 +187,9 @@ def CoherentFlattening(df0, df1):
     df0_objects = df0.select_dtypes(object)
     # df1_objects = df1.select_dtypes(object) # this one never used?
     minObjectLen = defaultdict()
+    # Find the columns that are not scalars and get all object type columns
+    #maxListLength = df.select_dtypes(object).apply(lambda x: x.list.len()).max(axis=1)
+    print(df0)
     for column in df0_objects:
         elemLen0 = df0[column].apply(lambda x: len(x)).max()
         elemLen1 = df1[column].apply(lambda x: len(x)).max()
@@ -192,16 +203,9 @@ def CoherentFlattening(df0, df1):
         print("<tools.py::CoherentFlattening()>::      Element Length 0 = {}".format( elemLen0))
         print("<tools.py::CoherentFlattening()>::      Element Length 1 = {}".format( elemLen1))
 
-    # Find the columns that are not scalars and get all object type columns
-    #maxListLength = df.select_dtypes(object).apply(lambda x: x.list.len()).max(axis=1)
-    print(df0)
-    for column in df0_objects:
-        elemLen0 = df0[column].apply(lambda x: len(x)).max()
-        elemLen1 = df1[column].apply(lambda x: len(x)).max()
-
-
         # Now break up each column into elements of max size 'macObjectLen'
-        df0_flattened = pd.DataFrame(df0[column].to_list(), columns=[column+str(idx) for idx in range(elemLen0)])
+        #df0_flattened = pd.DataFrame(df0[column].to_list(), columns=[column+str(idx) for idx in range(elemLen0)])
+        df0_flattened = pd.DataFrame(df0.pop(column).to_list(), columns=[column+str(idx) for idx in range(elemLen0)])
         #print(df0_flattened)
         #df0_flattened = df0_flattened.fillna(0)
         #print(df0_flattened)
@@ -215,12 +219,13 @@ def CoherentFlattening(df0, df1):
 
         #print(df[column])
         #print(df_flattened)
-        del df0[column]
+        #del df0[column]
         df0 = df0.join(df0_flattened)
         print(df0)
 
         # Now break up each column into elements of max size 'macObjectLen'
-        df1_flattened = pd.DataFrame(df1[column].to_list(), columns=[column+str(idx) for idx in range(elemLen1)])
+        #df1_flattened = pd.DataFrame(df1[column].to_list(), columns=[column+str(idx) for idx in range(elemLen1)])
+        df1_flattened = pd.DataFrame(df1.pop(column).to_list(), columns=[column+str(idx) for idx in range(elemLen1)])
         #df1_flattened = df1_flattened.fillna(0)
 
         # Delete extra dimensions if needed due to non-matching dimensionality of df0 & df1
@@ -232,17 +237,32 @@ def CoherentFlattening(df0, df1):
 
         #print(df[column])
         #print(df_flattened)
-        del df1[column]
+        #del df1[column]
         df1 = df1.join(df1_flattened)
         print(df1)
 
     print("<loading.py::load()>::    Flattened Dataframe")
     #print(df)
-    return df0,df1
+    return df0, df1
+
+def flatten_nested_column(df):
+    """
+    flatten nested columns.
+    """
+    if df is not None:
+        df_objects = df.select_dtypes(object)
+        for column in df_objects:
+            maxLen = df[column].apply(lambda x: len(x)).max()
+            new_col = [column+str(idx) for idx in range(maxLen)]
+            df = df.join(pd.DataFrame(df.pop(column).to_list(), columns=new_col))
+            df.fillna(0, inplace=True)
+    return df
+
 
 def load(
     f="",
     features=[],
+    spectators=[],
     weightFeature="DummyEvtWeight",
     n=0,
     t="Tree",
@@ -259,6 +279,11 @@ def load(
         features : [], optional
             List of observables/features name inside the ROOT file TTree.
             If no feature is provided, all branches from the TTree will be used.
+
+        spectators: [], optional
+            List of observables/features name inside the ROOT file TTree.
+            These features will NOT be part of the training, and only serve as
+            spectator for evaluating trained model performance.
 
         weightFeature : str, optional
             Name of the branch that contains the MC event weight.
@@ -285,11 +310,11 @@ def load(
             DataFrame of feasures, event weight, and labels
     """
     # grab our data and iterate over chunks of it with uproot
-    logger.info("<{}> Uproot open file".format(process_time()))
+    logger.info(f"<{process_time()}> Uproot open file")
     file = uproot.open(f)
 
     # Now get the Tree
-    logger.info("<{}> Getting TTree from file".format(process_time()))
+    logger.info(f"<{process_time()}> Getting TTree from file")
     X_tree = file[t]
 
     # Check that features were set by user, if not then will use all features
@@ -300,9 +325,10 @@ def load(
         features = X_tree.keys()
 
     # Extract the pandas dataframe - warning about jagged arrays
-    #df = X_tree.pandas.df(features, flatten=False)
-    logger.info("<{}> Converting uproot array to panda's dataframe".format(process_time()))
-    df = pd.DataFrame(X_tree.arrays(features, library="np", entry_stop=n))
+    logger.info(f"<{process_time()}> Converting uproot array to panda's dataframe")
+    # load both features and spector into the same dataframe
+    df = pd.DataFrame(X_tree.arrays(features+spectators, library="np", entry_stop=n))
+
     # Implement GPU capable dataframe loading/caching, as we want to speed up data processing - needs a docker image for library "cp"
     #if torch.cuda.is_available() and False:
     #    df = cudf.DataFrame(X_tree.arrays(features, library="cp", entry_stop=n))
@@ -310,7 +336,7 @@ def load(
     #    df = pd.DataFrame(X_tree.arrays(features, library="np", entry_stop=n))
 
     # Extract the weights from the Tree if specificed
-    logger.info("<{}> Obtaining data point weights (dataframe)".format(process_time()))
+    logger.info(f"<{process_time()}> Obtaining data point weights (dataframe)")
     if weightFeature == "DummyEvtWeight":
         dweights = np.ones(len(df.index))
         weights = pd.DataFrame(data=dweights, index=range(len(df.index)), columns=[weightFeature])
@@ -319,35 +345,42 @@ def load(
 
     # Apply filtering if set by user
     if Filter != None:
-        logger.info("<{}> Applying filtering".format(process_time()))
+        logger.info(f"<{process_time()}> Applying filtering")
         for logExp in Filter.FilterList:
-            #df_mask = pd.eval( logExp, target = df)
             if all([var in df for var in Filter.variables]):
                 df_mask = df.eval(logExp)
             else:
-                # if the logExp contains variables that are not in the df, it will
-                # throw a KeyError. We need to load missing variables into a
-                # temporary dataframe, then compute the mask.
+                # if the data frame does not contains all of the variables in
+                # the filter `logExp`, it will throw a KeyError.
+                # We then need to contruct a temperoray dataframe with all variables
+                # from `logExp` in order to compute the mask.
                 df_filter = pd.DataFrame(X_tree.arrays(Filter.variables, library="np", entry_stop=n))
                 df_mask = df_filter.eval(logExp)
             df = df[df_mask]
             weights = weights[df_mask]
 
     # Reset all row numbers
-    logger.info("<{}> Re-setting row numbers in panda dataframes due to filtering or shuffling of dataset".format(process_time()))
+    logger.info(f"<{process_time()}> Re-setting row numbers in panda dataframes due to filtering or shuffling of dataset")
     df = df.reset_index(drop=True)
+    weights = weights.reset_index(drop=True)
 
     # For the moment one should simply use the features
     if weight_polarity:
-        logger.info("<{}> Converting all weights to positive and adding weight polarity as new additonal training feature".format(process_time()))
+        logger.info(f"<{process_time()}> Converting all weights to positive and adding weight polarity as new additonal training feature")
         polarity_name = "polarity"
         df[polarity_name] = weights[weightFeature].apply(lambda x: 1 if x >= 0 else -1)
         labels  = features + [polarity_name]
     else:
         labels = features
 
-    logger.info("<{}> Completed dataframe loading".format(process_time()))
-    return (df, weights, labels)
+    # split spectator into separate dataframe
+    if spectators:
+        spectator_df = pd.concat([df.pop(x) for x in spectators], axis=1)
+    else:
+        spectator_df = None
+
+    logger.info(f"<{process_time()}> Completed dataframe loading")
+    return (df, spectator_df, weights, labels)
 
 
 def create_missing_folders(folders):
