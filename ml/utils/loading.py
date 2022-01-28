@@ -40,8 +40,6 @@ class Loader():
         spectator_features=[],
         weightFeature="DummyEvtWeight",
         TreeName = "Tree",
-        x0 = None,
-        x1 = None,
         randomize = False,
         save = False,
         correlation = True,
@@ -60,6 +58,9 @@ class Loader():
         scaling="minmax",
     ):
         """
+        This medthod use for loading features from ROOT N-tuples files and
+        preparing data for the training.
+
         Parameters
         ----------
         folder : str, default=None
@@ -81,12 +82,6 @@ class Loader():
         weightFeature: str, default="DummyEvtWeight"
             name of the branch in the ROOT N-tuples used for the event weight.
             If default is used, all event weights are assume to be 1.0
-
-        x0 : dataframe of none
-            Either pass a dataframe as in notebook, or None to load sample according to do option.
-
-        x1 : dataframe of none
-            Either pass a dataframe as in notebook, or None to load sample according to do option.
 
         randomize : bool, optional, default=False
             Randomize training sample.
