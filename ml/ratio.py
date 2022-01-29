@@ -44,16 +44,7 @@ class RatioEstimator(Estimator):
     def train(
         self,
         method,
-        x,
-        y,
-        w=None,
-        x0=None,
-        x1=None,
-        w0=None,
-        w1=None,
-        x_val=None,
-        y_val=None,
-        w_val=None,
+        input_data_dict,
         alpha=1.0,
         optimizer="amsgrad",
         optimizer_kwargs=None,
@@ -146,16 +137,38 @@ class RatioEstimator(Estimator):
         logger.info(f"  N hidden:                 {self.n_hidden}")
         logger.info(f"  Input loss type:                 {loss_type}")
 
+        # check if all required and optional data exists:
+        required_list = ["X_train", "y_train", "w_train"]
+        optional_list = ["X0_train", "w0_train", "X1_train", "w1_train"]
+        if not isinstance(input_data_dict, dict):
+            raise TypeError(f"Argument input_data_dict needs to be type 'dict', but received {type(input_data_dict)}")
+        if not all(x in input_data_dict for x in required_list):
+            raise KeyError(f"Unable to look up all required data, please have at least prepared with keys {required_list}")
+        if not all(x in input_data_dict for x in optional_list):
+            logger.warning(f"cannot find all optional data {optional_list}")
+            logger.warning("some of the features (inital plotting, per epoch plotting, etc) cannot be enabled")
+
         # Load training data
         logger.info("Loading training data")
         memmap_threshold = 1.0 if memmap else None
-        x  = load_and_check(x, memmap_files_larger_than_gb=memmap_threshold, name="features")
-        y  = load_and_check(y, memmap_files_larger_than_gb=memmap_threshold, name="target")
-        x0 = load_and_check(x0, memmap_files_larger_than_gb=memmap_threshold, name="nominal features")
-        x1 = load_and_check(x1, memmap_files_larger_than_gb=memmap_threshold, name="variation features")
-        w = load_and_check(w, memmap_files_larger_than_gb=memmap_threshold, name="weights")
-        w0 = load_and_check(w0, memmap_files_larger_than_gb=memmap_threshold, name="weight1")
-        w1 = load_and_check(w1, memmap_files_larger_than_gb=memmap_threshold, name="weights2")
+        for lookup in required_list+optional_list:
+            if lookup in input_data_dict:
+                checking = input_data_dict[lookup]
+                input_data_dict[lookup] = load_and_check(checking, memmap_files_larger_than_gb=memmap_threshold, name=lookup)
+
+        # using old variables here to minimized changes below, might need to clean this up in the future
+        x = input_data_dict.get("X_train")
+        y = input_data_dict.get("y_train")
+        w = input_data_dict.get("w_train")
+
+        x0 = input_data_dict.get("X0_train", None)
+        w0 = input_data_dict.get("w0_train", None)
+        x1 = input_data_dict.get("X1_train", None)
+        w1 = input_data_dict.get("w1_train", None)
+
+        x_val = input_data_dict.get("X_val", None)
+        y_val = input_data_dict.get("y_val", None)
+        w_val = input_data_dict.get("w_val", None)
 
         # Infer dimensions of problem
         n_samples = x.shape[0]
@@ -164,17 +177,13 @@ class RatioEstimator(Estimator):
 
         external_validation = x_val is not None and y_val is not None
         if external_validation:
-            x_val = load_and_check(x_val, memmap_files_larger_than_gb=memmap_threshold, name="x_val")
-            y_val = load_and_check(y_val, memmap_files_larger_than_gb=memmap_threshold, name="y_val")
-            w_val = load_and_check(w_val, memmap_files_larger_than_gb=memmap_threshold, name="w_val")
             logger.info("Found %s separate validation samples", x_val.shape[0])
-
             assert x_val.shape[1] == n_observables
 
         # trying to load metadata
-        metaDataDict = None
+        metaDataDict = input_data_dict.get("metaData", None)
         metaData=f"data/{global_name}/metaData_{nentries}.pkl"
-        if os.path.exists(metaData):
+        if metaDataDict is None and os.path.exists(metaData):
             with open(metaData, "rb") as metaDataFile:
                 metaDataDict = pickle.load(metaDataFile)
 
@@ -231,7 +240,6 @@ class RatioEstimator(Estimator):
             n_observables = x.shape[1]
             if external_validation:
                 x_val = x_val[:, self.features]
-
 
         # Check consistency of input with model
         if self.n_observables is None:
