@@ -14,7 +14,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 # from functools import partial
-from collections import defaultdict
+from collections import OrderedDict
 from .tools import create_missing_folders, load, load_and_check, HarmonisedLoading
 from .plotting import draw_weighted_distributions, draw_unweighted_distributions, draw_ROC, draw_Obs_ROC, resampled_obs_and_roc, plot_calibration_curve, draw_weights, draw_scatter
 from sklearn.model_selection import train_test_split
@@ -37,7 +37,7 @@ class Loader():
         plot=False,
         global_name="Test",
         features=[],
-        spectator_features=[],
+        spectators=[],
         weightFeature="DummyEvtWeight",
         TreeName = "Tree",
         randomize = False,
@@ -75,7 +75,7 @@ class Loader():
         features: list, default=[]
             list of features for training.
 
-        spectator_features: list, default=[]
+        spectators: list, default=[]
             list of features that DOES NOT go into the training.
             Use for examining the performace of a trained model on non-trained features.
 
@@ -109,15 +109,24 @@ class Loader():
         create_missing_folders([folder+'/'+global_name])
         create_missing_folders(['plots'])
 
+        # remove overlapped spectators in features.
+        spectators = [ spec for spec in spectators if spec not in features ]
+
         # Extract the TTree data as pandas dataframes
         (
-            x0, w0, vlabels0,
-            x1, w1, vlabels1
-        )  = HarmonisedLoading(fA = pathA, fB = pathB,
-                               features=features, weightFeature=weightFeature,
-                               nentries = int(nentries), TreeName = TreeName,
-                               weight_polarity=weight_polarity, Filter=self.Filter)
-
+            x0, w0, vlabels0, spec_x0,
+            x1, w1, vlabels1, spec_x1
+        )  = HarmonisedLoading(
+            fA = pathA,
+            fB = pathB,
+            features=features,
+            spectators=spectators,
+            weightFeature=weightFeature,
+            nentries = int(nentries),
+            TreeName = TreeName,
+            weight_polarity=weight_polarity,
+            Filter=self.Filter
+        )
 
         # Run if requested debugging by user
         if debug:
@@ -198,30 +207,65 @@ class Loader():
         x1 = x1[sorted(x1.columns)]
 
         # get metadata, i.e. max, min, mean, std of all the variables in the dataframes
-        metaData = defaultdict()
+        metaData = OrderedDict()
         if scaling == "standard":
-            metaData = {v : {x0[v].mean(), x0[v].std() } for v in  x0.columns }
+            for v in x0.columns:
+                metaData[v] = {x0[v].mean(), x0[v].std()}
             logger.info("Storing Z0 Standard scaling metadata: {}".format(metaData))
         elif scaling == "minmax":
-            metaData = {v : {x0[v].min(), x0[v].max() } for v in  x0.columns }
+            for v in x0.columns:
+                metaData[v] = {x0[v].min(), x0[v].max()}
             logger.info("Storing minmax scaling metadata: {}".format(metaData))
-        X0 = x0.to_numpy()
-        X1 = x1.to_numpy()
+        else:
+            for v in x0.columns:
+                metaData[v] = None
 
-        # Convert weights to numpy
+        # Create target labels
+        y0 = np.zeros(x0.shape[0])
+        y1 = np.ones(x1.shape[0])
+
+        # Convert features and weights to numpy
+        x0 = x0.to_numpy()
+        x1 = x1.to_numpy()
         w0 = w0.to_numpy()
         w1 = w1.to_numpy()
         if normalise:
             w0 = w0 / (w0.sum())
             w1 = w1 / (w1.sum())
 
-        # Target labels
-        y0 = np.zeros(x0.shape[0])
-        y1 = np.ones(x1.shape[0])
+        x0_lookup_names = ["X0_train", "X0_val", "y0_train", "y0_val", "w0_train", "w0_val"]
+        x1_lookup_names = ["X1_train", "X1_val", "y1_train", "y1_val", "w1_train", "w1_val"]
+        x0_input_dataset = [x0, y0, w0]
+        x1_input_dataset = [x1, y1, w1]
+
+        # check if spectators
+        if spectators and all(x is not None for x in [spec_x0, spec_x1]):
+            spectator_metaData = OrderedDict()
+            for spec in spec_x0:
+                spectator_metaData[spec] = {spec_x0[spec].min(), spec_x0[spec].max()}
+            spec_x0 = spec_x0.to_numpy()
+            spec_x1 = spec_x1.to_numpy()
+            x0_lookup_names += ["spec_x0_train", "spec_x0_val"]
+            x0_lookup_names += ["spec_x0_train", "spec_x0_val"]
+            x0_input_dataset.append(spec_x0)
+            x1_input_dataset.append(spec_x1)
+        else:
+            spectator_metaData = None
+            spec_x0 = None
+            spec_x1 = None
 
         # Train, test splitting of input dataset
-        X0_train, X0_val, y0_train, y0_val, w0_train, w0_val =  train_test_split(X0, y0, w0, test_size=0.50, random_state=42)
-        X1_train, X1_val, y1_train, y1_val, w1_train, w1_val =  train_test_split(X1, y1, w1, test_size=0.50, random_state=42)
+        #X0_train, X0_val, y0_train, y0_val, w0_train, w0_val =  train_test_split(x0, y0, w0, test_size=0.50, random_state=42)
+        #X1_train, X1_val, y1_train, y1_val, w1_train, w1_val =  train_test_split(x1, y1, w1, test_size=0.50, random_state=42)
+        prepared_data = {}
+        for _name, split_set in zip(x0_lookup_names, train_test_split(*x0_input_dataset, test_size=0.50, random_state=42)):
+            prepared_data[_name] = split_set
+        for _name, split_set in zip(x1_lookup_names, train_test_split(*x1_input_dataset, test_size=0.50, random_state=42)):
+            prepared_data[_name] = split_set
+
+        # after splitting, we no longer need x0,x1,w0 etc, just set them to None
+        x0 = w0 = y0 = spec_x0 = None
+        x1 = w1 = y1 = spec_x1 = None
 
         #cliping large weights, and replace it by 1.0
         raw_w0_train = None
@@ -229,10 +273,10 @@ class Loader():
         raw_w0_val = None
         raw_w1_val = None
         if large_weight_clipping or weight_preprocess:
-            raw_w0_train = copy.deepcopy(w0_train)
-            raw_w1_train = copy.deepcopy(w1_train)
-            raw_w0_val = copy.deepcopy(w0_val)
-            raw_w1_val = copy.deepcopy(w1_val)
+            raw_w0_train = copy.deepcopy(prepared_data["w0_train"])
+            raw_w1_train = copy.deepcopy(prepared_data["w1_train"])
+            raw_w0_val = copy.deepcopy(prepared_data["w0_val"])
+            raw_w1_val = copy.deepcopy(prepared_data["w1_val"])
             raw_w0_train_sum = w0_train.sum()
             raw_w1_train_sum = w1_train.sum()
             raw_w0_val_sum = w0_val.sum()
@@ -248,10 +292,10 @@ class Loader():
             w1_train = w1_train.clip(*clip_threshold)
             w0_val = w0_val.clip(*clip_threshold)
             w1_val = w1_val.clip(*clip_threshold)
-            w0_train_sum = w0_train.sum()
-            w1_train_sum = w1_train.sum()
-            w0_val_sum = w0_val.sum()
-            w1_val_sum = w1_val.sum()
+            w0_train_sum = prepared_data["w0_train"].sum()
+            w1_train_sum = prepared_data["w1_train"].sum()
+            w0_val_sum = prepared_data["w0_val"].sum()
+            w1_val_sum = prepared_data["w1_val"].sum()
             w0_train_per_change = (w0_train_sum - raw_w0_train_sum)/raw_w0_train_sum
             w1_train_per_change = (w1_train_sum - raw_w1_train_sum)/raw_w1_train_sum
             w0_val_per_change = (w0_val_sum - raw_w0_val_sum)/raw_w0_val_sum
@@ -262,20 +306,20 @@ class Loader():
             logger.info(f"After large weight clipping, validation sum w1={w1_val_sum}, {w1_val_per_change}")
 
         if weight_preprocess:
-            w0_train_mean = np.mean(w0_train)
-            w1_train_mean = np.mean(w1_train)
-            w0_val_mean = np.mean(w0_val)
-            w1_val_mean = np.mean(w1_val)
-            w0_train_std = np.std(w0_train)
-            w1_train_std = np.std(w1_train)
-            w0_val_std = np.std(w0_val)
-            w1_val_std = np.std(w1_val)
+            w0_train_mean = np.mean(prepared_data["w0_train"])
+            w1_train_mean = np.mean(prepared_data["w1_train"])
+            w0_val_mean = np.mean(prepared_data["w0_val"])
+            w1_val_mean = np.mean(prepared_data["w1_val"])
+            w0_train_std = np.std(prepared_data["w0_train"])
+            w1_train_std = np.std(prepared_data["w1_train"])
+            w0_val_std = np.std(prepared_data["w0_val"])
+            w1_val_std = np.std(prepared_data["w1_val"])
 
             local_buffers = {
-                "w0_train" : {"weight" : w0_train, "mean" : w0_train_mean, "std" : w0_train_std},
-                "w1_train" : {"weight" : w1_train, "mean" : w1_train_mean, "std" : w1_train_std},
-                "w0_val" : {"weight" : w0_val, "mean" : w0_val_mean, "std" : w0_val_std},
-                "w1_val" : {"weight" : w1_val, "mean" : w1_val_mean, "std" : w1_val_std},
+                "w0_train" : {"weight" : prepared_data["w0_train"], "mean" : w0_train_mean, "std" : w0_train_std},
+                "w1_train" : {"weight" : prepared_data["w1_train"], "mean" : w1_train_mean, "std" : w1_train_std},
+                "w0_val" : {"weight" : prepared_data["w0_val"], "mean" : w0_val_mean, "std" : w0_val_std},
+                "w1_val" : {"weight" : prepared_data["w1_val"], "mean" : w1_val_mean, "std" : w1_val_std},
             }
 
             for name, buffer in local_buffers.items():
@@ -289,9 +333,9 @@ class Loader():
                 logger.info(f"After weight preprocessing with {buffer['mean']}, +-{buffer['std']}, training sum {name}={m_weight.sum()}, {per_change}")
 
         # finalizing dataset format
-        X_train = np.vstack([X0_train, X1_train])
-        y_train = np.concatenate((y0_train, y1_train), axis=None)
-        w_train = np.concatenate((w0_train, w1_train), axis=None)
+        prepared_data["X_train"] = np.vstack([prepared_data["X0_train"], prepared_data["X1_train"]])
+        prepared_data["y_train"] = np.concatenate((prepared_data["y0_train"], prepared_data["y1_train"]), axis=None)
+        prepared_data["w_train"] = np.concatenate((prepared_data["w0_train"], prepared_data["w1_train"]), axis=None)
 
         # Since we don't pass these 3 variables back, just save it and set to None
         # to avoid too much RAM usage.
@@ -306,22 +350,15 @@ class Loader():
         # save data
         if folder is not None and save:
             # dict for tracking items being saved
-            saving_items = {
-                "X_train" : X_train,
-                "y_train" : y_train,
-                "w_train" : w_train,
-                "X_val" : np.vstack([X0_val, X1_val]),
-                "y_val" : np.concatenate((y0_val, y1_val), axis=None),
-                "w_val" : np.concatenate((w0_val, w1_val), axis=None),
-                "X0_val" : X0_val,
-                "X1_val" : X1_val,
-                "w0_val" : w0_val,
-                "w1_val" : w1_val,
-                "X0_train" : X0_train,
-                "X1_train" : X1_train,
-                "w0_train" : w0_train,
-                "w1_train" : w1_train,
+            saving_items = {}
+            additional_items = {
+                "X_val" : np.vstack([prepared_data["X0_val"], prepared_data["X1_val"]]),
+                "y_val" : np.concatenate((prepared_data["y0_val"], prepared_data["y1_val"]), axis=None),
+                "w_val" : np.concatenate((prepared_data["w0_val"], prepared_data["w1_val"]), axis=None),
             }
+            saving_items.update(prepared_data)
+            saving_items.update(additional_items)
+
             # record the list of names before saving
             saving_items_names = list(saving_items.keys())
             # use pop to iterate through
@@ -347,9 +384,15 @@ class Loader():
                     np.save(folder + global_name + "/w0_train_raw_"  +str(nentries)+".npy", raw_w0_train)
 
             # saving metadata
-            metadata_fname = f"{folder}/{global_name}/metaData_{nentries}.pkl"
-            with open(metadata_fname, "wb") as f:
+            metadata_fname = f"{folder}/{global_name}/metaData_{nentries}"
+            with open(f"{metadata_fname}.pkl", "wb") as f:
                 pickle.dump(metaData, f)
+            if spectator_metaData:
+                with open(f"{metadata_fname}_spectator.pkl", "wb") as f:
+                    pickle.dump(spectator_metaData, f)
+
+            # add metadata into prepared_data
+            prepared_data.update({"metaData":metaData, "spectator_metaData":spectator_metaData})
 
             #Tar data files if training is done on GPU
             if torch.cuda.is_available() and not noTar:
@@ -362,8 +405,7 @@ class Loader():
                         pickle.dump(metaData, f)
                 tar.close()
 
-        return X_train, y_train, X0_train, X1_train, w_train, w0_train, w1_train, metaData
-
+        return prepared_data
 
 
     def load_result(
@@ -427,8 +469,8 @@ class Loader():
         # Calculate the maximum of each column and minimum and then allocate bins
         if verbose:
             logger.info("Calculating min/max range for plots & binning")
-        binning = defaultdict()
-        minmax = defaultdict()
+        binning = OrderedDict()
+        minmax = OrderedDict()
         divisions = 100 # 50 default
 
         # external binning from yaml file.
