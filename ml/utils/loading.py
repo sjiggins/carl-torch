@@ -525,7 +525,7 @@ class Loader():
         draw_weighted_distributions(
             X0, X1, W0, W1,
             weights,
-            metaDataDict.keys(),#x0df.columns,
+            metaDataDict.keys() if metaDataDict else features,#x0df.columns,
             binning,
             label,
             global_name, nentries, plot, ext_plot_path,
