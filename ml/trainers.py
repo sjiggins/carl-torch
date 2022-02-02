@@ -300,9 +300,10 @@ class Trainer(object):
                             plot_args["x0"] = input_data_dict.get(f"spec_x0_{type}", None)
                             plot_args["x1"] = input_data_dict.get(f"spec_x1_{type}", None)
                             if plot_args["x0"] is not None and plot_args["x0"] is not None:
-                                plot_args.update({"features":spectators})
-                                plot_args.update({"ext_plot_path":f"epoch_plot_{i_epoch}_{type}_spec"})
-                                plot_args.update({"label":f"spectator_{type}"})
+                                plot_args["features"] = spectators
+                                plot_args["metaData"] = input_data_dict.get("spectator_metaData", None)
+                                plot_args["ext_plot_path"] = f"epoch_plot_{i_epoch}_{type}_spec"
+                                plot_args["label"] = f"spectator_{type}"
                                 loader.load_result(**plot_args)
                     self._timer(stop="intermediate train plot")
                 if intermediate_save:
