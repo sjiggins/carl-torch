@@ -13,6 +13,7 @@ from torch.nn.utils import clip_grad_norm_
 from sklearn.metrics import accuracy_score
 
 from .utils import statistic
+from .utils import loading
 
 import logging
 logger = logging.getLogger(__name__)
@@ -87,6 +88,7 @@ class Trainer(object):
         self,
         data, # packed training data, including both nominal and variation
         loss_functions,
+        input_data_dict={}, # dict of all the data
         loss_weights=None,
         loss_labels=None,
         epochs=50,
@@ -105,7 +107,6 @@ class Trainer(object):
         intermediate_save=None, # dict of estimator.save args
         intermediate_stats_dist = False, # calculate statistical distance after each epoch
         stats_method_list = [], # list of statistical method for computing the distance.
-        feature_data = None,
         estimator = None, # instance of base.Estimator that calls the Trainer.train
     ):
         self._timer(start="ALL")
@@ -158,27 +159,46 @@ class Trainer(object):
         losses_train, losses_val, accuracy_train, accuracy_val = [], [], [], []
         self._timer(stop="initialize training")
 
+        # Get list of features
+        feature_names = input_data_dict.get("features", [])
+
         # Yuzhan: list for tracking statistical distances
         # the methods are expecting to receive dataset (trained, trained_w, expect, expect_w)
         stats_methods = {}
-        stats_values = {}
-        if intermediate_stats_dist and feature_data and stats_method_list:
-            w0 = feature_data["w0"].flatten()
-            w1 = feature_data["w1"].flatten()
-            x0_features = feature_data["x0"]
-            x1_features = feature_data["x1"]
-            feature_names = feature_data["feature_names"]
-            x0_x1_zipped = zip(x0_features.T, x1_features.T)
-            stats_output_dir = pathlib.Path("stats_dist/")
-            stats_output_dir.mkdir(parents=True, exist_ok=True)
-            stats_output_dir = stats_output_dir.resolve()
+        stats_values = {"train" : {}, "val" : {}}
+        stats_w1 = {"train" : None, "val" : None}
+        stats_features0 = {"train" : None, "val" : None}
+        stats_zipped_features = {"train" : None, "val" : None}
+        # check registered statistical mathods and input features list
+        if stats_method_list and feature_names:
             for _method_name in stats_method_list:
                 _method = getattr(statistic, _method_name, None)
                 if _method is not None:
                     stats_methods[_method_name] = _method
-                    stats_values[_method_name] = defaultdict(list)
+                    stats_values["train"][_method_name] = defaultdict(list)
+                    stats_values["val"][_method_name] = defaultdict(list)
             logger.info(f"list of registered statistical methods: {stats_methods.keys()}")
-
+        else:
+            # if none is found, set intermediate_stats_dist to False
+            intermediate_stats_dist = False
+        # check require data from input_data_dict for computing statistical distance
+        if intermediate_stats_dist and stats_method_list:
+            for _type in ["train", "val"]:
+                data_query = {}
+                data_query[f"w0_{_type}"] = input_data_dict.get(f"w0_{_type}", None)
+                data_query[f"w1_{_type}"] = input_data_dict.get(f"w1_{_type}", None)
+                data_query[f"x0_{_type}"] = input_data_dict.get(f"X0_{_type}", None)
+                data_query[f"x1_{_type}"] = input_data_dict.get(f"X1_{_type}", None)
+                if any([_x is None for _x in data_query.values()]) :
+                    continue
+                else:
+                    stats_w1[_type] = data_query[f"w1_{_type}"].flatten()
+                    stats_features0[_type] = data_query[f"x0_{_type}"]
+                    stats_zipped_features[_type] = zip(data_query[f"x0_{_type}"].T, data_query[f"x1_{_type}"].T)
+                    # create directory for outputs
+                    stats_output_dir = pathlib.Path("stats_dist/")
+                    stats_output_dir.mkdir(parents=True, exist_ok=True)
+                    stats_output_dir = stats_output_dir.resolve()
 
         # Loop over epochs
         for i_epoch in range(epochs):
@@ -234,39 +254,61 @@ class Trainer(object):
             # computing statistic on data and model after epoch training
             if intermediate_stats_dist:
                 self._timer(start="statistical distiance")
-                # using estimator.evaluate to compute results from x0 features
-                # assuming CARL method for now, but this can be generalized for others
-                _r_hat, _s_hat = estimator.evaluate(x0_features)
-                _carl_w = 1.0/_r_hat
-                for _name_id, (_x0, _x1) in enumerate(x0_x1_zipped):
-                    _name = feature_names[_name_id]
-                    for _stats_method_name, _stats_method in stats_methods.items():
-                        self._timer(start=_stats_method_name)
-                        _value = _stats_method(_x0, _carl_w, _x1, w1)
-                        stats_values[_stats_method_name][_name].append(_value)
-                        self._timer(stop=_stats_method_name)
-                for _method_name, _stats_value in stats_values.items():
-                    for _name in feature_names:
-                        np.save(f"{stats_output_dir}/{_name}_{_method_name}.npy", np.array(_stats_value[_name]))
+                for _type in ["train", "val"]:
+                    if stats_features0[_type] is None:
+                        continue
+                    else:
+                        # using estimator.evaluate to compute results from x0 features
+                        # assuming CARL method for now, but this can be generalized for others
+                        _r_hat, _s_hat = estimator.evaluate(stats_features0[_type])
+                        _carl_w = 1.0/_r_hat
+                        for _name_id, (_x0, _x1) in enumerate(stats_zipped_features[_type]):
+                            _name = feature_names[_name_id]
+                            for _stats_method_name, _stats_method in stats_methods.items():
+                                self._timer(start=_stats_method_name)
+                                _value = _stats_method(_x0, _carl_w, _x1, stats_w1[_type])
+                                stats_values[_type][_stats_method_name][_name].append(_value)
+                                self._timer(stop=_stats_method_name)
+                        for _method_name, _stats_value in stats_values[_type].items():
+                            for _name in feature_names:
+                                np.save(f"{stats_output_dir}/{_type}_{_name}_{_method_name}.npy", np.array(_stats_value[_name]))
                 self._timer(stop="statistical distiance")
 
-            # do intermediate plotting and saving
-            if verbose_epoch:
-                if intermediate_train_plot and estimator:
+            # do intermediate plotting and saving for per verbose epoch
+            # still using external provided arguments and data.
+            if verbose_epoch and estimator:
+                if intermediate_train_plot:
                     self._timer(start="intermediate train plot")
-                    m_data, m_plotter = intermediate_train_plot
-                    m_plotter, m_plot_args = m_plotter
+                    loader = loading.Loader()
                     for type in ["train", "val"]:
-                        m_r_hat, m_s_hat = estimator.evaluate(m_data[type])
+                        plot_args = {}
+                        plot_args.update(input_data_dict["per_epoch_plot"])
+                        _x0 = input_data_dict[f"X0_{type}"]
+                        _x1 = input_data_dict[f"X1_{type}"]
+                        _w0 = input_data_dict[f"w0_{type}"]
+                        _w1 = input_data_dict[f"w1_{type}"]
+                        plot_args.update({"x0" : _x0, "w0" : _w0, "x1" : _x1, "w1" : _w1})
+                        m_r_hat, m_s_hat = estimator.evaluate(_x0)
                         m_carl_w = 1.0/m_r_hat
-                        m_plot_args[type].update({"ext_plot_path":f"epoch_plot_{i_epoch}_{type}"})
-                        m_plot_args[type].update({"weights":m_carl_w})
-                        m_plot_args[type].update({"label":type})
-                        m_plotter(**m_plot_args[type])
+                        plot_args.update({"ext_plot_path":f"epoch_plot_{i_epoch}_{type}"})
+                        plot_args.update({"weights":m_carl_w})
+                        plot_args.update({"label":type})
+                        loader.load_result(**plot_args)
+                        # check for spectators
+                        spectators = input_data_dict.get("spectators", None)
+                        if spectators:
+                            plot_args["x0"] = input_data_dict.get(f"spec_x0_{type}", None)
+                            plot_args["x1"] = input_data_dict.get(f"spec_x1_{type}", None)
+                            if plot_args["x0"] is not None and plot_args["x0"] is not None:
+                                plot_args.update({"features":spectators})
+                                plot_args.update({"ext_plot_path":f"epoch_plot_{i_epoch}_{type}_spec"})
+                                plot_args.update({"label":f"spectator_{type}"})
+                                loader.load_result(**plot_args)
                     self._timer(stop="intermediate train plot")
-                if intermediate_save and estimator:
+                if intermediate_save:
                     self._timer(start="intermediate save")
-                    save_args = intermediate_save
+                    save_args = {"x": input_data_dict["X_train"]}
+                    save_args.update(input_data_dict["per_epoch_save"])
                     m_filename = save_args['filename']
                     new_fname = f"models/epoch_{i_epoch}/{m_filename}"
                     save_args.update({"filename":new_fname})

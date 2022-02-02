@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import pickle
-from collections import defaultdict
+from collections import OrderedDict
 from .utils.plotting import draw_weighted_distributions
 
 import logging
@@ -40,6 +40,92 @@ class RatioEstimator(Estimator):
     activation : {'tanh', 'sigmoid', 'relu'}, optional
         Activation function. Default value: 'tanh'.
     """
+
+    def _generate_required_data_list(self, type):
+        """
+        Generate dict for required data, the key is the lookup reference for checking,
+        and the values are used for hitting if keys are not found.
+        """
+
+        valid_types = {
+            "required",
+            "optional_train_data",
+            "optional_val_data",
+            "per_epoch_plot",
+            "per_epoch_save",
+        }
+        if type not in valid_types:
+            raise TypeError(f"Unable to generate type checking for {type}")
+
+        # minimum required data for the training:
+        if type == "required":
+            return {
+                "X_train" : "prepared training data",
+                "y_train" : "targe values",
+                "w_train" : "event weights for for the training data",
+                "features": "list of features used in the training",
+            }
+        elif type == "optional_train_data":
+            return {f"{prefix}_train" : f"{prefix} training set" for prefix in ["X0", "X1", "w0", "w1"]}
+        elif type == "optional_val_data":
+            return {f"{prefix}_val" : f"{prefix} val set" for prefix in ["X0", "X1", "w0", "w1"]}
+        # per epoch plotting required data
+        elif type == "per_epoch_plot":
+            return {
+                "metaData" : "pickle file that contains meta data",
+                "features" : "list of features used in the training",
+                "plot" : "bool, enable plots saving",
+                "nentries" : "int, number of input events",
+                "global_name" : "str, name of the varition, e.g QSF4",
+                "ext_binning" : "path to external YAML binning file",
+                "verbose" : "bool, verbosity of plotting",
+                "plot_ROC" : "bool, enable ROC curve",
+                "plot_obs_ROC" : "bool, enbale ROC curve for observables",
+                "normalise" : "bool, normalize distribution in plotting",
+            }
+        # per epoch model saving
+        elif type == "per_epoch_save":
+            return {
+                "filename" : "prefix of the output model file",
+                "metaData" : "pickle file that contains meta data",
+                "save_model" : "bool, enable model saving to .pt format",
+                "export_model" : "bool, enable model exporting to .oonx format",
+            }
+        else:
+            raise TypeError(f"fail to generate check list for {type}")
+
+
+    def check_required_data(self, input_data_dict, type):
+
+        if not isinstance(input_data_dict, dict):
+            raise TypeError(f"Argument input_data_dict needs to be type 'dict', but received {type(input_data_dict)}")
+
+        generated_check = self._generate_required_data_list(type)
+
+        if type == "required":
+            if not all(x in input_data_dict for x in generated_check.keys()):
+                raise KeyError(f"Unable to look up all required data, please have at least prepared {generated_check}")
+        elif type == "optional_train_data" or type == "optional_val_data":
+            if not all(x in input_data_dict for x in generated_check.keys()):
+                logger.warning(f"unable to find all of the optional data {generated_check.keys()}")
+                return False
+        else:
+            if type not in input_data_dict:
+                if type == "per_epoch_plot":
+                    logger.warning("Cannot enable per epoch plotting")
+                elif type == "per_epoch_save":
+                    logger.warning("Cannot enable per epoch saving of model")
+                logger.warning(f"Pleast provide a lookup key '{type}' for 'input_data_dict' with the following dict format")
+                logger.warning(f"{generated_check}")
+                return False
+            else:
+                if not all(x in input_data_dict[type] for x in generated_check.keys()):
+                    logger.warning(f"Cannot find all of the required keys for '{type}' from {input_data_dict[type]}")
+                    logger.warning(f"Require {generated_check}")
+                    return False
+
+        logger.info(f"Pass data checking for {type=}")
+        return True
 
     def train(
         self,
@@ -137,24 +223,29 @@ class RatioEstimator(Estimator):
         logger.info(f"  N hidden:                 {self.n_hidden}")
         logger.info(f"  Input loss type:                 {loss_type}")
 
-        # check if all required and optional data exists:
-        required_list = ["X_train", "y_train", "w_train"]
-        optional_list = ["X0_train", "w0_train", "X1_train", "w1_train"]
-        if not isinstance(input_data_dict, dict):
-            raise TypeError(f"Argument input_data_dict needs to be type 'dict', but received {type(input_data_dict)}")
-        if not all(x in input_data_dict for x in required_list):
-            raise KeyError(f"Unable to look up all required data, please have at least prepared with keys {required_list}")
-        if not all(x in input_data_dict for x in optional_list):
-            logger.warning(f"cannot find all optional data {optional_list}")
-            logger.warning("some of the features (inital plotting, per epoch plotting, etc) cannot be enabled")
+        # checking data
+        self.check_required_data(input_data_dict, "required")
+        pass_opt_data_check = self.check_required_data(input_data_dict, "optional_train_data")
+        pass_opt_data_check |= self.check_required_data(input_data_dict, "optional_val_data")
+        if not pass_opt_data_check:
+            intermediate_stats_dist = False
+            intermediate_train_plot = False
+            intermediate_save = False
+        if intermediate_train_plot:
+            intermediate_train_plot = self.check_required_data(input_data_dict, "per_epoch_plot")
+        if intermediate_save:
+            intermediate_save = self.check_required_data(input_data_dict, "per_epoch_save")
 
         # Load training data
         logger.info("Loading training data")
+        load_and_check_list = ["X", "y", "w", "X0", "X1", "w0", "w1", "spec_x0", "spec_x0"]
         memmap_threshold = 1.0 if memmap else None
-        for lookup in required_list+optional_list:
-            if lookup in input_data_dict:
-                checking = input_data_dict[lookup]
-                input_data_dict[lookup] = load_and_check(checking, memmap_files_larger_than_gb=memmap_threshold, name=lookup)
+        for lookup_prefix in load_and_check_list:
+            for lookup_suffix in ["train", "val"]:
+                lookup = f"{lookup_prefix}_{lookup_suffix}"
+                if lookup in input_data_dict:
+                    checking = input_data_dict[lookup]
+                    input_data_dict[lookup] = load_and_check(checking, memmap_files_larger_than_gb=memmap_threshold, name=lookup)
 
         # using old variables here to minimized changes below, might need to clean this up in the future
         x = input_data_dict.get("X_train")
@@ -175,6 +266,8 @@ class RatioEstimator(Estimator):
         n_observables = x.shape[1]
         logger.info("Found %s samples with %s observables", n_samples, n_observables)
 
+        # check validation dataset.
+        # this is optional and require 'X_val', 'y_val', "w_val" in the input_data_dict
         external_validation = x_val is not None and y_val is not None
         if external_validation:
             logger.info("Found %s separate validation samples", x_val.shape[0])
@@ -186,6 +279,11 @@ class RatioEstimator(Estimator):
         if metaDataDict is None and os.path.exists(metaData):
             with open(metaData, "rb") as metaDataFile:
                 metaDataDict = pickle.load(metaDataFile)
+                input_data_dict["metaData"] = metaDataDict
+
+        # check initial plotting of input training
+        plot_inputs = plot_inputs and all([_x is not None for _x in [x0, w0, x1, w1]])
+        plot_inputs = plot_inputs and metaDataDict is not None
 
         # Scale features
         if scale_inputs:
@@ -205,8 +303,8 @@ class RatioEstimator(Estimator):
                     x1 = self._transform_inputs(x1)
 
                     # Determine binning, and store in dicts
-                    binning = defaultdict()
-                    minmax = defaultdict()
+                    binning = OrderedDict()
+                    minmax = OrderedDict()
                     for idx,(key,pair) in enumerate(metaDataDict.items()):
                         #  Integers values indicate well bounded data, so use full range
                         intTest = [ (i % 1) == 0  for i in x0[:,idx] ]
@@ -217,18 +315,19 @@ class RatioEstimator(Estimator):
                         min = np.percentile(x0[:,idx], lowerThreshold)
                         minmax[idx] = [min,max]
                         binning[idx] = np.linspace(min, max, self.divisions)
-                        logger.info("<loading.py::load_result>::   Column {}:  min  =  {},  max  =  {}"
-                              .format(key,min,max))
-                    draw_weighted_distributions(x0, x1,
-                                                w0, w1,
-                                                np.ones(w0.size),
-                                                metaDataDict.keys(),
-                                                binning,
-                                                "train-input", #label
-                                                global_name,
-                                                w0.size if w0.size < w1.size else w1.size,
-                                                True, #plot
-                                                None)
+                        logger.info(f"<loading.py::load_result>::Column {key}: {min=}, {max=}")
+                    draw_weighted_distributions(
+                        x0, x1,
+                        w0, w1,
+                        np.ones(w0.size),
+                        metaDataDict.keys(),
+                        binning,
+                        "train-input", #label
+                        global_name,
+                        w0.size if w0.size < w1.size else w1.size,
+                        True, #plot
+                        None,
+                    )
 
         else:
             self.initialize_input_transform(x, False, overwrite=False)
@@ -261,7 +360,10 @@ class RatioEstimator(Estimator):
             logger.info("Creating model")
             self._create_model()
         # Losses
-        if w is None:
+        # Note indeed the weight passed to get_loss will not be used
+        # the loss_weights return from get_loss is from old implementation?
+        # the packaged training set will have the weights carried along to RatioTrainer.forward_pass
+        if w is None and x0 is not None and x1 is not None:
             w = len(x0)/len(x1)
             logger.info("Passing weight %s to the loss function to account for imbalanced dataset: ", w) #sjiggins
         loss_functions, loss_labels, loss_weights = get_loss(method, alpha, w, loss_type)
@@ -273,28 +375,13 @@ class RatioEstimator(Estimator):
         if optimizer_kwargs is not None:
             opt_kwargs.update( optimizer_kwargs )
 
-        # prepare data for x0 and x1 separately for intermediate calculation
-        # Note: for `data` argument in RatioTrainer.train,
-        # maybe it's better to pass all the x0,x1,w0,x,y etc,
-        # and run packaging within this method? This allows us to reuse part
-        # of the data for intermediate calculation.
-        if intermediate_stats_dist:
-            feature_data = {
-                "feature_names" : list(metaDataDict.keys()),
-                "x0" : x0,
-                "w0" : w0,
-                "x1" : x1,
-                "w1" : w1,
-            }
-        else:
-            feature_data = None
-
         # Train model
         logger.info("Training model")
         trainer = RatioTrainer(self.model, n_workers=n_workers)
         result = trainer.train(
             data=data,
             data_val=data_val,
+            input_data_dict=input_data_dict,
             loss_functions=loss_functions,
             loss_weights=loss_weights, #sjiggins
             #loss_weights=w, #sjiggins
@@ -314,7 +401,6 @@ class RatioEstimator(Estimator):
             intermediate_save = intermediate_save,
             intermediate_stats_dist = intermediate_stats_dist,
             stats_method_list = stats_method_list,
-            feature_data = feature_data,
             estimator = self, # just pass the RatioEstimator object itself for intermediate evaluate and save
         )
         return result
