@@ -394,8 +394,10 @@ class Loader():
             # add metadata into prepared_data
             prepared_data.update({"metaData":metaData, "spectator_metaData":spectator_metaData})
 
-            # update prepared_data with lookup for features and spectators
-            prepared_data.update({"features":features, "spectators":spectators})
+            # update prepared_data with lookup for features and spectators from metadata
+            prepared_data.update({"features" : metaData.keys()} )
+            if spectator_metaData:
+                prepared_data.update({"spectators" : spectator_metaData.keys()} )
 
             #Tar data files if training is done on GPU
             if torch.cuda.is_available() and not noTar:
