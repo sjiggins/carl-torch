@@ -47,7 +47,7 @@ class Estimator(object):
         self.x_scaling_quantile_down = None
 
         self.divisions = 100 # binning for inputs if requested
-        
+
     def train(self, *args, **kwargs):
         raise NotImplementedError
 
@@ -282,7 +282,7 @@ class Estimator(object):
             self.x_scaling_quantile_up = np.ones(n_parameters)
 
     def _clamp_inputs(self, x):
-        print("<base.py::_transform_inputs()>::   Doing Clamping for inputs")
+        logger.debug("<base.py::_transform_inputs()>::   Doing Clamping for inputs")
         # clamp value by 25% to 75% quntile
         if isinstance(x, torch.Tensor):
             clamp_max = torch.tesnor(self.clamp_max, dtype=x.dtype, device=x.device)
@@ -300,25 +300,25 @@ class Estimator(object):
         if scaling == "standard":
             #Check for standard deviation = 0 and none values
             if self.x_scaling_means is not None and self.x_scaling_stds is not None:
-                print("<base.py::_transform_inputs()>::   Doing Standard Scaling")
+                logger.debug("<base.py::_transform_inputs()>::   Doing Standard Scaling")
                 if isinstance(x, torch.Tensor):
                     x_scaled = x - torch.tensor(self.x_scaling_means, dtype=x.dtype, device=x.device)
                     x_scaled = x_scaled / torch.tensor(self.x_scaling_stds, dtype=x.dtype, device=x.device)
                 else:
                     x_scaled = x - self.x_scaling_means
                     x_scaled /= self.x_scaling_stds
-                
+
                 # Check for nans/nums
                 #x_scaled = torch.tensor(np.nan_to_num(x_scaled, nan=0.0, posinf=0.0, neginf=0.0), dtype=x.dtype, device=x.device )
                 x_scaled = np.nan_to_num(x_scaled, nan=0.0, posinf=0.0, neginf=0.0)
                 #x_scaled = torch.tensor(x_scaled, dtype=x_scaled.dtype, device=x.device)
             else:
-                print("<base.py::_transform_inputs()>::   unable to do standard scaling")
+                logger.debug("<base.py::_transform_inputs()>::   unable to do standard scaling")
                 x_scaled = x
         else:
             # Check for none and 0 values
             if self.x_scaling_mins is not None and self.x_scaling_maxs is not None:
-                print("<base.py::_transform_inputs()>::   Doing min-max scaling")
+                logger.debug("<base.py::_transform_inputs()>::   Doing min-max scaling")
                 if self.scaling_clamp:
                     x = self._clamp_inputs(x)
                 if isinstance(x, torch.Tensor):
@@ -330,10 +330,10 @@ class Estimator(object):
                     diff = (self.x_scaling_maxs - self.x_scaling_mins)
                     x_scaled = np.divide(x_scaled, diff, out=np.zeros_like(x_scaled), where=diff!=0)
             else:
-                print("<base.py::_transform_inputs()>::   unable to do min-max scaling")
+                logger.warning("<base.py::_transform_inputs()>::   unable to do min-max scaling")
                 x_scaled = x
             # Check for nans/nums
-            x_scaled = np.nan_to_num(x_scaled, nan=0.0, posinf=0.0, neginf=0.0) 
+            x_scaled = np.nan_to_num(x_scaled, nan=0.0, posinf=0.0, neginf=0.0)
 
         return x_scaled
 
