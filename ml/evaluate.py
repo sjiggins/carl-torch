@@ -17,18 +17,20 @@ def evaluate_ratio_model(
     run_on_gpu=True,
     double_precision=False,
     return_grad_x=False,
+    skip_data_conversion=False,
 ):
     # CPU or GPU?
     run_on_gpu = run_on_gpu and torch.cuda.is_available()
     device = torch.device("cuda" if run_on_gpu else "cpu")
     dtype = torch.double if double_precision else torch.float
 
-    # Prepare data
-    n_xs = len(xs)
-    xs = torch.stack([tensor(i) for i in xs])
-
-    model = model.to(device, dtype)
+    # Prepare data if needed
+    if not skip_data_conversion:
+        n_xs = len(xs)
+        xs = torch.stack([tensor(i) for i in xs])
     xs = xs.to(device, dtype)
+    
+    model = model.to(device, dtype)
     with torch.no_grad():
         model.eval()
 
