@@ -1,9 +1,15 @@
 import numpy as np
-from scipy.stats import wasserstein_distance
+import scipy.stats
 
-def compute_probs(data, weights, n=100):
+def compute_probs(data, weights, n=100, normalise=True, remove_negative=True):
     h, e = np.histogram(data, weights=weights, bins=n)
-    p = h/np.sum(weights) #data.shape[0]
+    if normalise:
+        p = h/np.sum(weights) #data.shape[0]
+    else:
+        p = h # get use the frequncy count
+    # removing negative
+    if remove_negative:
+        p[p<0] = 0.0
     return e, p
 
 def support_intersection(p, q):
@@ -43,4 +49,9 @@ def wasserstein(x0, w0, x1, w1):
     """
     all the weights have to be non-negative
     """
-    return wasserstein_distance(x0, x1, np.abs(w0), np.abs(w1))
+    return scipy.stats.wasserstein_distance(x0, x1, np.abs(w0), np.abs(w1))
+
+def chisquare(f_obs, w_obs, f_exp, w_exp):
+    _, obs_count = compute_probs(f_obs, w_obs)
+    _, exp_count = compute_probs(f_exp, w_exp)
+    return scipy.stats.chisquare(f_obs=obs_count, f_exp=exp_count)
