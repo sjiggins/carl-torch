@@ -12,6 +12,7 @@ from torch.utils.data.sampler import SubsetRandomSampler
 from torch.nn.utils import clip_grad_norm_
 from sklearn.metrics import accuracy_score
 
+from ml import evaluate
 from .utils import statistic
 from .utils import loading
 
@@ -168,9 +169,9 @@ class Trainer(object):
         stats_values = {"train" : {}, "val" : {}}
         stats_w1 = {"train" : None, "val" : None}
         stats_features0 = {"train" : None, "val" : None}
-        stats_zipped_features = {"train" : None, "val" : None}
+        stats_trans_features = {"train" : None, "val" : None}
         # check registered statistical mathods and input features list
-        if stats_method_list and feature_names:
+        if stats_method_list and feature_names and estimator is not None:
             for _method_name in stats_method_list:
                 _method = getattr(statistic, _method_name, None)
                 if _method is not None:
@@ -193,8 +194,11 @@ class Trainer(object):
                     continue
                 else:
                     stats_w1[_type] = data_query[f"w1_{_type}"].flatten()
-                    stats_features0[_type] = data_query[f"x0_{_type}"]
-                    stats_zipped_features[_type] = zip(data_query[f"x0_{_type}"].T, data_query[f"x1_{_type}"].T)
+                    _x0_type = data_query[f"x0_{_type}"]
+                    _x1_type = data_query[f"x1_{_type}"]
+                    stats_trans_features[_type] = (_x0_type.T, _x1_type.T)
+                    # prepare data in torch.Tensor form.
+                    stats_features0[_type] = estimator.transform_data(_x0_type)
                     # create directory for outputs
                     stats_output_dir = pathlib.Path("stats_dist/")
                     stats_output_dir.mkdir(parents=True, exist_ok=True)
@@ -260,9 +264,15 @@ class Trainer(object):
                     else:
                         # using estimator.evaluate to compute results from x0 features
                         # assuming CARL method for now, but this can be generalized for others
-                        _r_hat, _s_hat = estimator.evaluate(stats_features0[_type])
+                        self._timer(start="statistical distiance::carl weight computation")
+                        _r_hat, _s_hat = evaluate.evaluate_ratio_model(
+                            self.model,
+                            stats_features0[_type],
+                            skip_data_conversion=True, # already converted above
+                        )
                         _carl_w = 1.0/_r_hat
-                        for _name_id, (_x0, _x1) in enumerate(stats_zipped_features[_type]):
+                        self._timer(stop="statistical distiance::carl weight computation")
+                        for _name_id, (_x0, _x1) in enumerate(zip(*stats_trans_features[_type])):
                             _name = feature_names[_name_id]
                             for _stats_method_name, _stats_method in stats_methods.items():
                                 self._timer(start=_stats_method_name)
@@ -299,7 +309,7 @@ class Trainer(object):
                         if spectators:
                             plot_args["x0"] = input_data_dict.get(f"spec_x0_{type}", None)
                             plot_args["x1"] = input_data_dict.get(f"spec_x1_{type}", None)
-                            if plot_args["x0"] is not None and plot_args["x0"] is not None:
+                            if plot_args["x0"] is not None and plot_args["x1"] is not None:
                                 plot_args["features"] = spectators
                                 plot_args["metaData"] = input_data_dict.get("spectator_metaData", None)
                                 plot_args["ext_plot_path"] = f"epoch_plot_{i_epoch}_{type}_spec"
@@ -363,19 +373,31 @@ class Trainer(object):
         dataset = NumpyDataset(*data_arrays, dtype=self.dtype, run_on_gpu=self.run_on_gpu)
         return data_labels, dataset
 
-    def make_dataloaders(self, dataset, dataset_val, validation_split, batch_size):
+    def make_dataloaders(self, dataset, dataset_val, validation_split, batch_size, shuffle=True):
         if dataset_val is None and (validation_split is None or validation_split <= 0.0):
             train_loader = DataLoader(
-                dataset, batch_size=batch_size, shuffle=True, pin_memory=self.run_on_gpu, num_workers=self.n_workers
+                dataset,
+                batch_size=batch_size,
+                shuffle=shuffle,
+                pin_memory=self.run_on_gpu,
+                num_workers=self.n_workers,
             )
             val_loader = None
 
         elif dataset_val is not None:
             train_loader = DataLoader(
-                dataset, batch_size=batch_size, shuffle=True, pin_memory=self.run_on_gpu, num_workers=self.n_workers
+                dataset,
+                batch_size=batch_size,
+                shuffle=shuffle,
+                pin_memory=self.run_on_gpu,
+                num_workers=self.n_workers,
             )
             val_loader = DataLoader(
-                dataset_val, batch_size=batch_size, shuffle=True, pin_memory=self.run_on_gpu, num_workers=self.n_workers
+                dataset_val,
+                batch_size=batch_size,
+                shuffle=shuffle,
+                pin_memory=self.run_on_gpu,
+                 num_workers=self.n_workers,
             )
 
         else:
@@ -384,7 +406,8 @@ class Trainer(object):
             n_samples = len(dataset)
             indices = list(range(n_samples))
             split = int(np.floor(validation_split * n_samples))
-            np.random.shuffle(indices)
+            if shuffle:
+                np.random.shuffle(indices)
             train_idx, valid_idx = indices[split:], indices[:split]
 
             train_sampler = SubsetRandomSampler(train_idx)
