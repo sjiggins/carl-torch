@@ -246,7 +246,7 @@ class Loader():
             spec_x0 = spec_x0.to_numpy()
             spec_x1 = spec_x1.to_numpy()
             x0_lookup_names += ["spec_x0_train", "spec_x0_val"]
-            x0_lookup_names += ["spec_x0_train", "spec_x0_val"]
+            x1_lookup_names += ["spec_x1_train", "spec_x1_val"]
             x0_input_dataset.append(spec_x0)
             x1_input_dataset.append(spec_x1)
         else:
@@ -484,7 +484,7 @@ class Loader():
                 ext_binning = yaml.load(f, yaml.FullLoader)
 
         #for idx,column in enumerate(x0df.columns):
-        for idx,(key,pair) in enumerate(metaDataDict.items()):
+        for idx, key in enumerate(metaDataDict):
 
             # check to see if variable is in the yaml file.
             # if not, proceed to automatic binning
