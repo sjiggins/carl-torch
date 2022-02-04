@@ -36,6 +36,7 @@ def arg_handler_train():
     parser.add_argument('--polarity', action='store_true', dest="polarity", help='enable event weight polarity feature.')
     parser.add_argument('--loss-type', action='store', type=str, dest="loss_type", default="regular", help='a type on how to handle weight in loss function, options are "abs(w)" & "log(abs(w))" ')
     parser.add_argument('--BoolFilter', action='store', dest='BoolFilter', type=str, default=None, help='Comma separated list of boolean logic. e.g. \'a | b\'.')
+    parser.add_argument('--spectators',  action='store', type=str, dest='spectators',  default='', help='Comma separated list of spectators within tree')
     return parser.parse_args()
 
 # Arugment parsing main function for evaluation step

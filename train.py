@@ -23,6 +23,7 @@ n = opts.nentries
 p = opts.datapath
 global_name = opts.global_name
 features = opts.features.split(",")
+spectators = opts.spectators.split(",")
 weightFeature = opts.weightFeature
 treename = opts.treename
 binning = opts.binning
@@ -54,21 +55,28 @@ input_ntuple_files = [
     f"{p}/{nominal}.root",
     f"{p}/{variation}.root",
 ]
-preprocessed_np_files = [
-    f"data/{global_name}/X_train_{n}.npy",
-    f"data/{global_name}/y_train_{n}.npy",
-    f"data/{global_name}/w_train_{n}.npy",
-    f"data/{global_name}/X0_train_{n}.npy",
-    f"data/{global_name}/w0_train_{n}.npy",
-    f"data/{global_name}/X1_train_{n}.npy",
-    f"data/{global_name}/w1_train_{n}.npy",
-    f"data/{global_name}/metaData_{n}.pkl"
-]
+prepared_data = {
+    "X_train" : f"data/{global_name}/X_train_{n}.npy",
+    "y_train" : f"data/{global_name}/y_train_{n}.npy",
+    "w_train" : f"data/{global_name}/w_train_{n}.npy",
+    "X0_train" : f"data/{global_name}/X0_train_{n}.npy",
+    "w0_train" : f"data/{global_name}/w0_train_{n}.npy",
+    "X1_train" : f"data/{global_name}/X1_train_{n}.npy",
+    "w1_train" : f"data/{global_name}/w1_train_{n}.npy",
+    "X0_val" : f"data/{global_name}/X0_val_{n}.npy",
+    "w0_val" : f"data/{global_name}/w0_val_{n}.npy",
+    "X1_val" : f"data/{global_name}/X1_val_{n}.npy",
+    "w1_val" : f"data/{global_name}/w1_val_{n}.npy",
+}
+file_paths = list(prepared_data.values())
+file_paths.append(f"data/{global_name}/metaData_{n}.pkl")
 # Check if already pre-processed numpy arrays exist
-if all(map(os.path.exists, preprocessed_np_files)):
-    x, y, w, x0, w0, x1, w1, metadata_file = preprocessed_np_files
-    with open(metadata_file, "rb") as f:
-        metaData = pickle.load(f)
+if all(map(os.path.exists, file_paths)):
+    prepared_data["spectators"] = list(set(spectators)-set(features))
+    with open(file_paths[-1], "rb") as f:
+        _metadata = pickle.load(f)
+        prepared_data["metaData"] = _metadata
+        prepared_data["features"] = list(_metadata.keys())
 else:
     # if missing any of the pre-processed files
     # try to check Ntuple files and run loading
@@ -82,11 +90,12 @@ else:
         InputFilter = Filter(FilterString = BoolFilter)
         loading.Filter= InputFilter
 
-    x, y, x0, x1, w, w0, w1, metaData = loading.loading(
+    prepared_data = loading.loading(
         folder=f"{pathlib.Path('./data/').resolve()}/",
         plot=True,
         global_name=global_name,
         features=features,
+        spectators=spectators,
         weightFeature=weightFeature,
         TreeName=treename,
         randomize=False,
@@ -106,6 +115,7 @@ else:
         scaling=scale_method,
     )
     logger.info(" Loaded new datasets ")
+
 #######################################
 
 #######################################
@@ -122,18 +132,10 @@ if opts.dropout_prob is not None:
     estimator.dropout_prob = opts.dropout_prob
 
 # per epoch plotting
-intermediate_train_plot = None
-intermediate_save = None
 if per_epoch_plot:
-    # arguments for training and validation sets for loading.load_result
-    train_args = {
-        "x0":x0,
-        "x1":x1,
-        "w0":w0,
-        "w1":w1,
-        "metaData":metaData,
+    plots_args = {
+        "metaData":prepared_data["metaData"],
         "features":features,
-        "label":"train",
         "plot":True,
         "nentries":n,
         "global_name":global_name,
@@ -143,35 +145,18 @@ if per_epoch_plot:
         "plot_obs_ROC" : False,
         "normalise" : True, # plotting
     }
-    vali_args = {
-        "x0":f'data/{global_name}/X0_val_{n}.npy',
-        "x1":f'data/{global_name}/X1_val_{n}.npy',
-        "w0":f'data/{global_name}/w0_val_{n}.npy',
-        "w1":f'data/{global_name}/w1_val_{n}.npy',
-        "metaData":metaData,
-        "features":features,
-        "label":"val",
-        "plot":True,
-        "nentries":n,
-        "global_name":global_name,
-        "ext_binning":binning,
-        "verbose" : False,
-        "plot_ROC" : False,
-        "plot_obs_ROC" : False,
-        "normalise" : True,  # plotting
-    }
-    intermediate_train_plot = (
-        {"train":x0, "val":f'data/{global_name}/X0_val_{n}.npy'},
-        (loading.load_result, {"train":train_args, "val":vali_args}),
-    )
+    prepared_data["per_epoch_plot"] = plots_args
+
+# per epoch saving of model
 if per_epoch_save:
-    intermediate_save = {
+    save_args = {
         "filename" : f"{global_name}_carl_{n}",
-        "x" : x,
-        "metaData" : metaData,
+        "x" : prepared_data.get("X_train", None),
+        "metaData" : prepared_data.get("metaData", None),
         "save_model" : True,
         "export_model" : True,
     }
+    prepared_data["per_epoch_save"] = save_args
 
 # additional options to pytorch training package
 kwargs = {}
@@ -197,18 +182,12 @@ train_loss, val_loss, accuracy_train, accuracy_val = estimator.train(
     n_epochs=nepoch,
     validation_split=0.25,
     #optimizer="amsgrad",
-    x=x,
-    y=y,
-    w=w,
-    x0=x0,
-    x1=x1,
-    w0=w0,
-    w1=w1,
+    input_data_dict=prepared_data,
     scale_inputs=True,
     early_stopping=False,
     #early_stopping_patience=20,
-    intermediate_train_plot = intermediate_train_plot,
-    intermediate_save = intermediate_save,
+    intermediate_train_plot = per_epoch_plot,
+    intermediate_save = per_epoch_save,
     intermediate_stats_dist = per_epoch_stats,
     stats_method_list = stats_method_list,
     optimizer_kwargs=kwargs,
@@ -224,5 +203,11 @@ np.save(f"loss_train_{global_name}.npy", train_loss)
 np.save(f"loss_val_{global_name}.npy", val_loss)
 np.save(f"accuracy_train_{global_name}.npy", accuracy_train)
 np.save(f"accuracy_val_{global_name}.npy", accuracy_val)
-estimator.save('models/'+ global_name +'_carl_'+str(n), x, metaData, export_model = True, noTar=True)
+estimator.save(
+    f"models/{global_name}_carl_{n}",
+    prepared_data["X_train"],
+    prepared_data["metaData"],
+    export_model = True,
+    noTar=True,
+)
 ########################################

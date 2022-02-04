@@ -45,9 +45,10 @@ carl.scaling_method = scale_method
 if model:
     carl.load(model)
 else:
-    carl.load(f'{output}/models/'+global_name+'_carl_'+str(n))
-evaluate = ['train','val']
+    carl.load(f'{output}/models/{global_name}_carl_{n}')
 raw_w = "raw_" if raw_weight else ""
+
+evaluate = ['train','val']
 for i in evaluate:
     logger.info("Running evaluation for {}".format(i))
     r_hat, s_hat = carl.evaluate(x=f'{output}/data/{global_name}/X0_{i}_{n}.npy')
@@ -78,9 +79,6 @@ for i in evaluate:
         label=i,
         plot=True,
         nentries=n,
-        #TreeName=treename,
-        #pathA=p+nominal+".root",
-        #pathB=p+variation+".root",
         global_name=global_name,
         plot_ROC=opts.plot_ROC,
         plot_obs_ROC=opts.plot_obs_ROC,
@@ -89,6 +87,33 @@ for i in evaluate:
         scaling=scale_method,
         plot_resampledRatio=opts.plot_resampledRatio,
     )
+    # attempt to plot spectators
+    spec_x0 = f'{output}/data/{global_name}/spec_x0_{i}_{n}.npy'
+    spec_x1 = f'{output}/data/{global_name}/spec_x1_{i}_{n}.npy'
+    spec_meta = f'{output}/data/{global_name}/metaData_{n}_spectator.pkl'
+    if not all(map(os.path.exists, [spec_x0, spec_x1, spec_meta])):
+        continue
+    try:
+        loading.load_result(
+            x0=spec_x0,
+            x1=spec_x1,
+            w0=f'{output}/data/{global_name}/w0_{i}_{raw_w}{n}.npy',
+            w1=f'{output}/data/{global_name}/w1_{i}_{raw_w}{n}.npy',
+            metaData=spec_meta,
+            weights=w,
+            features=features,
+            label=f"spectator_{i}",
+            plot=True,
+            nentries=n,
+            global_name=global_name,
+            plot_ROC=False,
+            plot_obs_ROC=False,
+            ext_binning=binning,
+            normalise=normalise,
+        )
+    except Exception as _error:
+        logger.warning(f"Unable to plot spectator distributions due to: {_error}")
+
 # Evaluate performance
 print("<evaluate.py::__init__>::   Evaluate Performance of Model")
 carl.evaluate_performance(
