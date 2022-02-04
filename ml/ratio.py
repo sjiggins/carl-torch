@@ -206,6 +206,7 @@ class RatioEstimator(Estimator):
         logger.info("  PyTorch version:                 %s", torch.__version__)
         logger.info("  Method:                 %s", method)
         logger.info("  Batch size:             %s", batch_size)
+        logger.info("  DataLoader workers:             %s", n_workers)
         logger.info("  Optimizer:              %s", optimizer)
         logger.info("  Optimizer kwargs:         {}".format(optimizer_kwargs))
         logger.info("  Epochs:                 %s", n_epochs)
@@ -404,6 +405,36 @@ class RatioEstimator(Estimator):
             estimator = self, # just pass the RatioEstimator object itself for intermediate evaluate and save
         )
         return result
+
+    def transform_data(self, x, to_device=False, gpu=True):
+        """
+        Tranform data to proper device and dtype.
+
+        Parameters
+        ----------
+        x : str or ndarray
+            Observations or filename of a pickled numpy array.
+
+        to_device: bool, default=False
+            Move data to device
+
+        gpu: bool, default=False
+            enable GPU device.
+
+        Return
+        ------
+        torch.Tensor
+        """
+        x = load_and_check(x)
+        x = self._transform_inputs(x, scaling=self.scaling_method)
+        x_stack_tensor = torch.stack([torch.tensor(i) for i in x])
+        if to_device:
+            gpu &= torch.cuda.is_available()
+            device = torch.device("cuda" if gpu else "cpu")
+            return x_stack_tensor.to(device, torch.float)
+        else:
+            return x_stack_tensor
+
 
     def evaluate_ratio(self, x):
         """
