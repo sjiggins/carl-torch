@@ -133,9 +133,31 @@ def HarmonisedLoading(
         weight_polarity: bool, default=False
             adding a polarity feature based on the sign of the event weight.
             i.e. polarity=1 (-1) will be assigned to positive(negative) event weignt.
+    Return:
+        x0: pandas.DataFrame
+            dataframe contains features from sample-0
 
+        spec_x0: pandas.DataFrame or None
+            dataframe contains spectators from sample-0
+
+        w0: pandas.DataFrame
+            the corresponding (event) weight from sample-0
+
+        vlabels0: list(str)
+            list of labels for features from samples-0
+
+        x1: pandas.DataFrame
+            dataframe contains features from sample-1
+
+        spec_x1: pandas.DataFrame or None
+            dataframe contains spectators from sample-1
+
+        w1: pandas.DataFrame
+            the corresponding (event) weight from sample-1
+
+        vlabels1: list(str)
+            list of labels for features from samples-1
     """
-
 
     x0, spec_x0, w0, vlabels0 = load(
         f = fA,
@@ -305,9 +327,9 @@ def load(
             default backend `numexpr`)
 
     Return:
-        ( pandas.DataFrame, pandas.DataFrame, list(str) ) :
+        ( pandas.DataFrame, pandas.DataFrame, pandas.DataFrame, list(str) ) :
 
-            DataFrame of feasures, event weight, and labels
+            DataFrame of feasures, spectators, event weight, and labels
     """
     # grab our data and iterate over chunks of it with uproot
     logger.info(f"<{process_time()}> Uproot open file")
