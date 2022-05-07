@@ -171,7 +171,8 @@ class RatioEstimator(Estimator):
             assert x_val.shape[1] == n_observables
 
 
-        # Scale features
+        # Scale features - The file reading is common to also ml/base.py
+        #                  therefore maybe a common function in ml/utils/tools(load).py
         if scale_inputs:
 
             # Check if meta data has been saved, if so then scale using saved meta data from
@@ -318,10 +319,7 @@ class RatioEstimator(Estimator):
         # Load training data
         logger.debug("Loading evaluation data")
         x = load_and_check(x)
-
-        print(x)
         x = self._transform_inputs(x, scaling=self.scaling_method)
-        print(x)
 
         # Restrict features
         if self.features is not None:
