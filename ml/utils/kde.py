@@ -2,6 +2,8 @@ from sklearn.neighbors import KernelDensity
 from sklearn.grid import GridSearchCV
 import numpy as np
 import pandas as pd
+import matplotlib
+import matplotlib as plt
 
 class KDE():
     """
@@ -59,11 +61,14 @@ class KDE():
         #    n = number of data points
         #    n_{eff} = number of effective data points = sum(weights)^{2}/sum(weights^{2})
         #    d = number of dimensions in the data (i.e. number of features)
-        self.Execute()
+        self.Fit()
 
         # Set the upper and lower limit as well for the KDE
         #   -> Incase future data spans beyond the KDE
         self.BoundaryLimits()
+
+        # Plot the KDE for each features (dimension)
+        self.Plot()
 
     def GenSampledData(self):
         
@@ -98,8 +103,6 @@ class KDE():
         # We can not combine the positive and negative event weights because
         # the negative weights will be treated by a positive kernel
         #self.subsample[feat] = pd.concat(feat_neg, feat_pos).sample(frac=1).reset_index(drop=True)
-
-            
         
         
     def CreateKDEDataFormat(self):
@@ -108,7 +111,7 @@ class KDE():
             self.subsample_np[key] = df.to_numpy()
 
 
-    def Execute(self):
+    def Fit(self):
         
         for key,sample in self.subsamples.items():
 
@@ -151,3 +154,48 @@ class KDE():
         # Scotts Rule - Weighted version (when w_{i}=1.0 it is the same as the unweighted version)
         for key,sample in self.subsample.items():
             self.bandwidth[key] = ( sample[weight_name].sum() ) ** ( -1.0/ (len(features)+4) )
+
+    def Evaluate(self, X):
+        
+        # Evaluate the stored KDE with the input data
+        #    -> Execute the function evaluation of the fitted KDE using input data an multiply the event weight by the evaluation of the non-parameteric value
+
+        # Positive weighted events
+        #X = X.apply(lambda x: np.exp(self.kde["pos"].score_samples(x[feat for feat in self.features].values()) if x.name in [feat for feat in self.features] and x["w"] >= 0 ) )
+        #X = X.apply(lambda x: x[weight_name]*(1/np.exp(self.kde["pos"].score_samples(x[feat for feat in self.features].values()))) if x["w"] >= 0 else x[weight_name]*1.0 ) )
+        X[weight_name] = X.apply(lambda x: x[weight_name]*(1/np.exp(self.kde["pos"].score_samples(x[feat for feat in self.features].values()))) if x["w"] >= 0 else x[weight_name]*1.0 ) )
+        #X = X.apply(lambda x: np.exp(self.kde["pos"].score_samples(x[feat for feat in self.features].values()) if x.name in [feat for feat in self.features] and x["w"] >= 0 ) )
+
+        # Negative weighted events
+        X[weight_name] = X.apply(lambda x: x[weight_name]*(1/np.exp(self.kde["neg"].score_samples(x[feat for feat in self.features].values()))) if x["w"] < 0 else x[weight_name]*1.0 ) )
+
+    # Plotting function for diagnostics and recording the fitted KDE intances
+    def Plot(self):
+
+        # Binning
+        bins = 20
+        # Smoother line factor
+        smooth_factor = 10
+
+        # Loop through the features and make a plot for each
+        for idx,feat in enumerate(self.features):
+
+            # Plot the sampled data and the KDE estimate of the probability density function
+            fig, axes = plt.subplots()
+            
+            # Plot the distribution of data as a histogram and as a collection of points
+            axes.hist(self.subsample_np["pos"][idx], bins=bins, fc="#AAAAFF", {"normed": True})
+
+            # Create a scan of the KDE range
+            X_plot = np.linspace(self.lower[feat], self.upper[feat], bins*smooth_factor) 
+            
+            log_dens = self.kde["pos"].score_samples(X_plot)
+            axes.plot(X_plot,
+                      np.exp(log_dens),
+                      color="red",
+                      linestyle="-",
+                      label="kernel = {}".format(self.kernel),
+                     )
+
+
+            plt.savefig("{}_{}.png".format(feat, self.kernel))
