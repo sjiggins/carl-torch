@@ -30,7 +30,7 @@ class CalibratedClassifier():
         self.model = model
         self.global_name = global_name
 
-    def fit(self, X, y, w):
+    def fit(self, X, y, w, clip_weights=False):
         """Fit the calibrated model.
         Parameters
         ----------
@@ -65,6 +65,13 @@ class CalibratedClassifier():
                                   global_name=self.global_name,)
         _, T = self.model.evaluate(X)
 
+        if clip_weights:
+            # Temporary weight clipping
+            #T = np.nan_to_num(T, nan=1.0, posinf=1.0, neginf=1.0)
+            #OneinTenThousand = np.percentile(w, 99.99)
+            #T[T > OneinTenThousand] = 0.5
+            T[T > 1.0] = 1.0
+            T[T < 0.0] = 0.0
 
         cal.fit(T, y, w)
         self.calibrator = cal

@@ -14,7 +14,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 # from functools import partial
-from collections import defaultdict
+from collections import defaultdict,OrderedDict
 from .tools import create_missing_folders, load, load_and_check, HarmonisedLoading
 from .plotting import draw_weighted_distributions, draw_unweighted_distributions, draw_ROC, draw_Obs_ROC, resampled_obs_and_roc, plot_calibration_curve, draw_weights, draw_scatter
 from sklearn.model_selection import train_test_split
@@ -190,12 +190,17 @@ class Loader():
         x1 = x1[sorted(x1.columns)]
 
         # get metadata, i.e. max, min, mean, std of all the variables in the dataframes
-        metaData = defaultdict()
+        #metaData = defaultdict()
+        metaData = OrderedDict()
         if scaling == "standard":
-            metaData = {v : {x0[v].mean(), x0[v].std() } for v in  x0.columns }
+            metaData = {v : {x0[v].mean() , x0[v].std() } for v in  x0.columns }
             logger.info("Storing Z0 Standard scaling metadata: {}".format(metaData))
         elif scaling == "minmax":
-            metaData = {v : {x0[v].min(), x0[v].max() } for v in  x0.columns }
+            #metaData = {v : OrderedDict({x0[v].min() if x0[v].min() < x1[v].min() else x1[v].min(), x0[v].max() if x0[v].max() > x1[v].max() else x1[v].max() } for v in  x0.columns) }
+            metaData = {v : (x0[v].min() if x0[v].min() < x1[v].min() else x1[v].min(), x0[v].max() if x0[v].max() > x1[v].max() else x1[v].max())  for v in  x0.columns }
+            for v in x0.columns:
+                logger.info("Storing minmax scaling min:: {}".format( x0[v].min() if x0[v].min() < x1[v].min() else x1[v].min() ))
+                logger.info("Storing minmax scaling max: {}".format(  x0[v].max() if x0[v].max() > x1[v].max() else x1[v].max() ))
             logger.info("Storing minmax scaling metadata: {}".format(metaData))
         X0 = x0.to_numpy()
         X1 = x1.to_numpy()
@@ -404,9 +409,9 @@ class Loader():
 
         # load samples
         X0 = load_and_check(x0, memmap_files_larger_than_gb=1.0,  name="nominal features")
-        X0 = np.nan_to_num(X0, nan=0.0, posinf = 0.0, neginf=0.0)
+        X0 = np.nan_to_num(X0, nan=-1.0, posinf = 0.0, neginf=0.0)
         X1 = load_and_check(x1, memmap_files_larger_than_gb=1.0, name="variation features")
-        X1 = np.nan_to_num(X1, nan=0.0, posinf = 0.0, neginf=0.0)
+        X1 = np.nan_to_num(X1, nan=-1.0, posinf = 0.0, neginf=0.0)
         W0 = load_and_check(w0, memmap_files_larger_than_gb=1.0, name="nominal weights")
         W1 = load_and_check(w1, memmap_files_larger_than_gb=1.0, name="variation weights")
 
@@ -447,7 +452,7 @@ class Loader():
             #  as integer values indicate well bounded data
             intTest = [ (i % 1) == 0  for i in X0[:,idx] ]
             intTest = all(intTest) #np.all(intTest == True)
-            upperThreshold = 100 if intTest else 98
+            upperThreshold = 100 if intTest or np.any(X0[:,idx] < 0) else 98
             max = np.percentile(X0[:,idx], upperThreshold)
             lowerThreshold = 0 if (np.any(X0[:,idx] < 0 ) or intTest) else 0
             min = np.percentile(X0[:,idx], lowerThreshold)

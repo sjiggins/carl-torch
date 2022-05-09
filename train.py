@@ -1,48 +1,23 @@
 import os
 import sys
 import logging
-import argparse
+#import argparse
 import tarfile
 import pickle
 import pathlib
 import numpy as np
+from arg_handler import arg_handler_train
 from ml import RatioEstimator
 from ml import Loader
 from ml import Filter
 import numpy as np
 from itertools import repeat
 
-
 logger = logging.getLogger(__name__)
-
 
 #################################################
 # Arugment parsing
-parser = argparse.ArgumentParser(usage="usage: %(prog)s [opts]")
-parser.add_argument('--version', action='version', version='%(prog)s 1.0')
-parser.add_argument('-n', '--nominal',   action='store', type=str, dest='nominal',   default='', help='Nominal sample name (root file name excluding the .root extension)')
-parser.add_argument('-v', '--variation', action='store', type=str, dest='variation', default='', help='Variation sample name (root file name excluding the .root extension)')
-parser.add_argument('-e', '--nentries',  action='store', type=int, dest='nentries',  default=1000, help='specify the number of events to do the training on, None means full sample')
-parser.add_argument('-p', '--datapath',  action='store', type=str, dest='datapath',  default='./Inputs/', help='path to where the data is stored')
-parser.add_argument('-g', '--global_name',  action='store', type=str, dest='global_name',  default='Test', help='Global name for identifying this run - used in folder naming and output naming')
-parser.add_argument('-f', '--features',  action='store', type=str, dest='features',  default='', help='Comma separated list of features within tree')
-parser.add_argument('-w', '--weightFeature',  action='store', type=str, dest='weightFeature',  default='DummyEvtWeight', help='Name of event weights feature in TTree')
-parser.add_argument('-t', '--TreeName',  action='store', type=str, dest='treename',  default='Tree', help='Name of TTree name inside root files')
-parser.add_argument('-b', '--binning',  action='store', type=str, dest='binning',  default=None, help='path to binning yaml file.')
-parser.add_argument('-l', '--layers', action='store', type=int, dest='layers', nargs='*', default=None, help='number of nodes for each layer')
-parser.add_argument('-d', '--dropout-prob', action='store', type=float, dest='dropout_prob', default=None, help='Dropout probability for internal hidden layers')
-parser.add_argument('-r', '--regularise', action='store', type=str, dest='regularise', default=None, help='Regularisation technique for the loss function [L0, L1, L2]')
-parser.add_argument('--batch',  action='store', type=int, dest='batch_size',  default=4096, help='batch size')
-parser.add_argument('--per-epoch-plot', action='store_true', dest='per_epoch_plot', default=False, help='plotting train/validation result per epoch.')
-parser.add_argument('--per-epoch-save', action='store_true', dest='per_epoch_save', default=False, help='saving trained model per epoch.')
-parser.add_argument('--nepoch', action='store', dest='nepoch', type=int, default=300, help='Total number of epoch for training.')
-parser.add_argument('--scale-method', action='store', dest='scale_method', type=str, Required=True, default=None, help='scaling method for input data. e.g minmax, standard.')
-parser.add_argument('--weight-clipping', action='store_true', dest='weight_clipping', default=False, help='clipping event weights')
-parser.add_argument('--weight-nsigma', action='store', type=int, dest='weight_nsigma', default=0, help='re-mapping weights')
-parser.add_argument('--polarity', action='store_true', dest="polarity", help='enable event weight polarity feature.')
-parser.add_argument('--loss-type', action='store', type=str, dest="loss_type", default="regular", help='a type on how to handle weight in loss function, options are "abs(w)" & "log(abs(w))" ')
-parser.add_argument('--BoolFilter', action='store', dest='BoolFilter', type=str, default=None, help='Comma separated list of boolean logic. e.g. \'a | b\'.')
-opts = parser.parse_args()
+opts = arg_handler_train()
 nominal  = opts.nominal
 variation = opts.variation
 n = opts.nentries
@@ -208,6 +183,7 @@ if opts.regularise is not None:
     logger.info("L2 loss regularisation included.")
     kwargs={"weight_decay": 1e-5}
 
+
 # perform training
 train_loss, val_loss, accuracy_train, accuracy_val = estimator.train(
     method='carl',
@@ -223,15 +199,18 @@ train_loss, val_loss, accuracy_train, accuracy_val = estimator.train(
     w0=w0,
     w1=w1,
     scale_inputs=True,
+    scaling=scale_method,
     early_stopping=False,
     #early_stopping_patience=20,
     intermediate_train_plot = intermediate_train_plot,
     intermediate_save = intermediate_save,
     optimizer_kwargs=kwargs,
     global_name=global_name,
-    plot_inputs=True,    
+    plot_inputs=False,    
     nentries=n,
     loss_type=loss_type,
+    #initial_lr=0.0001,
+    #final_lr=0.00001,
 )
 
 # saving loss values and final trained models
