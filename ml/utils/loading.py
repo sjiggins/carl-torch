@@ -6,6 +6,8 @@ import tarfile
 import torch
 import pickle
 import numpy as np
+import tracemalloc
+import gc
 # import pandas as pd
 import seaborn as sns
 # from pandas.plotting import scatter_matrix
@@ -97,9 +99,19 @@ class Loader():
             (denominator) hypothesis. The same information is saved as a file in the given folder.
         """
 
+        tracemalloc.start()
+
+        def show_memory_usage():
+            current, peak = tracemalloc.get_traced_memory()
+            logger.info(f"Current memory usage is {current / 10**6}MB; Peak was {peak / 10**6}MB")
+
+        show_memory_usage()
+
         # Create folders for storage
         create_missing_folders([folder+'/'+global_name])
         create_missing_folders(['plots'])
+
+        show_memory_usage()
 
         # Extract the TTree data as pandas dataframes
         (
@@ -185,9 +197,13 @@ class Loader():
         #                                  nentries,
         #                                  plot)
 
+        show_memory_usage()
+
         # sort dataframes alphanumerically
         x0 = x0[sorted(x0.columns)]
         x1 = x1[sorted(x1.columns)]
+
+        show_memory_usage()
 
         # get metadata, i.e. max, min, mean, std of all the variables in the dataframes
         #metaData = defaultdict()
@@ -202,25 +218,65 @@ class Loader():
                 logger.info("Storing minmax scaling min:: {}".format( x0[v].min() if x0[v].min() < x1[v].min() else x1[v].min() ))
                 logger.info("Storing minmax scaling max: {}".format(  x0[v].max() if x0[v].max() > x1[v].max() else x1[v].max() ))
             logger.info("Storing minmax scaling metadata: {}".format(metaData))
+        
+        show_memory_usage()
+
+        logger.info("Converting data into numpy arrays...")
         X0 = x0.to_numpy()
         X1 = x1.to_numpy()
+        logger.info("... done.")
 
+        show_memory_usage()
+
+        logger.info("Converting weights and labels...")
         # Convert weights to numpy
         w0 = w0.to_numpy()
         w1 = w1.to_numpy()
         if normalise:
             w0 = w0 / (w0.sum())
             w1 = w1 / (w1.sum())
-
+        
         # Target labels
         y0 = np.zeros(x0.shape[0])
         y1 = np.ones(x1.shape[0])
+        logger.info("... done.")
 
+        x0 = None
+        x1 = None
+
+        gc.collect()
+
+        show_memory_usage()
+        
+        logger.info("Train/test spliting...")
         # Train, test splitting of input dataset
         X0_train, X0_test, y0_train, y0_test, w0_train, w0_test = train_test_split(X0, y0, w0, test_size=0.05, random_state=42) # what is "w0_test" for? maybe a split size of 0.05 if ok.
+        logger.info("..1st done...")
+        show_memory_usage()
+        X0 = None
+        gc.collect()
+        logger.info("Garbage collection done.")
+        show_memory_usage()
         X1_train, X1_test, y1_train, y1_test, w1_train, w1_test = train_test_split(X1, y1, w1, test_size=0.05, random_state=42)
+        logger.info("..2nd done...")
+        show_memory_usage()
+        X1 = None
+        gc.collect()
+        logger.info("Garbage collection done.")
+        show_memory_usage()
         X0_train, X0_val,  y0_train, y0_val, w0_train, w0_val =  train_test_split(X0_train, y0_train, w0_train, test_size=0.50, random_state=42)
+        logger.info("..3rd done...")
+        show_memory_usage()
+        gc.collect()
+        logger.info("Garbage collection done.")
+        show_memory_usage()
         X1_train, X1_val,  y1_train, y1_val, w1_train, w1_val =  train_test_split(X1_train, y1_train, w1_train, test_size=0.50, random_state=42)
+        logger.info("..4th done...")
+        show_memory_usage()
+        gc.collect()
+        logger.info("Garbage collection done.")
+        show_memory_usage()
+        logger.info("...splitting done.")
 
         w0_test = None
         w1_test = None
