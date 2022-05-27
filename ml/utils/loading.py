@@ -221,6 +221,10 @@ class Loader():
         
         show_memory_usage()
 
+        if nentries > x0.shape[0]:
+            logger.info("Fewer entries in the input than selected by the -e flag. Setting -e to -1.")
+            nentries = -1
+
         logger.info("Sampling x0, w0, vlabels0 ...")
         x0 = x0.sample(nentries) if nentries!=-1 else x0.sample(frac=1.0)
         gc.collect()
