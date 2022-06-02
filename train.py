@@ -6,7 +6,7 @@ import pickle
 import pathlib
 import numpy as np
 from itertools import repeat
-
+from arg_handler import arg_handler_train
 from ml import RatioEstimator
 from ml import Loader
 from ml import Filter
@@ -195,6 +195,7 @@ train_loss, val_loss, accuracy_train, accuracy_val = estimator.train(
     #optimizer="amsgrad",
     input_data_dict=prepared_data,
     scale_inputs=True,
+    scaling=scale_method,
     early_stopping=False,
     #early_stopping_patience=20,
     intermediate_train_plot = per_epoch_plot,

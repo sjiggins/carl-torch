@@ -55,11 +55,36 @@ def get_optimizer(optimizer, nesterov_momentum):
 
 
 def _ratio_xe(s_hat, y_true, w):
-    # New weighted loss functions - sjiggins
     if w is None:
         w = torch.ones(y_true.shape[0])
-    loss = BCELoss(weight=w, reduction='sum')(s_hat, y_true)
+    loss = BCELoss(weight=w, reduction='mean')(s_hat, y_true)
+
     return loss
+
+def _ratio_xe_prob_reg(s_hat, y_true, w):
+    if w is None:
+        w = torch.ones(y_true.shape[0])
+    # Calculate BCE loss
+    bceloss = BCELoss(weight=w, reduction='none')
+    loss = bceloss(s_hat, y_true)
+
+    # Calculate the suppresion term - This is all static at present must change to allow user hyperparameter optimisation
+    s_hat_temp = torch.sub(s_hat, 0.5)
+    s_hat_temp = torch.where(s_hat_temp > 0, s_hat_temp, torch.zeros(s_hat_temp.size()).to("cuda", torch.float, non_blocking=True))
+    s_hat_temp = torch.mul(s_hat_temp, 2)
+    s_hat_temp = torch.pow(s_hat_temp, 4)
+    inverse_sub = torch.reciprocal(1-s_hat_temp)
+
+    # Calculate the final suppression term per event weighted but the coefficient
+    coefficient=0.1
+    inverse_sub = torch.mul(inverse_sub, coefficient)
+    # Add the suppression term
+    loss = torch.add(loss, inverse_sub)
+    # Need to return scalar
+    loss = torch.sum(loss)
+
+    return loss
+
 
 def _ratio_xe_abs_w(s_hat, y_true, w):
     if w is None:
@@ -79,6 +104,7 @@ def ratio_xe(type):
     """
     preserved_type = {
         "regular": _ratio_xe,
+        "score_suppressed": _ratio_xe_prob_reg,
         "abs(w)": _ratio_xe_abs_w,
         "log(abs(w))": _ratio_xe_log_abs_w,
     }

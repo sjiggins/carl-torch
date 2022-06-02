@@ -2,8 +2,8 @@ import os
 import sys
 import logging
 import numpy as np
+from arg_handler import arg_handler_eval
 import json
-
 from ml import RatioEstimator
 from ml.utils.loading import Loader
 from arg_handler import arg_handler_eval
@@ -123,11 +123,13 @@ for eval_mode in evaluate:
     # if carl_weight_protection:
     w = np.nan_to_num(w, nan=1.0, posinf=1.0, neginf=1.0)
 
-    # Weight clipping if requested by user
-    if carl_weight_clipping:
-        carl_w_clipping = np.percentile(w, carl_weight_clipping)
-        w[w > carl_w_clipping] = carl_w_clipping
+    if opts.weight_protection:
+        w = np.nan_to_num(w, nan=1.0, posinf=1.0, neginf=1.0)
 
+    # Weight clipping if requested by user
+    if opts.weight_threshold < 100:
+        carl_w_clipping = np.percentile(w, opts.weight_threshold)
+        
     logger.info(f"{w=}")
     logger.info(f"Loading Result for {eval_mode}")
     loading.load_result(

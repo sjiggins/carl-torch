@@ -142,11 +142,12 @@ class RatioEstimator(Estimator):
         validation_split=0.25,
         early_stopping=True,
         scale_inputs=True,
+        scaling="minmax",
         limit_samplesize=None,
         memmap=False,
         verbose="some",
         scale_parameters=False,
-        n_workers=8,
+        n_workers=4,
         clip_gradient=None,
         early_stopping_patience=None,
         intermediate_train_plot=None,
@@ -286,12 +287,30 @@ class RatioEstimator(Estimator):
         plot_inputs = plot_inputs and all([_x is not None for _x in [x0, w0, x1, w1]])
         plot_inputs = plot_inputs and metaDataDict is not None
 
-        # Scale features
+        # Scale features - The file reading is common to also ml/base.py
+        #                  therefore maybe a common function in ml/utils/tools(load).py
         if scale_inputs:
-            self.initialize_input_transform(x, overwrite=False)
+
+            # Check if meta data has been saved, if so then scale using saved meta data from
+            # initial total dataset loading stage
+            metaData='data/'+global_name+'/metaData_'+str(nentries)+'.pkl'
+            metaDataDict = None
+            if os.path.exists(metaData):
+                # Get the meta data containing the keys (input feature names)
+                logger.info("Obtaining input features from metaData_{}.pkl".format(global_name))
+                metaDataFile = open(metaData, 'rb')
+                metaDataDict = pickle.load(metaDataFile)
+                metaDataFile.close()
+
+            # Initialise input scaling transformation
+            self.initialize_input_transform(x, overwrite=False,
+                                            metaData=metaDataDict, scaling=scaling)
+
+            # Call the transformation
             x = self._transform_inputs(x)
             if external_validation:
                 x_val = self._transform_inputs(x_val)
+
             # If requested by user then transformed inputs are plotted
             if plot_inputs:
                 logger.info(f"Plotting transformed input features for {global_name}")
@@ -331,7 +350,7 @@ class RatioEstimator(Estimator):
                     )
 
         else:
-            self.initialize_input_transform(x, False, overwrite=False)
+            self.initialize_input_transform(x, False, overwrite=False, scaling=scaling)
 
         # Features
         if self.features is not None:
@@ -454,8 +473,6 @@ class RatioEstimator(Estimator):
         # Load training data
         logger.debug("Loading evaluation data")
         x = load_and_check(x)
-
-        # Scale observables
         x = self._transform_inputs(x, scaling=self.scaling_method)
 
         # Restrict features

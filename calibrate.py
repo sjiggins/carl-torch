@@ -31,6 +31,7 @@ parser.add_option('-g', '--global_name',  action='store', type=str, dest='global
 parser.add_option('-f', '--features',  action='store', type=str, dest='features',  default='', help='Comma separated list of features within tree')
 parser.add_option('-w', '--weightFeature',  action='store', type=str, dest='weightFeature',  default='', help='Name of event weights feature in TTree')
 parser.add_option('-t', '--TreeName',  action='store', type=str, dest='treename',  default='Tree', help='Name of TTree name inside root files')
+parser.add_option('-c', '--ClipWeight',  action='store_true', dest='clip_weight',  default=False, help='Clip the weights from the neural network in order Name of TTree name inside root files')
 parser.add_option('--PlotROC',  action="store_true", dest='plot_ROC',  help='Flag to determine if one should plot ROC')
 parser.add_option('--PlotObsROC',  action="store_true", dest='plot_obs_ROC',  help='Flag to determine if one should plot observable ROCs')
 parser.add_option('--scale-method', action='store', dest='scale_method', type=str, default=None, help='scaling method for input data. e.g minmax, standard.')
@@ -57,26 +58,26 @@ else:
 
 carl = RatioEstimator()
 carl.scaling_method = scale_method
-carl.load('models/'+global_name+'_carl_'+str(n))
+carl.load('models/'+global_name+'_carl_'+str(n), global_name=global_name, nentries=n)
 #load
-#evaluate = ['train']
 X = 'data/'+global_name+'/X_train_'+str(n)+'.npy'
 y = 'data/'+global_name+'/y_train_'+str(n)+'.npy'
 w = 'data/'+global_name+'/w_train_'+str(n)+'.npy'
 r_hat, s_hat = carl.evaluate(X)
 r_hat = np.nan_to_num(r_hat, nan=1.0, posinf=1.0, neginf=1.0)
 s_hat = np.nan_to_num(s_hat, nan=1.0, posinf=1.0, neginf=1.0)
-# Temporary weight clipping
-r_hat[r_hat > 1.0] = 1.0
-r_hat[r_hat < 0.0] = 0.0
-s_hat[s_hat > 1.0] = 1.0
-s_hat[s_hat < 0.0] = 0.0
+
+if opts.clip_weight:
+    # Temporary weight clipping till better solution found
+    r_hat[r_hat > 1.0] = 1.0
+    r_hat[r_hat < 0.0] = 0.0
+    s_hat[s_hat > 1.0] = 1.0
+    s_hat[s_hat < 0.0] = 0.0
 
 
 calib = CalibratedClassifier(carl, global_name=global_name)
 calib.fit(X=X,y=y,w=w)
 p0, p1, r_cal = calib.predict(X=X)
-#w_cal = 1/r_cal
 loading.load_calibration(y_true = y,
                          p1_raw = s_hat, 
                          p1_cal = p1, 
@@ -86,7 +87,6 @@ loading.load_calibration(y_true = y,
 )
 
 evaluate = ['train', 'val']
-#evaluate = ['val']
 for i in evaluate:
     p0, p1, r_cal = calib.predict(X ='data/'+global_name+'/X0_'+i+'_'+str(n)+'.npy')
     w = 1./r_cal

@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 class RatioModel(nn.Module):
 
-    def __init__(self, n_observables, n_hidden, activation="relu", dropout_prob=0.5):
+    def __init__(self, n_observables, n_hidden, activation="relu", dropout_prob=0.1):
 
         super(RatioModel, self).__init__()
 

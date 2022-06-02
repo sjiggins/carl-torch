@@ -3,6 +3,7 @@ import argparse
 #################################################
 # Argument parsing helper functions
 def percentile_range(value):
+    value = float(value)
     # Restrict percentile to a range of 0-100
     if value > 100. or value < 0.:
         raise argparse.ArgumentTypeError("%s should be between 0-100, with float precision allowed." % value)
@@ -56,11 +57,15 @@ def arg_handler_eval():
     parser.add_argument('--PlotROC',  action="store_true", dest='plot_ROC',  help='Flag to determine if one should plot ROC')
     parser.add_argument('--PlotObsROC',  action="store_true", dest='plot_obs_ROC',  help='Flag to determine if one should plot observable ROCs')
     parser.add_argument('--PlotResampleRatio',  action="store_true", dest='plot_resampledRatio',  help='Flag to determine if one should plot a ratio of resampled vs original distribution')
+    parser.add_argument('-m', '--model', action='store', type=str, dest='model', default=None, help='path to the model')
     parser.add_argument('-b', '--binning',  action='store', type=str, dest='binning',  default=None, help='path to binning yaml file')
     parser.add_argument('-o', '--output', action='store', dest='output', type=str, default=".", help='output directory.')
     parser.add_argument('--normalise', action='store_true', dest='normalise', default=False, help='enforce normalization when plotting')
     parser.add_argument('--scale-method', action='store', dest='scale_method', type=str, default=None, help='scaling method for input data. e.g minmax, standard')
-    parser.add_argument('--weight-protect', action='store', dest='carl_weight_protection', type=bool, default=False, help='implement CARL weight protection by clipping away (+-) inf values')
+    parser.add_argument('--weight-protection', action='store_true', dest='weight_protection',  default=False, help='implement CARL weight protection by clipping away (+-) inf values')
+    parser.add_argument('--weight-threshold', action='store', dest='weight_threshold', type=percentile_range, default=100, help='implement CARL weight clipping by clipping based on user defined percentile. Valid range from [0,100]% with floating precision')
+    parser.add_argument('--normalise', action='store_true', dest='normalise', default=False, help='enforce normalization when plotting')
     parser.add_argument('--weight-clipping', action='store', dest='carl_weight_clipping', type=percentile_range, default=100, help='implement CARL weight clipping by clipping based on user defined percentile. Valid range from [0,100]% with floating precision')
     parser.add_argument('--datafile', action='store', dest='datafile', type=str, default=None, help='path to JSON file that specifying the data files')
-    return parser.parse_args()
+    opts = parser.parse_args()
+    return opts
