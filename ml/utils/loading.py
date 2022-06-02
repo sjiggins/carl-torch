@@ -15,7 +15,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 # from functools import partial
 from collections import OrderedDict
-from .tools import create_missing_folders, load, load_and_check, HarmonisedLoading
+from .tools import create_missing_folders, load, load_and_check, HarmonisedLoading, binned_reweighting
 from .plotting import draw_weighted_distributions, draw_unweighted_distributions, draw_ROC, draw_Obs_ROC, resampled_obs_and_roc, plot_calibration_curve, draw_weights, draw_scatter
 from sklearn.model_selection import train_test_split
 import yaml
@@ -56,6 +56,7 @@ class Loader():
         large_weight_clipping_threshold = 1e7,
         weight_polarity = False,
         scaling="minmax",
+        bin_normalise = True,
     ):
         """
         This medthod use for loading features from ROOT N-tuples files and
@@ -219,6 +220,32 @@ class Loader():
         else:
             for v in x0.columns:
                 metaData[v] = None
+
+        # temp saving for later debug
+        np.save(f"input_x0.npy", x0.to_numpy())
+        np.save(f"input_x1.npy", x1.to_numpy())
+        np.save(f"input_w0.npy", w0.to_numpy())
+        np.save(f"input_w1.npy", w1.to_numpy())
+        if spec_x0 is not None:
+            np.save(f"input_spec_x0.npy", spec_x0.to_numpy())
+        if spec_x1 is not None:
+            np.save(f"input_spec_x1.npy", spec_x1.to_numpy())
+
+        # use bin normalization is use, turn off sum weight normalise
+        if bin_normalise:
+            m_bins = [0,1,2,3,4,5,6,7,8,9,10,11]
+            m_bins = [np.array([-np.inf]), m_bins, np.array([np.inf])]
+            m_bins = np.concatenate(m_bins)
+            x0, w0, x1, w1 = binned_reweighting(
+                "Njets",
+                x0,
+                w0,
+                x1,
+                w1,
+                normalise=True,
+                bins=m_bins,
+            )
+            normalise = False
 
         # Create target labels
         y0 = np.zeros(x0.shape[0])
@@ -490,9 +517,11 @@ class Loader():
             # if not, proceed to automatic binning
             if ext_binning is not None:
                 try:
-                    binning[idx] = np.arange(*ext_binning["binning"][key])
+                    bin_ranges = ext_binning["binning"][key]
+                    binning[idx] = np.arange(*bin_ranges)
                     continue
                 except KeyError:
+                    logger.debug(f"cannot {key} in ext binning")
                     pass
 
             #max = x0df[column].max()
