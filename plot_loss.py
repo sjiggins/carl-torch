@@ -15,7 +15,8 @@ if __name__ == "__main__":
     stats_methods = [
         "compute_kl_divergence",
         "wasserstein",
-        #"chisquare",
+        "chisquare",
+        "ks_test",
     ]
 
     # plotting loss vs epoch
@@ -57,12 +58,24 @@ if __name__ == "__main__":
             ifile_format =  f"{opts.dir}/stats_dist/{type}*{method}.npy"
             fig, ax1 = plt.subplots(1,1, figsize=(12,10))
             ax1.set_xlabel("Epoch", loc="right", fontsize=18)
-            ax1.set_ylabel(f"value of {method}", fontsize=18)
             ax1.tick_params(axis='both', labelsize=18)
+            ax1.set_yscale('log')
+            if method in ["chisquare", "ks_test"]:
+                ax2 = ax1.twinx()
+                ax1.set_ylabel(f"value of {method}[0]", fontsize=18)
+                ax2.set_ylabel(f"value of {method}[1]", fontsize=18)
+            else:
+                ax1.set_ylabel(f"value of {method}", fontsize=18)
             for ifile in glob.glob(ifile_format):
                 obs_name = os.path.basename(ifile).replace(f"{type}_", "")
                 obs_name = obs_name.replace(f"_{method}.npy", "")
-                data = np.load(ifile)
-                ax1.plot(data, label=f"Obs {obs_name}")
+                data = np.load(ifile, allow_pickle=True)
+                if method in ["chisquare", "ks_test"]:
+                    stats = [ s for s, _ in data]
+                    pvalue = [ p for _, p in data]
+                    ax1.plot(stats, label=f"Obs {obs_name}")
+                    ax2.plot(pvalue, "r-", label=f"Obs {obs_name}")
+                else:
+                    ax1.plot(data, label=f"Obs {obs_name}")
             ax1.legend(frameon=False, fontsize=18)
             fig.savefig(f"{opts.dir}/{type}_{method}_vs_epoch.png")
