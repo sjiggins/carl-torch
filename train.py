@@ -39,6 +39,8 @@ weight_sigma = opts.weight_nsigma
 polarity = opts.polarity
 loss_type = opts.loss_type
 BoolFilter = opts.BoolFilter
+num_workers = opts.num_workers
+bin_normalise = opts.bin_normalise
 #################################################
 
 #################################################
@@ -113,6 +115,7 @@ else:
         large_weight_clipping=weight_clipping,
         weight_polarity=polarity,
         scaling=scale_method,
+        bin_normalise=bin_normalise,
     )
     logger.info(" Loaded new datasets ")
 
@@ -165,13 +168,21 @@ if opts.regularise is not None:
     kwargs={"weight_decay": 1e-5}
 
 # getting n_workers for DataLoader
-try:
-    n_workers = len(os.sched_getaffinity(0))
-except Exception:
-    n_workers = os.cpu_count()
+if num_workers is None:
+    try:
+        n_workers = len(os.sched_getaffinity(0))
+    except Exception:
+        n_workers = os.cpu_count()
+else:
+    n_workers = num_workers
 
 if per_epoch_stats:
-    stats_method_list = ["compute_kl_divergence", "wasserstein"]
+    stats_method_list = [
+        "compute_kl_divergence",
+        "wasserstein",
+        "chisquare",
+        "ks_test",
+    ]
 else:
     stats_method_list = []
 
