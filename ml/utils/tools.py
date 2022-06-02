@@ -3,22 +3,27 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import six
 import logging
 import os
+
 # import stat
 import numpy as np
 import uproot
 import pandas as pd
+
 # import torch
 # from torch.nn import functional as F
 from collections import defaultdict
+
 # from contextlib import contextmanager
 # import pickle
-from time import process_time # For sub-process timing
-#import cudf
+from time import process_time  # For sub-process timing
+
+# import cudf
 # import torch
 
 logger = logging.getLogger(__name__)
 
 initialized = False
+
 
 def GenerateFractionSamples(x, w, frac=0.50):
     """
@@ -36,10 +41,11 @@ def GenerateFractionSamples(x, w, frac=0.50):
 
     """
 
-    frac_x = x.sample(frac=frac, random_state = 42)
+    frac_x = x.sample(frac=frac, random_state=42)
     frac_w = w.iloc[frac_x.index]
 
     return frac_x, frac_w
+
 
 def AddInvertWeight(x, w, frac_x, frac_w):
     """
@@ -70,12 +76,12 @@ def AddInvertWeight(x, w, frac_x, frac_w):
     x = x.append(frac_x)
     w = w.append(frac_w)
 
-    '''
+    """
     with open("addInvSample.pkl", "wb") as f:
         frac_x = frac_x[sorted(frac_x.columns)]
         addInvSample = (frac_x, frac_w)
         pickle.dump(addInvSample, f)
-    '''
+    """
 
     return x, w
 
@@ -160,7 +166,7 @@ def HarmonisedLoading(
     """
 
     x0, spec_x0, w0, vlabels0 = load(
-        f = fA,
+        f=fA,
         features=features,
         spectators=spectators,
         weightFeature=weightFeature,
@@ -181,7 +187,7 @@ def HarmonisedLoading(
         weight_polarity=weight_polarity,
     )
 
-    x0, x1 = CoherentFlattening(x0,x1)
+    x0, x1 = CoherentFlattening(x0, x1)
     spec_x0 = flatten_nested_column(spec_x0)
     spec_x1 = flatten_nested_column(spec_x1)
 
@@ -210,7 +216,7 @@ def CoherentFlattening(df0, df1):
     # df1_objects = df1.select_dtypes(object) # this one never used?
     minObjectLen = defaultdict()
     # Find the columns that are not scalars and get all object type columns
-    #maxListLength = df.select_dtypes(object).apply(lambda x: x.list.len()).max(axis=1)
+    # maxListLength = df.select_dtypes(object).apply(lambda x: x.list.len()).max(axis=1)
     print(df0)
     for column in df0_objects:
         elemLen0 = df0[column].apply(lambda x: len(x)).max()
@@ -218,54 +224,85 @@ def CoherentFlattening(df0, df1):
 
         # Warn user
         if elemLen0 != elemLen1:
-            print("<tools.py::CoherentFlattening()>::   The two datasets do not have the same length for features '{}', please be warned that we choose zero-padding using lowest dimensionatlity".format(column))
+            print(
+                "<tools.py::CoherentFlattening()>::   The two datasets do not have the same length for features '{}', please be warned that we choose zero-padding using lowest dimensionatlity".format(
+                    column
+                )
+            )
 
         minObjectLen[column] = elemLen0 if elemLen0 < elemLen1 else elemLen1
-        print("<tools.py::CoherentFlattening()>::   Variable: {}({}),   min size = {}".format( column, df0[column].dtypes, minObjectLen))
-        print("<tools.py::CoherentFlattening()>::      Element Length 0 = {}".format( elemLen0))
-        print("<tools.py::CoherentFlattening()>::      Element Length 1 = {}".format( elemLen1))
+        print(
+            "<tools.py::CoherentFlattening()>::   Variable: {}({}),   min size = {}".format(
+                column, df0[column].dtypes, minObjectLen
+            )
+        )
+        print(
+            "<tools.py::CoherentFlattening()>::      Element Length 0 = {}".format(
+                elemLen0
+            )
+        )
+        print(
+            "<tools.py::CoherentFlattening()>::      Element Length 1 = {}".format(
+                elemLen1
+            )
+        )
 
         # Now break up each column into elements of max size 'macObjectLen'
-        #df0_flattened = pd.DataFrame(df0[column].to_list(), columns=[column+str(idx) for idx in range(elemLen0)])
-        df0_flattened = pd.DataFrame(df0.pop(column).to_list(), columns=[column+str(idx) for idx in range(elemLen0)])
-        #print(df0_flattened)
-        #df0_flattened = df0_flattened.fillna(0)
-        #print(df0_flattened)
+        # df0_flattened = pd.DataFrame(df0[column].to_list(), columns=[column+str(idx) for idx in range(elemLen0)])
+        df0_flattened = pd.DataFrame(
+            df0.pop(column).to_list(),
+            columns=[column + str(idx) for idx in range(elemLen0)],
+        )
+        # print(df0_flattened)
+        # df0_flattened = df0_flattened.fillna(0)
+        # print(df0_flattened)
 
         # Delete extra dimensions if needed due to non-matching dimensionality of df0 & df1
         if elemLen0 > minObjectLen[column]:
-            delColumns0 = [column+str(idx) for idx in range(minObjectLen[column], elemLen0)]
-            print("<tools.py::CoherentFlattening()>::   Deleting {}".format(delColumns0))
+            delColumns0 = [
+                column + str(idx) for idx in range(minObjectLen[column], elemLen0)
+            ]
+            print(
+                "<tools.py::CoherentFlattening()>::   Deleting {}".format(delColumns0)
+            )
             for idx in range(minObjectLen[column], elemLen0):
-                del df0_flattened[column+str(idx)]
+                del df0_flattened[column + str(idx)]
 
-        #print(df[column])
-        #print(df_flattened)
-        #del df0[column]
+        # print(df[column])
+        # print(df_flattened)
+        # del df0[column]
         df0 = df0.join(df0_flattened)
         print(df0)
 
         # Now break up each column into elements of max size 'macObjectLen'
-        #df1_flattened = pd.DataFrame(df1[column].to_list(), columns=[column+str(idx) for idx in range(elemLen1)])
-        df1_flattened = pd.DataFrame(df1.pop(column).to_list(), columns=[column+str(idx) for idx in range(elemLen1)])
-        #df1_flattened = df1_flattened.fillna(0)
+        # df1_flattened = pd.DataFrame(df1[column].to_list(), columns=[column+str(idx) for idx in range(elemLen1)])
+        df1_flattened = pd.DataFrame(
+            df1.pop(column).to_list(),
+            columns=[column + str(idx) for idx in range(elemLen1)],
+        )
+        # df1_flattened = df1_flattened.fillna(0)
 
         # Delete extra dimensions if needed due to non-matching dimensionality of df0 & df1
         if elemLen1 > minObjectLen[column]:
-            delColumns1 = [column+str(idx) for idx in range(minObjectLen[column], elemLen1)]
-            print("<tools.py::CoherentFlattening()>::   Deleting {}".format(delColumns1))
+            delColumns1 = [
+                column + str(idx) for idx in range(minObjectLen[column], elemLen1)
+            ]
+            print(
+                "<tools.py::CoherentFlattening()>::   Deleting {}".format(delColumns1)
+            )
             for idx in range(minObjectLen[column], elemLen1):
-                del df1_flattened[column+str(idx) ]
+                del df1_flattened[column + str(idx)]
 
-        #print(df[column])
-        #print(df_flattened)
-        #del df1[column]
+        # print(df[column])
+        # print(df_flattened)
+        # del df1[column]
         df1 = df1.join(df1_flattened)
         print(df1)
 
     print("<loading.py::load()>::    Flattened Dataframe")
-    #print(df)
+    # print(df)
     return df0, df1
+
 
 def flatten_nested_column(df):
     """
@@ -275,7 +312,7 @@ def flatten_nested_column(df):
         df_objects = df.select_dtypes(object)
         for column in df_objects:
             maxLen = df[column].apply(lambda x: len(x)).max()
-            new_col = [column+str(idx) for idx in range(maxLen)]
+            new_col = [column + str(idx) for idx in range(maxLen)]
             df = df.join(pd.DataFrame(df.pop(column).to_list(), columns=new_col))
             df.fillna(0, inplace=True)
     return df
@@ -343,25 +380,29 @@ def load(
     #   -  may double up on weight feature but will warn user
     if not features:
         # Set the features to all keys in tree - warn user!!!
-        logger.info("Attempting extract features however user did not define values. Using all keys inside TTree as features.")
+        logger.info(
+            "Attempting extract features however user did not define values. Using all keys inside TTree as features."
+        )
         features = X_tree.keys()
 
     # Extract the pandas dataframe - warning about jagged arrays
     logger.info(f"<{process_time()}> Converting uproot array to panda's dataframe")
     # load both features and spector into the same dataframe
-    df = pd.DataFrame(X_tree.arrays(features+spectators, library="np", entry_stop=n))
+    df = pd.DataFrame(X_tree.arrays(features + spectators, library="np", entry_stop=n))
 
     # Implement GPU capable dataframe loading/caching, as we want to speed up data processing - needs a docker image for library "cp"
-    #if torch.cuda.is_available() and False:
+    # if torch.cuda.is_available() and False:
     #    df = cudf.DataFrame(X_tree.arrays(features, library="cp", entry_stop=n))
-    #else:
+    # else:
     #    df = pd.DataFrame(X_tree.arrays(features, library="np", entry_stop=n))
 
     # Extract the weights from the Tree if specificed
     logger.info(f"<{process_time()}> Obtaining data point weights (dataframe)")
     if weightFeature == "DummyEvtWeight":
         dweights = np.ones(len(df.index))
-        weights = pd.DataFrame(data=dweights, index=range(len(df.index)), columns=[weightFeature])
+        weights = pd.DataFrame(
+            data=dweights, index=range(len(df.index)), columns=[weightFeature]
+        )
     else:
         weights = pd.DataFrame(X_tree.arrays(weightFeature, library="np", entry_stop=n))
 
@@ -376,22 +417,28 @@ def load(
                 # the filter `logExp`, it will throw a KeyError.
                 # We then need to contruct a temperoray dataframe with all variables
                 # from `logExp` in order to compute the mask.
-                df_filter = pd.DataFrame(X_tree.arrays(Filter.variables, library="np", entry_stop=n))
+                df_filter = pd.DataFrame(
+                    X_tree.arrays(Filter.variables, library="np", entry_stop=n)
+                )
                 df_mask = df_filter.eval(logExp)
             df = df[df_mask]
             weights = weights[df_mask]
 
     # Reset all row numbers
-    logger.info(f"<{process_time()}> Re-setting row numbers in panda dataframes due to filtering or shuffling of dataset")
+    logger.info(
+        f"<{process_time()}> Re-setting row numbers in panda dataframes due to filtering or shuffling of dataset"
+    )
     df = df.reset_index(drop=True)
     weights = weights.reset_index(drop=True)
 
     # For the moment one should simply use the features
     if weight_polarity:
-        logger.info(f"<{process_time()}> Converting all weights to positive and adding weight polarity as new additonal training feature")
+        logger.info(
+            f"<{process_time()}> Converting all weights to positive and adding weight polarity as new additonal training feature"
+        )
         polarity_name = "polarity"
         df[polarity_name] = weights[weightFeature].apply(lambda x: 1 if x >= 0 else -1)
-        labels  = features + [polarity_name]
+        labels = features + [polarity_name]
     else:
         labels = features
 
@@ -420,7 +467,9 @@ def create_missing_folders(folders):
             raise OSError("Path {} exists, but is no directory!".format(folder))
 
 
-def load_and_check(filename, warning_threshold=1.0e9, memmap_files_larger_than_gb=None, name=None):
+def load_and_check(
+    filename, warning_threshold=1.0e9, memmap_files_larger_than_gb=None, name=None
+):
     if filename is None:
         return None
 
@@ -433,13 +482,16 @@ def load_and_check(filename, warning_threshold=1.0e9, memmap_files_larger_than_g
         data = filename
         memmap = False
     else:
-        filesize_gb = os.stat(filename).st_size / 1.0 * 1024 ** 3
-        if memmap_files_larger_than_gb is None or filesize_gb <= memmap_files_larger_than_gb:
-            logger.info("  Loading %s into RAM", filename)
+        filesize_gb = os.stat(filename).st_size / 1.0 * 1024**3
+        if (
+            memmap_files_larger_than_gb is None
+            or filesize_gb <= memmap_files_larger_than_gb
+        ):
+            logger.info(f"Loading {filename} into RAM")
             data = np.load(filename)
             memmap = False
         else:
-            logger.info("  Loading %s as memory map", filename)
+            logger.info(f"Loading {filename} as memory map")
             data = np.load(filename, mmap_mode="c")
             memmap = True
 
@@ -449,18 +501,21 @@ def load_and_check(filename, warning_threshold=1.0e9, memmap_files_larger_than_g
         n_finite = np.sum(np.isfinite(data))
         if n_nans + n_infs > 0:
             logger.warning(
-                "%s contains %s NaNs and %s Infs, compared to %s finite numbers!", name, n_nans, n_infs, n_finite
+                f"{name} contains {n_nans} NaNs and {n_infs} Infs, compared to {n_finite} finite numbers!"
             )
 
         smallest = np.nanmin(data)
         largest = np.nanmax(data)
         if np.abs(smallest) > warning_threshold or np.abs(largest) > warning_threshold:
-            logger.warning("Warning: file %s has some large numbers, ranging from %s to %s", name, smallest, largest)
+            logger.warning(
+                f"Warning: file {name} has some large numbers, ranging from {smallest} to {largest}"
+            )
 
     if len(data.shape) == 1:
         data = data.reshape(-1, 1)
 
     return data
+
 
 def split_train_test(data, test_ratio):
     np.random.seed(42)
@@ -469,91 +524,3 @@ def split_train_test(data, test_ratio):
     test_indices = shuffled_indices[:test_set_size]
     train_indices = shuffled_indices[test_set_size:]
     return data.iloc[train_indices], data.iloc[test_indices]
-
-#===============================================================================
-#===============================================================================
-
-def generate_1d_histogram(name, df0, df1, w0, w1, *args, **kwargs):
-    hist0 = np.histogram(df0[name], weights=w0, *args, **kwargs)
-    hist1 = np.histogram(df1[name], weights=w1, *args, **kwargs)
-    return hist0, hist1
-
-#===============================================================================
-#===============================================================================
-def binned_reweighting(
-    name,
-    df_feature0,
-    df_w0,
-    df_feature1,
-    df_w1,
-    normalise=False,
-    *args,
-    **kwargs,
-):
-    """
-    This function provides a binned reweighting method for event weights of two
-    sample sets. For example, using a (binning) jet multiplicity histogram and
-    rescaling the event weight per bin. At the end, the sample-0 (nominal) will
-    have unity values per bin the jet multiplicity. The same scale used for rescaling
-    is applied to the sample-1 (variation) to maintin the relative difference.
-    Only support 1D binned re-weighting for now.
-
-    Args:
-        name : str
-            name of the feature use for bin reweighting
-
-        df_feature0 : pandas.DataFrame
-            dataframe contains feature from sample-0
-
-        df_w0 : pandas.DataFrame
-            dataframe contains event weight from sample-0
-
-        df_feature1 : pandas.DataFrame
-            dataframe contains feature from sample-1
-
-        df_w1 : pandas.DataFrame
-            dataframe contains event weight from sample-1
-    """
-    if normalise:
-        df_w0 = df_w0.divide(df_w0.iloc[:,0].sum(), axis=0)
-        df_w1 = df_w1.divide(df_w1.iloc[:,0].sum(), axis=0)
-
-    hist0, hist1 = generate_1d_histogram(
-        name,
-        df_feature0,
-        df_feature1,
-        w0=df_w0.iloc[:,0],
-        w1=df_w1.iloc[:,0],
-        *args,
-        **kwargs,
-    )
-
-    hist0, hist0_edge = hist0
-    hist1, hist1_edge = hist1
-
-    # nomalise bin content
-    hist0 /= np.sum(hist0)
-    hist1 /= np.sum(hist1)
-
-    # getting the bin index
-    # digitizing with the same bin edges
-    bin_index0 = np.digitize(df_feature0[name], hist0_edge)
-    bin_index1 = np.digitize(df_feature1[name], hist0_edge)
-
-    # need to grab the content from the
-    # same sample so the scaling is the same for both samples.
-    bin_content0 = hist0[bin_index0-1] # shift by overflow bin
-    bin_content1 = hist0[bin_index1-1]
-
-    # just find the ratio
-    hist_ratio = hist0 / hist1
-    # reset all nominal weight to 1
-    df_w0.iloc[:,0] = 1.0
-    # scale the ratio
-    df_w1.iloc[:,0] = 1.0 / hist_ratio[bin_index1-1]
-
-    # multiply by the bin content to increase the weighting
-    df_w0 = df_w0.multiply(bin_content0, axis=0) # can we do in-place?
-    df_w1 = df_w1.multiply(bin_content1, axis=0)
-
-    return df_feature0, df_w0, df_feature1, df_w1
