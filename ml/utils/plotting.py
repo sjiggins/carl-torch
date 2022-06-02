@@ -276,8 +276,8 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             axes[1].set_xlabel('%s'%(column), horizontalalignment='right',x=1)
             axes[1].legend(frameon=False, ncol=2)#,title = '%s sample'%(label) ) # We want two columns, and the uncertainty band is in the 2nd column
             #axes_1 = plt.gca()
-            axes[1].set_ylim([0.5, 1.6])
-            axes[1].set_yticks(np.arange(0.5,1.6,0.1))
+            axes[1].set_ylim([0.75, 1.25])
+            axes[1].set_yticks(np.arange(0.75,1.25,0.05))
             #plt.savefig(f"{output_name}_ratio.png")
             #plt.clf()
             #plt.close()
