@@ -229,10 +229,11 @@ class Trainer(object):
             self._timer(start="set lr")
             lr = self.calculate_lr(i_epoch, epochs, initial_lr, final_lr)
             self.set_lr(opt, lr)
-            logger.debug("Learning rate: %s", lr)
+            logger.debug(f"Learning rate: {lr}")
             self._timer(stop="set lr")
             loss_val = None
 
+            self._timer(start="epoch_training")
             try:
                 loss_train, loss_val, loss_contributions_train, loss_contributions_val, accu_train, accu_val = self.epoch(
                     i_epoch, data_labels, train_loader, val_loader, opt, loss_functions, loss_weights, clip_gradient
@@ -242,8 +243,9 @@ class Trainer(object):
                 accuracy_train.append(accu_train)
                 accuracy_val.append(accu_val)
             except NanException:
-                logger.info("Ending training during epoch %s because NaNs appeared", i_epoch + 1)
+                logger.info(f"Ending training during epoch {i_epoch+1} because NaNs appeared")
                 break
+            self._timer(stop="epoch_training")
 
             self._timer(start="early stopping")
             if early_stopping:
@@ -252,7 +254,7 @@ class Trainer(object):
                         best_loss, best_model, best_epoch, loss_val, i_epoch, early_stopping_patience
                     )
                 except EarlyStoppingException:
-                    logger.info("Early stopping: ending training after %s epochs", i_epoch + 1)
+                    logger.info(f"Early stopping: ending training after {i_epoch + 1} epochs")
                     break
             self._timer(stop="early stopping", start="report epoch")
 
@@ -271,6 +273,7 @@ class Trainer(object):
                 accu_train = accu_train,
                 accu_val = accu_val,
                 verbose=verbose_epoch,
+                dt=self.timer["epoch_training"],
             )
             self._timer(stop="report epoch")
 
@@ -613,7 +616,7 @@ class Trainer(object):
 
     @staticmethod
     def report_epoch(
-        i_epoch, loss_labels, loss_train, loss_val, loss_contributions_train, loss_contributions_val, accu_train=None, accu_val=None, verbose=False
+        i_epoch, loss_labels, loss_train, loss_val, loss_contributions_train, loss_contributions_val, accu_train=None, accu_val=None, verbose=False, dt=None
     ):
         logging_fn = logger.info if verbose else logger.debug
 
@@ -622,16 +625,18 @@ class Trainer(object):
             for i, (label, value) in enumerate(zip(labels, contributions)):
                 if i > 0:
                     summary += ", "
-                summary += "{}: {:>6.3f}".format(label, value)
+                summary += f"{label}: {value:>6.3f}"
             return summary
 
-        train_report = "  Epoch {:>3d}: train loss {:>8.8f} ({}), accu {}".format(
-            i_epoch + 1, loss_train, contribution_summary(loss_labels, loss_contributions_train), accu_train
+        dt = "" if dt is None else dt
+
+        train_report = "  Epoch {:>3d}: train loss {:>8.8f} ({}), accu {:>.3f}, dt={:>6.1f}s".format(
+            i_epoch + 1, loss_train, contribution_summary(loss_labels, loss_contributions_train), accu_train, dt
         )
         logging_fn(train_report)
 
         if loss_val is not None:
-            val_report = "             val. loss  {:>8.8f} ({}), accu {}".format(
+            val_report = "             val. loss  {:>8.8f} ({}), accu {:>.3f}".format(
                 loss_val, contribution_summary(loss_labels, loss_contributions_val), accu_val
             )
             logging_fn(val_report)
