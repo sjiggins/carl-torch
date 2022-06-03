@@ -39,7 +39,7 @@ def arg_handler_train():
     parser.add_argument('--BoolFilter', action='store', dest='BoolFilter', type=str, default=None, help='Comma separated list of boolean logic. e.g. \'a | b\'.')
     parser.add_argument('--spectators',  action='store', type=str, dest='spectators',  default='', help='Comma separated list of spectators within tree')
     parser.add_argument('--num_workers', action='store', type=int, dest='num_workers', default=None, help='Number of workers for loading dataset.')
-    parser.add_argument('--bin-normalise', action='store_true', dest='bin_normalise', default=False)
+    parser.add_argument('--bin-reweighting', action='store', type=str, dest='bin_reweighting', default=None, help='JSON configuration to binned reweighting.' )
     return parser.parse_args()
 
 # Arugment parsing main function for evaluation step
@@ -64,7 +64,6 @@ def arg_handler_eval():
     parser.add_argument('--scale-method', action='store', dest='scale_method', type=str, default=None, help='scaling method for input data. e.g minmax, standard')
     parser.add_argument('--weight-protection', action='store_true', dest='weight_protection',  default=False, help='implement CARL weight protection by clipping away (+-) inf values')
     parser.add_argument('--weight-threshold', action='store', dest='weight_threshold', type=percentile_range, default=100, help='implement CARL weight clipping by clipping based on user defined percentile. Valid range from [0,100]% with floating precision')
-    parser.add_argument('--normalise', action='store_true', dest='normalise', default=False, help='enforce normalization when plotting')
     parser.add_argument('--weight-clipping', action='store', dest='carl_weight_clipping', type=percentile_range, default=100, help='implement CARL weight clipping by clipping based on user defined percentile. Valid range from [0,100]% with floating precision')
     parser.add_argument('--datafile', action='store', dest='datafile', type=str, default=None, help='path to JSON file that specifying the data files')
     opts = parser.parse_args()

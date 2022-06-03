@@ -40,7 +40,7 @@ polarity = opts.polarity
 loss_type = opts.loss_type
 BoolFilter = opts.BoolFilter
 num_workers = opts.num_workers
-bin_normalise = opts.bin_normalise
+bin_reweighting = opts.bin_reweighting
 #################################################
 
 #################################################
@@ -115,7 +115,7 @@ else:
         large_weight_clipping=weight_clipping,
         weight_polarity=polarity,
         scaling=scale_method,
-        bin_normalise=bin_normalise,
+        bin_reweighting=bin_reweighting,
     )
     logger.info(" Loaded new datasets ")
 
