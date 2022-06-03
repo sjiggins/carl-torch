@@ -239,11 +239,15 @@ class Loader():
         if bin_reweighting is not None:
             x0, w0, x1, w1 = binned_reweighting(x0, w0, x1, w1, bin_reweighting)
             # turn off normalise
-            normalise = False 
+            normalise = False
 
         # Create target labels
         y0 = np.zeros(x0.shape[0])
         y1 = np.ones(x1.shape[0])
+
+        # get an array of indices
+        indices_0 = np.arange(x0.shape[0])
+        indices_1 = np.arange(x1.shape[0])
 
         # Convert features and weights to numpy
         x0 = x0.to_numpy()
@@ -254,10 +258,30 @@ class Loader():
             w0 = w0 / (w0.sum())
             w1 = w1 / (w1.sum())
 
-        x0_lookup_names = ["X0_train", "X0_val", "y0_train", "y0_val", "w0_train", "w0_val"]
-        x1_lookup_names = ["X1_train", "X1_val", "y1_train", "y1_val", "w1_train", "w1_val"]
-        x0_input_dataset = [x0, y0, w0]
-        x1_input_dataset = [x1, y1, w1]
+        lookup_input_mixing_0 = {
+            "X0" : x0,
+            "y0", y0,
+            "w0", w0,
+            "indices0" : indices_0,
+        }
+        lookup_input_mixing_1 = {
+            "X1" : x1,
+            "y1", y1,
+            "w1", w1,
+            "indices1" : indices_1,
+        }
+        x0_lookup_names = []
+        x1_lookup_names = []
+        x0_input_dataset = []
+        x1_input_dataset = []
+        for _lable, _data in lookup_input_mixing_0.items():
+            x0_lookup_names.append(f"{_label}_train")
+            x0_lookup_names.append(f"{_label}_val")
+            x0_input_dataset.append(_data)
+        for _lable, _data in lookup_input_mixing_1.items():
+            x1_lookup_names.append(f"{_label}_train")
+            x1_lookup_names.append(f"{_label}_val")
+            x1_input_dataset.append(_data)
 
         # check if spectators
         if spectators and all(x is not None for x in [spec_x0, spec_x1]):
