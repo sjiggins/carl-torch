@@ -85,17 +85,21 @@ def binned_1D_reweighting(
     # need to grab the content from the
     # same sample so the scaling is the same for both samples.
     bin_content0 = hist0[bin_index0 - 1]  # shift by overflow bin
-    bin_content1 = hist0[bin_index1 - 1]
+    # bin_content1 = hist0[bin_index1 - 1]
+    bin_content1 = hist1[bin_index1 - 1]
 
     # just find the ratio
-    hist_ratio = hist0 / hist1
+    # hist_ratio = hist0 / hist1
     # reset all nominal weight to 1
-    df_w0.iloc[:, 0] = 1.0
+    # df_w0.iloc[:, 0] = 1.0
     # scale the ratio
-    df_w1.iloc[:, 0] = 1.0 / hist_ratio[bin_index1 - 1]
+    # df_w1.iloc[:, 0] = 1.0 / hist_ratio[bin_index1 - 1]
 
     # multiply by the bin content to increase the weighting
-    df_w0 = df_w0.multiply(bin_content0, axis=0)  # can we do in-place?
-    df_w1 = df_w1.multiply(bin_content1, axis=0)
+    # df_w0 = df_w0.multiply(bin_content0, axis=0)  # can we do in-place?
+    # df_w1 = df_w1.multiply(bin_content1, axis=0)
+
+    df_w0.iloc[:, 0] = bin_content0
+    df_w1.iloc[:, 0] = bin_content1
 
     return df_feature0, df_w0, df_feature1, df_w1
