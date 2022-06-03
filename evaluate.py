@@ -106,7 +106,7 @@ data_files = datafiles_path_preparation(output, global_name, n, datafile)
 loading = Loader()
 carl = RatioEstimator()
 carl.scaling_method = scale_method
-carl.load(data_files["model"])
+carl.load(data_files["model"], data_files["train"].get("metaData", None))
 
 evaluate = ["train", "val"]
 for eval_mode in evaluate:
@@ -129,7 +129,7 @@ for eval_mode in evaluate:
     # Weight clipping if requested by user
     if opts.weight_threshold < 100:
         carl_w_clipping = np.percentile(w, opts.weight_threshold)
-        
+
     logger.info(f"{w=}")
     logger.info(f"Loading Result for {eval_mode}")
     loading.load_result(

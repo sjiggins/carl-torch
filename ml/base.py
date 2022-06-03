@@ -211,7 +211,7 @@ class Estimator(object):
         logger.info("acc %.2f",accuracy_score(y_pred,y))
         logger.info(confusion_matrix(y, y_pred))
 
-    def load(self, filename, global_name=None, nentries=-1):
+    def load(self, filename, metaDataFile=None):
 
         """
         Loads a trained model from files.
@@ -224,51 +224,47 @@ class Estimator(object):
             None
         """
 
-        logger.info("Loading model from %s", filename)
+        logger.info(f"Loading model from {filename}")
 
         # Load settings and create model
-        logger.debug("Loading settings from %s_settings.json", filename)
+        logger.debug(f"Loading settings from {filename}_settings.json")
         with open(filename + "_settings.json", "r") as f:
             settings = json.load(f)
         self._unwrap_settings(settings)
         self._create_model()
 
         # Load scaling
-        try:
-
-            # Scale observables
-            # Check if meta data has been saved, if so then scale using saved meta data from
-            # initial total dataset loading stage
-            metaData='data/'+global_name+'/metaData_'+str(nentries)+'.pkl'
-            metaDataDict = None
-            if os.path.exists(metaData):
-                # Get the meta data containing the keys (input feature names)
-                logger.info("Obtaining input features from metaData_{}.pkl".format(global_name))
-                metaDataFile = open(metaData, 'rb')
-                metaDataDict = pickle.load(metaDataFile)
-                metaDataFile.close()
-
-                # Initialise input scaling transformation
-                self.initialize_input_transform(x=None, overwrite=False,
-                                                metaData=metaDataDict, scaling=self.scaling_method)
-            else:
-                self.x_scaling_means = np.load(filename + "_x_means.npy")
-                self.x_scaling_stds =  np.load(filename + "_x_stds.npy")
-                self.x_scaling_mins =  np.load(filename + "_x_mins.npy")
-                self.x_scaling_maxs =  np.load(filename + "_x_maxs.npy")
+        if metaDataFile is not None:
+            # Initialise input scaling transformation
+            logger.info(f"Obtaining input features from {metaDataFile}")
+            with open(metaDataFile, "rb") as f:
+                metaDataDict = pickle.load(f)
+            self.initialize_input_transform(
+                x=None,
+                overwrite=False,
+                metaData=metaDataDict,
+                scaling=self.scaling_method,
+            )
+        else:
+            try:
+                scale_info = []
+                for type in ["means", "stds", "mins", "maxs"]:
+                    m_data = np.load(f"{filename}_x_{type}.npy")
+                    setattr(self, f"x_scaling_{type}", m_data)
+                    scale_info.append(m_data)
                 logger.debug(
-                    "  Found input scaling information: means %s, stds %s, mins %s, maxs %s  ", self.x_scaling_means, self.x_scaling_stds, self.x_scaling_mins, self.x_scaling_maxs
+                    f"Found input scaling information: (mean, std, min, max) = {scale_info}"
                 )
-        except FileNotFoundError:
-            logger.warning("Scaling information not found in %s", filename)
-            self.x_scaling_means = None
-            self.x_scaling_stds = None
-            self.x_scaling_mins = None
-            self.x_scaling_maxs = None
+            except FileNotFoundError:
+                logger.warning(f"Scaling information not found in {filename}")
+                self.x_scaling_means = None
+                self.x_scaling_stds = None
+                self.x_scaling_mins = None
+                self.x_scaling_maxs = None
 
         # Load state dict
-        logger.debug("Loading state dictionary from %s_state_dict.pt", filename)
-        self.model.load_state_dict(torch.load(filename + "_state_dict.pt", map_location="cpu")) # Likely an issue when in/on GPU mode/node
+        logger.debug(f"Loading state dictionary from {filename}_state_dict.pt")
+        self.model.load_state_dict(torch.load(f"{filename}_state_dict.pt", map_location="cpu")) # Likely an issue when in/on GPU mode/node
 
     def initialize_input_transform(self, x,
                                    transform=True, overwrite=True,
