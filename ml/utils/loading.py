@@ -217,10 +217,8 @@ class Loader():
         elif scaling == "minmax":
             #metaData = {v : OrderedDict({x0[v].min() if x0[v].min() < x1[v].min() else x1[v].min(), x0[v].max() if x0[v].max() > x1[v].max() else x1[v].max() } for v in  x0.columns) }
             metaData = {v : (x0[v].min() if x0[v].min() < x1[v].min() else x1[v].min(), x0[v].max() if x0[v].max() > x1[v].max() else x1[v].max())  for v in  x0.columns }
-            for v in x0.columns:
-                logger.info("Storing minmax scaling min:: {}".format( x0[v].min() if x0[v].min() < x1[v].min() else x1[v].min() ))
-                logger.info("Storing minmax scaling max: {}".format(  x0[v].max() if x0[v].max() > x1[v].max() else x1[v].max() ))
-            logger.info("Storing minmax scaling metadata: {}".format(metaData))
+            for obs, value in metaData.items():
+                logger.info(f"Storing minmax scaling for {obs}: (min,max) = {value}")
         else:
             for v in x0.columns:
                 metaData[v] = None
@@ -259,28 +257,28 @@ class Loader():
             w1 = w1 / (w1.sum())
 
         lookup_input_mixing_0 = {
-            "X0" : x0,
-            "y0", y0,
-            "w0", w0,
-            "indices0" : indices_0,
+            "X0": x0,
+            "y0": y0,
+            "w0": w0,
+            "indices0": indices_0,
         }
         lookup_input_mixing_1 = {
-            "X1" : x1,
-            "y1", y1,
-            "w1", w1,
-            "indices1" : indices_1,
+            "X1": x1,
+            "y1": y1,
+            "w1": w1,
+            "indices1": indices_1,
         }
         x0_lookup_names = []
         x1_lookup_names = []
         x0_input_dataset = []
         x1_input_dataset = []
         for _lable, _data in lookup_input_mixing_0.items():
-            x0_lookup_names.append(f"{_label}_train")
-            x0_lookup_names.append(f"{_label}_val")
+            x0_lookup_names.append(f"{_lable}_train")
+            x0_lookup_names.append(f"{_lable}_val")
             x0_input_dataset.append(_data)
         for _lable, _data in lookup_input_mixing_1.items():
-            x1_lookup_names.append(f"{_label}_train")
-            x1_lookup_names.append(f"{_label}_val")
+            x1_lookup_names.append(f"{_lable}_train")
+            x1_lookup_names.append(f"{_lable}_val")
             x1_input_dataset.append(_data)
 
         # check if spectators
@@ -479,6 +477,8 @@ class Loader():
         verbose=False,
         normalise = False,
         scaling="minmax",
+        x0_index_mask=None,
+        x1_index_mask=None,
     ):
         """
         Parameters
@@ -501,12 +501,28 @@ class Loader():
         #                     n = int(nentries), t = TreeName)
 
         # load samples
-        X0 = load_and_check(x0, memmap_files_larger_than_gb=1.0,  name="nominal features")
-        X0 = np.nan_to_num(X0, nan=-1.0, posinf = 0.0, neginf=0.0)
+        X0 = load_and_check(x0, memmap_files_larger_than_gb=1.0, name="nominal features")
         X1 = load_and_check(x1, memmap_files_larger_than_gb=1.0, name="variation features")
-        X1 = np.nan_to_num(X1, nan=-1.0, posinf = 0.0, neginf=0.0)
         W0 = load_and_check(w0, memmap_files_larger_than_gb=1.0, name="nominal weights")
         W1 = load_and_check(w1, memmap_files_larger_than_gb=1.0, name="variation weights")
+
+        if x0_index_mask is not None:
+            _mask = load_and_check(x0_index_mask, name="x0 index mask")
+            _mask = _mask.flatten()
+            X0 = X0[_mask]
+            W0 = W0[_mask]
+            if weights is not None:
+                weights = weights[_mask]
+            _mask = None
+        if x1_index_mask is not None:
+            _mask = load_and_check(x1_index_mask, name="x1 index mask")
+            _mask = _mask.flatten()
+            X1 = X1[_mask]
+            W1 = W1[_mask]
+            _mask = None
+
+        X0 = np.nan_to_num(X0, nan=-1.0, posinf = 0.0, neginf=0.0)
+        X1 = np.nan_to_num(X1, nan=-1.0, posinf = 0.0, neginf=0.0)
 
         if isinstance(metaData, str):
             metaDataFile = open(metaData, 'rb')
