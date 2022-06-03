@@ -18,12 +18,12 @@ def generate_1d_histogram(name, bins, df0, df1, w0, w1, *args, **kwargs):
 # ===============================================================================
 # ===============================================================================
 def binned_1D_reweighting(
-    name,
-    bins,
     df_feature0,
     df_w0,
     df_feature1,
     df_w1,
+    observable,
+    bins,
     normalise=False,
     *args,
     **kwargs,
@@ -37,9 +37,6 @@ def binned_1D_reweighting(
     Only support 1D binned re-weighting for now.
 
     Args:
-        name : str
-            name of the feature use for bin reweighting
-
         df_feature0 : pandas.DataFrame
             dataframe contains feature from sample-0
 
@@ -51,13 +48,19 @@ def binned_1D_reweighting(
 
         df_w1 : pandas.DataFrame
             dataframe contains event weight from sample-1
+
+        observable : str
+            name of the feature use for bin reweighting
+
+        bins : list
+            histogram bin edges.
     """
     if normalise:
         df_w0 = df_w0.divide(df_w0.iloc[:, 0].sum(), axis=0)
         df_w1 = df_w1.divide(df_w1.iloc[:, 0].sum(), axis=0)
 
     hist0, hist1 = generate_1d_histogram(
-        name,
+        observable,
         bins,
         df_feature0,
         df_feature1,
@@ -76,8 +79,8 @@ def binned_1D_reweighting(
 
     # getting the bin index
     # digitizing with the same bin edges
-    bin_index0 = np.digitize(df_feature0[name], hist0_edge)
-    bin_index1 = np.digitize(df_feature1[name], hist0_edge)
+    bin_index0 = np.digitize(df_feature0[observable], hist0_edge)
+    bin_index1 = np.digitize(df_feature1[observable], hist0_edge)
 
     # need to grab the content from the
     # same sample so the scaling is the same for both samples.

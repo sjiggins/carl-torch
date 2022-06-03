@@ -1,6 +1,11 @@
-from . import core
+from . import reweighting
 
 import json
+import logging
+
+logging.basicConfig()
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 def binned_reweighting(x0, w0, x1, w1, config_file):
@@ -30,10 +35,14 @@ def binned_reweighting(x0, w0, x1, w1, config_file):
             }
     """
 
+    logger.info(f"reading in reweighting setting from {config_file}")
+
     with open(config_file, "r") as f:
         config_file = json.load(f)
 
-    reweight_method = getattr(core, config_file["method"])
-    args = getattr(core, config_file["arguments"])
+    method_name = config_file["method"]
+    args = config_file["arguments"]
+    logger.info(f"using rewighting method {method_name}")
+    reweight_method = getattr(reweighting, method_name)
 
     return reweight_method(x0, w0, x1, w1, **args)
