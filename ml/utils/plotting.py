@@ -77,6 +77,18 @@ def draw_weighted_distributions(x0, x1, w0, w1,
                                        style='normal', size=12)
     plt.rcParams['legend.title_fontsize'] = 14
 
+    # flatten weight array
+    if normalise:
+        w0 = w0.flatten()
+        w1 = w1.flatten()
+        w_carl = w0*weights
+        w0 = w0/w0.sum()
+        w1 = w1/w1.sum()
+        w_carl = w_carl/w_carl.sum()
+    else:
+        w0 = w0.ravel()
+        w1 = w1.ravel()
+        w_carl = w0*weights
 
     for id, column in enumerate(variables):
         logger.info(f"Drawing weighted distribution {id}, {column}")
@@ -89,13 +101,6 @@ def draw_weighted_distributions(x0, x1, w0, w1,
         #if save: axes[0].figure(figsize=(14, 10))
         #else: axes[0].plt.subplot(3,4, id)
         #plt.yscale('log')
-        w0 = w0.flatten()
-        w1 = w1.flatten()
-        w_carl = w0*weights
-        if normalise:
-            w0 = w0/w0.sum()
-            w1 = w1/w1.sum()
-            w_carl = w_carl/w_carl.sum()
         nom_count, nom_bin, nom_bars = axes[0].hist(x0[:,id], bins = binning[id], weights = w0, label = "nominal", **hist_settings_nom, density=True)
         carl_count, carl_bin, carl_bars = axes[0].hist(x0[:,id], bins = binning[id], weights = w_carl, label = 'nominal*CARL', **hist_settings_CARL, density=True)
         alt_count, alt_bins, alt_bars = axes[0].hist(x1[:,id], bins = binning[id], weights = w1, label = legend, **hist_settings_alt, density=True)
