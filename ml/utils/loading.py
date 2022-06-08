@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 # from functools import partial
 from collections import defaultdict,OrderedDict
 from .tools import create_missing_folders, load, load_and_check, HarmonisedLoading
-from .plotting import draw_weighted_distributions, draw_unweighted_distributions, draw_ROC, draw_Obs_ROC, resampled_obs_and_roc, plot_calibration_curve, draw_weights, draw_scatter
+from .plotting import subsample,draw_weighted_distributions, draw_unweighted_distributions, draw_ROC, draw_Obs_ROC, resampled_obs_and_roc, plot_calibration_curve, draw_weights, draw_scatter
 from sklearn.model_selection import train_test_split
 import yaml
 import copy
