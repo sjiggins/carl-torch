@@ -79,13 +79,13 @@ def draw_weighted_distributions(x0, x1, w0, w1,
 
 
     for id, column in enumerate(variables):
+        logger.info(f"Drawing weighted distribution {id}, {column}")
+        logger.info(f"using binning: {binning[id]}")
         #fig, axes = plt.subplots(3, sharex=True, figsize=(12,10))
         fig = plt.figure(figsize=(12,10))
         gs = fig.add_gridspec(3, hspace=0, height_ratios=[5,2,2])
         axes = gs.subplots(sharex=True)
         fig.suptitle("Differential Cross-section & Mapping Performance")
-        print("<plotting.py::draw_weighted_distribution()>::id: {}, column: {}".format(id,column))
-        print("<plotting.py::draw_weighted_distribution()>::binning: {}".format(binning[id]))
         #if save: axes[0].figure(figsize=(14, 10))
         #else: axes[0].plt.subplot(3,4, id)
         #plt.yscale('log')
@@ -101,7 +101,6 @@ def draw_weighted_distributions(x0, x1, w0, w1,
         alt_count, alt_bins, alt_bars = axes[0].hist(x1[:,id], bins = binning[id], weights = w1, label = legend, **hist_settings_alt, density=True)
         axes[0].grid(axis='x', color='silver')
         if addInvSample:
-            print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
             _setting = {'histtype':'step', 'linewidth':2, 'color':'red'}
             _x0 = addInvSample[0].to_numpy()
             _w0 = addInvSample[1].to_numpy().flatten()
@@ -126,11 +125,6 @@ def draw_weighted_distributions(x0, x1, w0, w1,
         # Calculate the chi^[2}
         nom_alt_chi, nom_alt_p = scipy.stats.chisquare(f_obs=nom_count, f_exp=alt_count)
         carl_alt_chi, carl_alt_p = scipy.stats.chisquare(f_obs=carl_count, f_exp=alt_count)
-        # Result string
-        nom_alt_chi_res = "$\chi^{2}$ ="+" {},  p-value = {}".format(nom_alt_chi,nom_alt_p)
-        carl_alt_chi_res = "$\chi^{2}$ ="+" {},  p-value = {}".format(carl_alt_chi,carl_alt_p)
-        logger.info("{}".format(nom_alt_chi_res))
-        logger.info("{}".format(carl_alt_chi_res))
 
         # KL-divergence
         ########### SciPy ##########
@@ -143,12 +137,14 @@ def draw_weighted_distributions(x0, x1, w0, w1,
         ########### Custom #########
         nom_alt_KL = statistic.compute_kl_divergence(x0[:,id], w0, x1[:,id], w1, len(binning[id]))
         carl_alt_KL = statistic.compute_kl_divergence(x0[:,id], w0, x0[:,id], w_carl, len(binning[id]))
-        ## Result string
-        nom_alt_KL_res = "KL(nom,alt) = {}".format(nom_alt_KL)
-        carl_alt_KL_res = "KL(carl,alt) = {}".format(carl_alt_KL)
-        ############################
-        logger.info("{}".format(nom_alt_KL_res))
-        logger.info("{}".format(carl_alt_KL_res))
+
+        # Pring Result string to logger
+        logger.info("... Nominal vs Alternative:")
+        logger.info(f"...... chi2={nom_alt_chi:<.3}, p-value={nom_alt_p:<.3}")
+        logger.info(f"...... K-L div={nom_alt_KL:<.3}")
+        logger.info("... Nominal vs CARL:")
+        logger.info(f"...... chi2={carl_alt_chi:<.3}, p-value={carl_alt_p:<.3}")
+        logger.info(f"...... K-L div={carl_alt_KL:<.3}")
 
         # Calculate the EMD
         #emd = wasserstein.EMD()
@@ -242,7 +238,7 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             residue_carl  = np.array(residue_carl)
 
             ## Ratio error
-            print("ratio")
+            logger.debug("ratio")
             #axes[1].step( xref, yref, where="post", label=legend+" / "+legend, **hist_settings_alt )
             axes[1].step( xref, yref, where="post", **hist_settings_alt )
             axes[1].step( edge1[:-1], x1_ratio, where="post", label="nom / "+legend, **hist_settings_nom)
@@ -285,7 +281,7 @@ def draw_weighted_distributions(x0, x1, w0, w1,
 
 
             ## Residual
-            print("residual")
+            logger.debug("residual")
             yref = [0.0,0.0]
             ref = axes[2].step( xref, yref, where="post", label=legend+" / "+legend, **hist_settings_alt )
             nom = axes[2].step( edge1, residue, where="post", label="nom / "+legend, **hist_settings_nom)
