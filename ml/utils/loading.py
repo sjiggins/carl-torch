@@ -324,6 +324,8 @@ class Loader():
         #apply subsampling
         x0_train, w0_train = subsample(x0_train, w0_train, global_name, featureNames=featureNames)
         x0_val, w0_val = subsample(x0_val, w0_val, global_name, featureNames=featureNames)
+        x1_train, w1_train = subsample(x1_train, w1_train, global_name, featureNames=featureNames)
+        x1_val, w1_val = subsample(x1_val, w1_val, global_name, featureNames=featureNames)
 
         #create target labels
         y0_train = np.zeros(x0_train.shape[0])
