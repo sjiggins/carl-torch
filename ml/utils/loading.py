@@ -302,12 +302,6 @@ class Loader():
         gc.collect()
         x0_test = x0_test.to_numpy()
         gc.collect()
-        #y0_train = y0_train.to_numpy()
-        #gc.collect()
-        #y0_val = y0_val.to_numpy()
-        #gc.collect()
-        #y0_test = y0_test.to_numpy()
-        #gc.collect()
         w0_train = w0_train.to_numpy()
         gc.collect()
         w0_val = w0_val.to_numpy()
@@ -318,12 +312,6 @@ class Loader():
         gc.collect()
         x1_test = x1_test.to_numpy()
         gc.collect()
-        #y1_train = y1_train.to_numpy()
-        #gc.collect()
-        #y1_val = y1_val.to_numpy()
-        #gc.collect()
-        #y1_test = y1_test.to_numpy()
-        #gc.collect()
         w1_train = w1_train.to_numpy()
         gc.collect()
         w1_val = w1_val.to_numpy()
@@ -340,69 +328,6 @@ class Loader():
         X1_train = x1_train
         X1_val = x1_val
         X1_test = x1_test
-
-        
-        """
-        logger.info("Converting data into numpy arrays...")
-        X0 = x0.to_numpy()
-        X1 = x1.to_numpy()
-        logger.info("... done.")
-
-        show_memory_usage()
-
-        logger.info("Converting weights and labels...")
-        # Convert weights to numpy
-        w0 = w0.to_numpy()
-        w1 = w1.to_numpy()
-        if normalise:
-            w0 = w0 / (w0.sum())
-            w1 = w1 / (w1.sum())
-        
-        # Target labels
-        y0 = np.zeros(x0.shape[0])
-        y1 = np.ones(x1.shape[0])
-        logger.info("... done.")
-
-        x0 = None
-        x1 = None
-
-        gc.collect()
-
-        show_memory_usage()
-        
-        logger.info("Train/test spliting...")
-        # Train, test splitting of input dataset
-        X0_train, X0_test, y0_train, y0_test, w0_train, w0_test = train_test_split(X0, y0, w0, test_size=0.05, random_state=42) # what is "w0_test" for? maybe a split size of 0.05 if ok.
-        logger.info("..1st done...")
-        show_memory_usage()
-        X0 = None
-        gc.collect()
-        logger.info("Garbage collection done.")
-        show_memory_usage()
-        X1_train, X1_test, y1_train, y1_test, w1_train, w1_test = train_test_split(X1, y1, w1, test_size=0.05, random_state=42)
-        logger.info("..2nd done...")
-        show_memory_usage()
-        X1 = None
-        gc.collect()
-        logger.info("Garbage collection done.")
-        show_memory_usage()
-        X0_train, X0_val,  y0_train, y0_val, w0_train, w0_val =  train_test_split(X0_train, y0_train, w0_train, test_size=0.50, random_state=42)
-        logger.info("..3rd done...")
-        show_memory_usage()
-        gc.collect()
-        logger.info("Garbage collection done.")
-        show_memory_usage()
-        X1_train, X1_val,  y1_train, y1_val, w1_train, w1_val =  train_test_split(X1_train, y1_train, w1_train, test_size=0.50, random_state=42)
-        logger.info("..4th done...")
-        show_memory_usage()
-        gc.collect()
-        logger.info("Garbage collection done.")
-        show_memory_usage()
-        logger.info("...splitting done.")
-
-        w0_test = None
-        w1_test = None
-        """
 
         #cliping large weights, and replace it by 1.0
         raw_w0_train = None
