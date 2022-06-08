@@ -322,8 +322,8 @@ class Loader():
         show_memory_usage()
 
         #apply subsampling
-        x0_train, w0_train = subsample(x0_train, w0_train, featureNames=featureNames)
-        x0_val, w0_val = subsample(x0_val, w0_val, featureNames=featureNames)
+        x0_train, w0_train = subsample(x0_train, w0_train, global_name, featureNames=featureNames)
+        x0_val, w0_val = subsample(x0_val, w0_val, global_name, featureNames=featureNames)
 
         #create target labels
         y0_train = np.zeros(x0_train.shape[0])
