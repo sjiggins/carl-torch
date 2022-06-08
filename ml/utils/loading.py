@@ -221,6 +221,8 @@ class Loader():
         
         show_memory_usage()
 
+        featureNames = x0.columns
+
         if nentries > x0.shape[0]:
             logger.info("Fewer entries in the input than selected by the -e flag. Setting -e to -1.")
             nentries = -1
@@ -319,6 +321,9 @@ class Loader():
 
         show_memory_usage()
 
+        #apply subsampling
+        x0_train, w0_train = subsample(x0_train, w0_train, featureNames=featureNames)
+        x0_val, w0_val = subsample(x0_val, w0_val, featureNames=featureNames)
 
         #create target labels
         y0_train = np.zeros(x0_train.shape[0])
