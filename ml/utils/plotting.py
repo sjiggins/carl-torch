@@ -392,8 +392,10 @@ def draw_resampled_ratio(x0, w0, x1, w1, ratioName=''):
     plt.clf()
     plt.close()
 
-def subsample(x0, w0, featureNames=None):
-
+def subsample(x0, w0, globalName, featureNames=[]):
+    
+    w0 = w0.flatten()
+    
     # Remove negative probabilities - maintains proportionality still by abs()
     w0_abs = abs(w0)
 
@@ -409,11 +411,9 @@ def subsample(x0, w0, featureNames=None):
     w0_ones[w0<0] = -1
     subsampled_w0 = w0_ones.copy()[weighted_data0]
     
-    
     #===========================================================================
-    if featureNames:
-        for n, feature in enumerate(featureNames):
-            draw_resampled_ratio(x0[:,n], w0, subsampled_x0[:,n], subsampled_w0, feature+'_subsample')
+    for n, feature in enumerate(featureNames):
+        draw_resampled_ratio(x0[:,n], w0, subsampled_x0[:,n], subsampled_w0, "_subsample_{}_{}".format(globalName,feature))
     #===========================================================================
     
     return (subsampled_x0, subsampled_w0)
