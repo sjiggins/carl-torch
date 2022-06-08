@@ -247,11 +247,6 @@ class Loader():
             w0 = w0/(w0[0].sum())
             w1 = w1/(w1[0].sum())
 
-        #create target labels
-        y0 = np.zeros(x0.shape[0])
-        y1 = np.ones(x1.shape[0])
-
-
         # split test/validation/train as 5%/47.5%/47.5%
         logger.info("Splitting data...")
         x0_train = x0[0:int(0.475*x0.shape[0])]
@@ -260,12 +255,14 @@ class Loader():
         del x0
         gc.collect()
 
+        """
         y0_train = y0[0:int(0.475*y0.shape[0])]
         y0_val = y0[int(0.475*y0.shape[0]):int(0.95*y0.shape[0])]
         y0_test = y0[int(0.95*y0.shape[0]):]
         del y0
         gc.collect()
-
+        """
+        
         w0_train = w0[0:int(0.475*w0.shape[0])]
         w0_val = w0[int(0.475*w0.shape[0]):int(0.95*w0.shape[0])]
         #w0_test = w0[int(0.95*w0.shape[0]):] #don't need this, it's set to None in the original code anyway
@@ -279,11 +276,13 @@ class Loader():
         del x1
         gc.collect()
 
+        """
         y1_train = y1[0:int(0.475*y1.shape[0])]
         y1_val = y1[int(0.475*y1.shape[0]):int(0.95*y1.shape[0])]
         y1_test = y1[int(0.95*y1.shape[0]):]
         del y1
         gc.collect()
+        """
 
         w1_train = w1[0:int(0.475*w1.shape[0])]
         w1_val = w1[int(0.475*w1.shape[0]):int(0.95*w1.shape[0])]
@@ -319,6 +318,16 @@ class Loader():
         logger.info("...done.")
 
         show_memory_usage()
+
+
+        #create target labels
+        y0_train = np.zeros(x0_train.shape[0])
+        y0_val = np.zeros(x0_val.shape[0])
+        y0_test = np.zeros(x0_test.shape[0])
+
+        y1_train = np.ones(x1_train.shape[0])
+        y1_val = np.ones(x1_val.shape[0])
+        y1_test = np.ones(x1_test.shape[0])
 
         #define variables used later:
 
