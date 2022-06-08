@@ -392,6 +392,32 @@ def draw_resampled_ratio(x0, w0, x1, w1, ratioName=''):
     plt.clf()
     plt.close()
 
+def subsample(x0, w0, featureNames=None):
+
+    # Remove negative probabilities - maintains proportionality still by abs()
+    w0_abs = abs(w0)
+
+    # Dataset 0 probability proportionality sub-sampling
+    x0_len = x0.shape[0]
+    w0_abs_sum = int(w0_abs.sum())
+    w0_abs = w0_abs / w0_abs.sum()
+    weighted_data0 = np.random.choice(range(x0_len), w0_abs_sum, p = w0_abs)
+    subsampled_x0 = x0.copy()[weighted_data0]
+    
+    # set of +-1 weights, depending on the sign of the original weight
+    w0_ones = np.ones(x0_len)
+    w0_ones[w0<0] = -1
+    subsampled_w0 = w0_ones.copy()[weighted_data0]
+    
+    
+    #===========================================================================
+    if featureNames:
+        for n, feature in enumerate(featureNames):
+            draw_resampled_ratio(x0[:,n], w0, subsampled_x0[:,n], subsampled_w0, feature+'_subsample')
+    #===========================================================================
+    
+    return (subsampled_x0, subsampled_w0)
+    
 def weight_obs_data(x0, x1, w0, w1, ratioName=''):
 
     # Remove negative probabilities - maintains proportionality still by abs()
