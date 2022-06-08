@@ -283,27 +283,26 @@ class Trainer(object):
                 for _type in ["train", "val"]:
                     if stats_features0[_type] is None:
                         continue
-                    else:
-                        # using estimator.evaluate to compute results from x0 features
-                        # assuming CARL method for now, but this can be generalized for others
-                        self._timer(start="statistical distiance::carl weight computation")
-                        _r_hat, _s_hat = evaluate.evaluate_ratio_model(
-                            self.model,
-                            stats_features0[_type],
-                            skip_data_conversion=True, # already converted above
-                        )
-                        _carl_w = 1.0/_r_hat
-                        self._timer(stop="statistical distiance::carl weight computation")
-                        for _name_id, (_x0, _x1) in enumerate(zip(*stats_trans_features[_type])):
-                            _name = feature_names[_name_id]
-                            for _stats_method_name, _stats_method in stats_methods.items():
-                                self._timer(start=_stats_method_name)
-                                _value = _stats_method(_x0, _carl_w, _x1, stats_w1[_type])
-                                stats_values[_type][_stats_method_name][_name].append(_value)
-                                self._timer(stop=_stats_method_name)
-                        for _method_name, _stats_value in stats_values[_type].items():
-                            for _name in feature_names:
-                                np.save(f"{stats_output_dir}/{_type}_{_name}_{_method_name}.npy", np.array(_stats_value[_name]))
+                    # using estimator.evaluate to compute results from x0 features
+                    # assuming CARL method for now, but this can be generalized for others
+                    self._timer(start="statistical distiance::carl weight computation")
+                    _r_hat, _s_hat = evaluate.evaluate_ratio_model(
+                        self.model,
+                        stats_features0[_type],
+                        skip_data_conversion=True, # already converted above
+                    )
+                    _carl_w = 1.0/_r_hat
+                    self._timer(stop="statistical distiance::carl weight computation")
+                    for _name_id, (_x0, _x1) in enumerate(zip(*stats_trans_features[_type])):
+                        _name = feature_names[_name_id]
+                        for _stats_method_name, _stats_method in stats_methods.items():
+                            self._timer(start=_stats_method_name)
+                            _value = _stats_method(_x0, _carl_w, _x1, stats_w1[_type])
+                            stats_values[_type][_stats_method_name][_name].append(_value)
+                            self._timer(stop=_stats_method_name)
+                    for _method_name, _stats_value in stats_values[_type].items():
+                        for _name in feature_names:
+                            np.save(f"{stats_output_dir}/{_type}_{_name}_{_method_name}.npy", np.array(_stats_value[_name]))
                 self._timer(stop="statistical distiance")
 
             # do intermediate plotting and saving for per verbose epoch
@@ -328,15 +327,19 @@ class Trainer(object):
                         loader.load_result(**plot_args)
                         # check for spectators
                         spectators = input_data_dict.get("spectators", None)
-                        if spectators:
-                            plot_args["x0"] = input_data_dict.get(f"spec_x0_{type}", None)
-                            plot_args["x1"] = input_data_dict.get(f"spec_x1_{type}", None)
-                            if plot_args["x0"] is not None and plot_args["x1"] is not None:
-                                plot_args["features"] = spectators
-                                plot_args["metaData"] = input_data_dict.get("spectator_metaData", None)
-                                plot_args["ext_plot_path"] = f"epoch_plot_{i_epoch}_{type}_spec"
-                                plot_args["label"] = f"spectator_{type}"
-                                loader.load_result(**plot_args)
+                        plot_args["x0"] = input_data_dict.get(f"spec_x0_{type}", None)
+                        plot_args["x1"] = input_data_dict.get(f"spec_x1_{type}", None)
+                        if spectators is None:
+                            continue
+                        if plot_args["x0"] is None:
+                            continue
+                        if plot_args["x1"] is None:
+                            continue
+                        plot_args["features"] = spectators
+                        plot_args["metaData"] = input_data_dict.get("spectator_metaData", None)
+                        plot_args["ext_plot_path"] = f"epoch_plot_{i_epoch}_{type}_spec"
+                        plot_args["label"] = f"spectator_{type}"
+                        loader.load_result(**plot_args)
                     self._timer(stop="intermediate train plot")
                 if intermediate_save:
                     self._timer(start="intermediate save")
