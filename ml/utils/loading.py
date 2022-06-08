@@ -508,7 +508,7 @@ class Loader():
 
         if x0_index_mask is not None:
             _mask = load_and_check(x0_index_mask, name="x0 index mask")
-            _mask = _mask.flatten()
+            _mask = _mask.ravel()
             X0 = X0[_mask]
             W0 = W0[_mask]
             if weights is not None:
@@ -516,7 +516,7 @@ class Loader():
             _mask = None
         if x1_index_mask is not None:
             _mask = load_and_check(x1_index_mask, name="x1 index mask")
-            _mask = _mask.flatten()
+            _mask = _mask.ravel()
             X1 = X1[_mask]
             W1 = W1[_mask]
             _mask = None
