@@ -413,7 +413,7 @@ def subsample(x0, w0, nEvents, globalName, featureNames=[]):
     
     #===========================================================================
     for n, feature in enumerate(featureNames):
-        draw_resampled_ratio(x0[:,n], w0, subsampled_x0[:,n], subsampled_w0, "_subsample_{}_{}".format(globalName,feature))
+        draw_resampled_ratio(x0[:,n], w0/np.sum(w0), subsampled_x0[:,n], subsampled_w0/np.sum(subsampled_w0), "_subsample_{}_{}".format(globalName,feature))
     #===========================================================================
     
     return (subsampled_x0, subsampled_w0)
