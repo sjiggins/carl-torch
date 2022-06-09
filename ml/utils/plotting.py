@@ -392,7 +392,7 @@ def draw_resampled_ratio(x0, w0, x1, w1, ratioName=''):
     plt.clf()
     plt.close()
 
-def subsample(x0, w0, globalName, featureNames=[]):
+def subsample(x0, w0, nEvents, globalName, featureNames=[]):
     
     w0 = w0.flatten()
     
@@ -403,7 +403,7 @@ def subsample(x0, w0, globalName, featureNames=[]):
     x0_len = x0.shape[0]
     w0_abs_sum = int(w0_abs.sum())
     w0_abs = w0_abs / w0_abs.sum()
-    weighted_data0 = np.random.choice(range(x0_len), w0_abs_sum, p = w0_abs)
+    weighted_data0 = np.random.choice(range(x0_len), nEvents, p = w0_abs)
     subsampled_x0 = x0.copy()[weighted_data0]
     
     # set of +-1 weights, depending on the sign of the original weight
