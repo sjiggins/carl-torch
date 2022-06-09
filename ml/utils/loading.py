@@ -326,10 +326,10 @@ class Loader():
         ratio_train = w0_train.shape[0]/w1_train.shape[0]
         N_val = w0_val.shape[0]
         ratio_val = w0_val.shape[0]/w1_val.shape[0]
-        x0_train, w0_train = subsample(x0_train, w0_train, N_train, global_name, featureNames="x0_train"+featureNames)
-        x0_val, w0_val = subsample(x0_val, w0_val, N_val, global_name, featureNames="x0_val"+featureNames)
-        x1_train, w1_train = subsample(x1_train, w1_train, N_train*ratio_train, global_name, featureNames="x1_train"+featureNames)
-        x1_val, w1_val = subsample(x1_val, w1_val, N_val*ratio_val, global_name, featureNames="x1_val"+featureNames)
+        x0_train, w0_train = subsample(x0_train, w0_train, N_train, global_name, featureNames="x0_train_"+featureNames)
+        x0_val, w0_val = subsample(x0_val, w0_val, N_val, global_name, featureNames="x0_val_"+featureNames)
+        x1_train, w1_train = subsample(x1_train, w1_train, int(N_train*ratio_train), global_name, featureNames="x1_train_"+featureNames)
+        x1_val, w1_val = subsample(x1_val, w1_val, int(N_val*ratio_val), global_name, featureNames="x1_val_"+featureNames)
 
         #create target labels
         y0_train = np.zeros(x0_train.shape[0])
