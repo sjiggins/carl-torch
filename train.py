@@ -147,6 +147,7 @@ if per_epoch_plot:
         "plot_ROC" : False,
         "plot_obs_ROC" : False,
         "normalise" : True, # plotting
+        "do_comparison" : False,
     }
     prepared_data["per_epoch_plot"] = plots_args
 

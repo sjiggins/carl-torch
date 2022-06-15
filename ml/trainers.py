@@ -624,25 +624,30 @@ class Trainer(object):
         logging_fn = logger.info if verbose else logger.debug
 
         def contribution_summary(labels, contributions):
+            contributions = zip(labels, contributions)
             summary = ""
-            for i, (label, value) in enumerate(zip(labels, contributions)):
-                if i > 0:
-                    summary += ", "
-                summary += f"{label}: {value:>6.3f}"
+            summary += ", ".join([f"{label}: {value:>6.3f}" for label, value in contributions])
+            # for i, (label, value) in enumerate():
+            #     if i > 0:
+            #         summary += ", "
+            #     summary += f"{label}: {value:>6.3f}"
             return summary
 
-        dt = "" if dt is None else dt
+        msg_prefix = f"  Epoch {i_epoch+1:>3d}: "
+        n_indent = " "*len(msg_prefix)
 
-        train_report = "  Epoch {:>3d}: train loss {:>8.8f} ({}), accu {:>.3f}, dt={:>6.1f}s".format(
-            i_epoch + 1, loss_train, contribution_summary(loss_labels, loss_contributions_train), accu_train, dt
-        )
+        contrib = contribution_summary(loss_labels, loss_contributions_train)
+        train_report = f"{msg_prefix} train loss {loss_train:>8.8f} ({contrib}), accu {accu_train:>.3f}"
         logging_fn(train_report)
 
         if loss_val is not None:
-            val_report = "             val. loss  {:>8.8f} ({}), accu {:>.3f}".format(
-                loss_val, contribution_summary(loss_labels, loss_contributions_val), accu_val
-            )
+            contrib = contribution_summary(loss_labels, loss_contributions_val)
+            val_report = f"{n_indent} val. loss {loss_val:>8.8f} ({contrib}), accu {accu_val:>.3f}"
             logging_fn(val_report)
+
+        if dt is not None:
+            logging_fn(f"{n_indent} accu time spent {dt:>6.1f}s")
+
 
     def wrap_up_early_stopping(self, best_model, currrent_loss, best_loss, best_epoch):
         if best_loss is None or not np.isfinite(best_loss):

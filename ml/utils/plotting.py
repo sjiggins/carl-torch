@@ -71,7 +71,8 @@ def draw_weighted_distributions(x0, x1, w0, w1,
                                 n,
                                 save = False,
                                 ext_plot_path=None,
-                                normalise=True):
+                                normalise=True,
+                                do_comparison=True):
     # Formatting
     font = font_manager.FontProperties(family='Symbol',
                                        style='normal', size=12)
@@ -91,9 +92,11 @@ def draw_weighted_distributions(x0, x1, w0, w1,
         w_carl = w0*weights
 
     for id, column in enumerate(variables):
-        logger.info(f"Drawing weighted distribution {id}, {column}")
-        logger.info(f"using binning: {binning[id]}")
+        logger.debug(f"Drawing weighted distribution {id}, {column}")
+        logger.debug(f"using binning: {binning[id]}")
         #fig, axes = plt.subplots(3, sharex=True, figsize=(12,10))
+        plt.clf()
+        plt.close('all')
         fig = plt.figure(figsize=(12,10))
         gs = fig.add_gridspec(3, hspace=0, height_ratios=[5,2,2])
         axes = gs.subplots(sharex=True)
@@ -127,29 +130,31 @@ def draw_weighted_distributions(x0, x1, w0, w1,
         #axes[0].set_xticks(fontsize=14)
         #axes[0].set_yticks(fontsize=14)
 
-        # Calculate the chi^[2}
-        nom_alt_chi, nom_alt_p = scipy.stats.chisquare(f_obs=nom_count, f_exp=alt_count)
-        carl_alt_chi, carl_alt_p = scipy.stats.chisquare(f_obs=carl_count, f_exp=alt_count)
+        if do_comparison:
+            # Calculate the chi^[2}
+            nom_alt_chi, nom_alt_p = scipy.stats.chisquare(f_obs=nom_count, f_exp=alt_count)
+            carl_alt_chi, carl_alt_p = scipy.stats.chisquare(f_obs=carl_count, f_exp=alt_count)
 
-        # KL-divergence
-        ########### SciPy ##########
-        #nom_alt_KL = scipy.special.kl_div(nom_count, alt_count)
-        #carl_alt_KL = scipy.special.kl_div(carl_count, alt_count)
-        ## Result string
-        #nom_alt_KL_res = "KL(nom,alt) = {}".format(nom_alt_KL)
-        #carl_alt_KL_res = "KL(carl,alt) = {}".format(carl_alt_KL)
-        ############################
-        ########### Custom #########
-        nom_alt_KL = statistic.compute_kl_divergence(x0[:,id], w0, x1[:,id], w1, len(binning[id]))
-        carl_alt_KL = statistic.compute_kl_divergence(x0[:,id], w0, x0[:,id], w_carl, len(binning[id]))
+            # KL-divergence
+            ########### SciPy ##########
+            #nom_alt_KL = scipy.special.kl_div(nom_count, alt_count)
+            #carl_alt_KL = scipy.special.kl_div(carl_count, alt_count)
+            ## Result string
+            #nom_alt_KL_res = "KL(nom,alt) = {}".format(nom_alt_KL)
+            #carl_alt_KL_res = "KL(carl,alt) = {}".format(carl_alt_KL)
+            ############################
+            ########### Custom #########
+            nom_alt_KL = statistic.compute_kl_divergence(x0[:,id], w0, x1[:,id], w1, len(binning[id]))
+            carl_alt_KL = statistic.compute_kl_divergence(x0[:,id], w0, x0[:,id], w_carl, len(binning[id]))
 
-        # Pring Result string to logger
-        logger.info("... Nominal vs Alternative:")
-        logger.info(f"...... chi2={nom_alt_chi:<.3}, p-value={nom_alt_p:<.3}")
-        logger.info(f"...... K-L div={nom_alt_KL:<.3}")
-        logger.info("... Nominal vs CARL:")
-        logger.info(f"...... chi2={carl_alt_chi:<.3}, p-value={carl_alt_p:<.3}")
-        logger.info(f"...... K-L div={carl_alt_KL:<.3}")
+            # Pring Result string to logger
+            logger.info(f"Observable {column}")
+            logger.info("... Nominal vs Alternative:")
+            logger.info(f"...... chi2={nom_alt_chi:<.3}, p-value={nom_alt_p:<.3}")
+            logger.info(f"...... K-L div={nom_alt_KL:<.3}")
+            logger.info("... Nominal vs CARL:")
+            logger.info(f"...... chi2={carl_alt_chi:<.3}, p-value={carl_alt_p:<.3}")
+            logger.info(f"...... K-L div={carl_alt_KL:<.3}")
 
         # Calculate the EMD
         #emd = wasserstein.EMD()

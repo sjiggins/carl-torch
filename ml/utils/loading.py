@@ -476,6 +476,7 @@ class Loader():
         ext_plot_path=None,
         verbose=False,
         normalise = False,
+        do_comparison=True,
         scaling="minmax",
         x0_index_mask=None,
         x1_index_mask=None,
@@ -593,6 +594,7 @@ class Loader():
             label,
             global_name, nentries, plot, ext_plot_path,
             normalise,
+            do_comparison,
         )
 
     def validate_result(
