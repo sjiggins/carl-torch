@@ -20,6 +20,7 @@ from .plotting import draw_weighted_distributions, draw_unweighted_distributions
 from sklearn.model_selection import train_test_split
 import yaml
 import copy
+from .kde import KDE
 logger = logging.getLogger(__name__)
 
 
@@ -30,6 +31,7 @@ class Loader():
     def __init__(self):
         super(Loader, self).__init__()
         self.Filter=None
+        self.KDE=None
 
     def loading(
         self,
@@ -57,6 +59,7 @@ class Loader():
         large_weight_clipping_threshold = 1e7,
         weight_polarity = False,
         scaling="minmax",
+        uniformise_features=None,
     ):
         """
         Parameters
@@ -202,6 +205,15 @@ class Loader():
                 logger.info("Storing minmax scaling min:: {}".format( x0[v].min() if x0[v].min() < x1[v].min() else x1[v].min() ))
                 logger.info("Storing minmax scaling max: {}".format(  x0[v].max() if x0[v].max() > x1[v].max() else x1[v].max() ))
             logger.info("Storing minmax scaling metadata: {}".format(metaData))
+
+        # Apply input space flattening using user defined method:
+        #   i)  Kernel Density Estimation
+        #   ii) Binned histogram
+        if uniformise_features:
+            self.KDE=KDE(x0, uniformise_features, metaData, w0)
+            
+
+        # Create the numpy arrays to be used for the training from the dataframes
         X0 = x0.to_numpy()
         X1 = x1.to_numpy()
 

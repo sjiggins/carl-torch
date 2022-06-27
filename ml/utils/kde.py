@@ -1,5 +1,5 @@
 from sklearn.neighbors import KernelDensity
-from sklearn.grid import GridSearchCV
+from sklearn.model_selection import GridSearchCV
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -20,12 +20,12 @@ class KDE():
 
     def __init__(self, x, features, metadata, 
                  weights=None, weight_name=None,
-                 bandwidth = None, kernel='gaussian'
+                 bandwidth = None, kernel='gaussian',
                  ensemble=False, default_n_evs=100000):
         super(KDE, self).__init__()
         # Instantiate the data members
         self.x=x
-        self.features=feats
+        self.features=features
         self.metadata=metadata
         self.kernel=kernel
         self.bandwidth=bandwidth
@@ -163,11 +163,11 @@ class KDE():
         # Positive weighted events
         #X = X.apply(lambda x: np.exp(self.kde["pos"].score_samples(x[feat for feat in self.features].values()) if x.name in [feat for feat in self.features] and x["w"] >= 0 ) )
         #X = X.apply(lambda x: x[weight_name]*(1/np.exp(self.kde["pos"].score_samples(x[feat for feat in self.features].values()))) if x["w"] >= 0 else x[weight_name]*1.0 ) )
-        X[weight_name] = X.apply(lambda x: x[weight_name]*(1/np.exp(self.kde["pos"].score_samples(x[feat for feat in self.features].values()))) if x["w"] >= 0 else x[weight_name]*1.0 ) )
+        X[weight_name] = X.apply(lambda x: x[weight_name]*(1/np.exp(self.kde["pos"].score_samples(x[ [feat for feat in self.features] ].values()))) if (x["w"] >= 0) else x[weight_name]*1.0 )
         #X = X.apply(lambda x: np.exp(self.kde["pos"].score_samples(x[feat for feat in self.features].values()) if x.name in [feat for feat in self.features] and x["w"] >= 0 ) )
 
         # Negative weighted events
-        X[weight_name] = X.apply(lambda x: x[weight_name]*(1/np.exp(self.kde["neg"].score_samples(x[feat for feat in self.features].values()))) if x["w"] < 0 else x[weight_name]*1.0 ) )
+        X[weight_name] = X.apply(lambda x: x[weight_name]*(1/np.exp(self.kde["neg"].score_samples(x[ [feat for feat in self.features] ].values()))) if (x["w"] < 0) else x[weight_name]*1.0 ) 
 
     # Plotting function for diagnostics and recording the fitted KDE intances
     def Plot(self):
@@ -184,7 +184,7 @@ class KDE():
             fig, axes = plt.subplots()
             
             # Plot the distribution of data as a histogram and as a collection of points
-            axes.hist(self.subsample_np["pos"][idx], bins=bins, fc="#AAAAFF", {"normed": True})
+            axes.hist(self.subsample_np["pos"][idx], bins=bins, fc="#AAAAFF", **{"normed": True})
 
             # Create a scan of the KDE range
             X_plot = np.linspace(self.lower[feat], self.upper[feat], bins*smooth_factor) 

@@ -8,7 +8,7 @@ should_transfer_files   = YES
 transfer_input_files    = carl-torch-aMC.tar.gz
 transfer_output_files   = models_out.tar.gz
 when_to_transfer_output = ON_EXIT
-+JobFlavour             = "longlunch"
++JobFlavour             = "workday"
 request_GPUs = 1
 request_CPUs = 0
 queue

@@ -24,6 +24,7 @@ n = opts.nentries
 p = opts.datapath
 global_name = opts.global_name
 features = opts.features.split(",")
+uniformise_features = opts.uniformise_features.split(",") if  opts.uniformise_features is not None else None
 weightFeature = opts.weightFeature
 treename = opts.treename
 binning = opts.binning
@@ -104,6 +105,7 @@ else:
         large_weight_clipping=weight_clipping,
         weight_polarity=polarity,
         scaling=scale_method,
+        uniformise_features=uniformise_features,
     )
     logger.info(" Loaded new datasets ")
 #######################################
@@ -206,7 +208,7 @@ train_loss, val_loss, accuracy_train, accuracy_val = estimator.train(
     intermediate_save = intermediate_save,
     optimizer_kwargs=kwargs,
     global_name=global_name,
-    plot_inputs=False,    
+    plot_inputs=True,    
     nentries=n,
     loss_type=loss_type,
     #initial_lr=0.0001,
