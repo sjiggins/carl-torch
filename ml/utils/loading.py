@@ -205,7 +205,7 @@ class Loader():
 
         show_memory_usage()
 
-        if nentries > x0.shape[0]:
+        if nentries > x0.shape[0] or nentries > x1.shape[0]:
             logger.info("Fewer entries in the input than selected by the -e flag. Setting -e to -1.")
             nentries = -1
 
