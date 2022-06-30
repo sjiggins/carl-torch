@@ -206,11 +206,10 @@ class Loader():
         show_memory_usage()
 
         if nentries > x0.shape[0] or nentries > x1.shape[0]:
-            logger.info("Fewer entries in the input than selected by the -e flag. Setting -e to -1.")
-            nentries = -1
+            logger.info("Fewer entries in the input than selected by the -e flag. Using all events ({}).".format(x0.shape[0]))
 
         logger.info("Sampling x0, w0, vlabels0 ...")
-        x0 = x0.sample(nentries) if nentries!=-1 else x0.sample(frac=1.0)
+        x0 = x0.sample(min(nentries,x0.shape[0])) if nentries!=-1 else x0.sample(frac=1.0)
         gc.collect()
         w0 = w0.iloc[x0.index]
         gc.collect()
@@ -219,7 +218,7 @@ class Loader():
         show_memory_usage()
 
         logger.info("Sampling x1, w1, vlabels1 ...")
-        x1 = x1.sample(nentries) if nentries!=-1 else x1.sample(frac=1.0)
+        x1 = x1.sample(min(nentries,x0.shape[0])) if nentries!=-1 else x1.sample(frac=1.0)
         gc.collect()
         w1 = w1.iloc[x1.index]
         gc.collect()
