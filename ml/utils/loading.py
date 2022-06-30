@@ -205,22 +205,6 @@ class Loader():
 
         show_memory_usage()
 
-        # get metadata, i.e. max, min, mean, std of all the variables in the dataframes
-        #metaData = defaultdict()
-        metaData = OrderedDict()
-        if scaling == "standard":
-            metaData = {v : {x0[v].mean() , x0[v].std() } for v in  x0.columns }
-            logger.info("Storing Z0 Standard scaling metadata: {}".format(metaData))
-        elif scaling == "minmax":
-            #metaData = {v : OrderedDict({x0[v].min() if x0[v].min() < x1[v].min() else x1[v].min(), x0[v].max() if x0[v].max() > x1[v].max() else x1[v].max() } for v in  x0.columns) }
-            metaData = {v : (x0[v].min() if x0[v].min() < x1[v].min() else x1[v].min(), x0[v].max() if x0[v].max() > x1[v].max() else x1[v].max())  for v in  x0.columns }
-            for v in x0.columns:
-                logger.info("Storing minmax scaling min:: {}".format( x0[v].min() if x0[v].min() < x1[v].min() else x1[v].min() ))
-                logger.info("Storing minmax scaling max: {}".format(  x0[v].max() if x0[v].max() > x1[v].max() else x1[v].max() ))
-            logger.info("Storing minmax scaling metadata: {}".format(metaData))
-        
-        show_memory_usage()
-
         if nentries > x0.shape[0]:
             logger.info("Fewer entries in the input than selected by the -e flag. Setting -e to -1.")
             nentries = -1
@@ -241,6 +225,22 @@ class Loader():
         gc.collect()
         logger.info("...done.")
 
+        show_memory_usage()
+
+         # get metadata, i.e. max, min, mean, std of all the variables in the dataframes
+        #metaData = defaultdict()
+        metaData = OrderedDict()
+        if scaling == "standard":
+            metaData = {v : {x0[v].mean() , x0[v].std() } for v in  x0.columns }
+            logger.info("Storing Z0 Standard scaling metadata: {}".format(metaData))
+        elif scaling == "minmax":
+            #metaData = {v : OrderedDict({x0[v].min() if x0[v].min() < x1[v].min() else x1[v].min(), x0[v].max() if x0[v].max() > x1[v].max() else x1[v].max() } for v in  x0.columns) }
+            metaData = {v : (x0[v].min() if x0[v].min() < x1[v].min() else x1[v].min(), x0[v].max() if x0[v].max() > x1[v].max() else x1[v].max())  for v in  x0.columns }
+            for v in x0.columns:
+                logger.info("Storing minmax scaling min:: {}".format( x0[v].min() if x0[v].min() < x1[v].min() else x1[v].min() ))
+                logger.info("Storing minmax scaling max: {}".format(  x0[v].max() if x0[v].max() > x1[v].max() else x1[v].max() ))
+            logger.info("Storing minmax scaling metadata: {}".format(metaData))
+        
         show_memory_usage()
         
         if normalise:
