@@ -234,7 +234,7 @@ class Loader():
         show_memory_usage()
 
         logger.info("Sampling x1, w1, vlabels1 ...")
-        x1 = x1.sample(min(nentries,x0.shape[0])) if nentries!=-1 else x1.sample(frac=1.0)
+        x1 = x1.sample(min(nentries,x1.shape[0])) if nentries!=-1 else x1.sample(frac=1.0)
         gc.collect()
         w1 = w1.iloc[x1.index]
         gc.collect()

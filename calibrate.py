@@ -57,7 +57,7 @@ else:
 
 carl = RatioEstimator()
 carl.scaling_method = scale_method
-carl.load('models/'+global_name+'_carl_'+str(n))
+carl.load('models/'+global_name+'_carl_'+str(n),global_name=global_name,nentries=n)
 #load
 #evaluate = ['train']
 X = 'data/'+global_name+'/X_train_'+str(n)+'.npy'
