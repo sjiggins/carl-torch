@@ -99,19 +99,9 @@ class Loader():
             (denominator) hypothesis. The same information is saved as a file in the given folder.
         """
 
-        tracemalloc.start()
-
-        def show_memory_usage():
-            current, peak = tracemalloc.get_traced_memory()
-            logger.info(f"Current memory usage is {current / 10**6}MB; Peak was {peak / 10**6}MB")
-
-        show_memory_usage()
-
         # Create folders for storage
         create_missing_folders([folder+'/'+global_name])
         create_missing_folders(['plots'])
-
-        show_memory_usage()
 
         # Extract the TTree data as pandas dataframes
         (
@@ -197,19 +187,15 @@ class Loader():
         #                                  nentries,
         #                                  plot)
 
-        show_memory_usage()
-
         # sort dataframes alphanumerically
         x0 = x0[sorted(x0.columns)]
         x1 = x1[sorted(x1.columns)]
-
-        show_memory_usage()
 
         # get metadata, i.e. max, min, mean, std of all the variables in the dataframes
         #metaData = defaultdict()
         metaData = OrderedDict()
         if scaling == "standard":
-            metaData = {v : {x0[v].mean() , x0[v].std() } for v in  x0.columns }
+            metaData = {v : (x0[v].mean() , x0[v].std()) for v in  x0.columns }
             logger.info("Storing Z0 Standard scaling metadata: {}".format(metaData))
         elif scaling == "minmax":
             #metaData = {v : OrderedDict({x0[v].min() if x0[v].min() < x1[v].min() else x1[v].min(), x0[v].max() if x0[v].max() > x1[v].max() else x1[v].max() } for v in  x0.columns) }
@@ -219,8 +205,6 @@ class Loader():
                 logger.info("Storing minmax scaling max: {}".format(  x0[v].max() if x0[v].max() > x1[v].max() else x1[v].max() ))
             logger.info("Storing minmax scaling metadata: {}".format(metaData))
         
-        show_memory_usage()
-
         featureNames = x0.columns
 
         if nentries > x0.shape[0]:
@@ -228,21 +212,13 @@ class Loader():
 
         logger.info("Sampling x0, w0, vlabels0 ...")
         x0 = x0.sample(min(nentries,x0.shape[0])) if nentries!=-1 else x0.sample(frac=1.0)
-        gc.collect()
         w0 = w0.iloc[x0.index]
-        gc.collect()
         logger.info("...done.")
-
-        show_memory_usage()
 
         logger.info("Sampling x1, w1, vlabels1 ...")
         x1 = x1.sample(min(nentries,x0.shape[0])) if nentries!=-1 else x1.sample(frac=1.0)
-        gc.collect()
         w1 = w1.iloc[x1.index]
-        gc.collect()
         logger.info("...done.")
-
-        show_memory_usage()
         
         if normalise:
             w0 = w0/(w0[0].sum())
@@ -253,8 +229,6 @@ class Loader():
         x0_train = x0[0:int(0.475*x0.shape[0])]
         x0_val = x0[int(0.475*x0.shape[0]):int(0.95*x0.shape[0])]
         x0_test = x0[int(0.95*x0.shape[0]):]
-        del x0
-        gc.collect()
 
         """
         y0_train = y0[0:int(0.475*y0.shape[0])]
@@ -274,8 +248,6 @@ class Loader():
         x1_train = x1[0:int(0.475*x1.shape[0])]
         x1_val = x1[int(0.475*x1.shape[0]):int(0.95*x1.shape[0])]
         x1_test = x1[int(0.95*x1.shape[0]):]
-        del x1
-        gc.collect()
 
         """
         y1_train = y1[0:int(0.475*y1.shape[0])]
@@ -288,37 +260,21 @@ class Loader():
         w1_train = w1[0:int(0.475*w1.shape[0])]
         w1_val = w1[int(0.475*w1.shape[0]):int(0.95*w1.shape[0])]
         #w1_test = w0[int(0.95*w1.shape[0]):] #don't need this, it's set to None in the original code anyway
-        del w1
-        gc.collect()
         logger.info("..done.")
-
-        show_memory_usage()
 
         #convert all dataframes into numpy arrays
         logger.info("Converting pandas dataframes into numpy arrays...")
         x0_train = x0_train.to_numpy()
-        gc.collect()
         x0_val = x0_val.to_numpy()
-        gc.collect()
         x0_test = x0_test.to_numpy()
-        gc.collect()
         w0_train = w0_train.to_numpy()
-        gc.collect()
         w0_val = w0_val.to_numpy()
-        gc.collect()
         x1_train = x1_train.to_numpy()
-        gc.collect()
         x1_val = x1_val.to_numpy()
-        gc.collect()
         x1_test = x1_test.to_numpy()
-        gc.collect()
         w1_train = w1_train.to_numpy()
-        gc.collect()
         w1_val = w1_val.to_numpy()
-        gc.collect()
         logger.info("...done.")
-
-        show_memory_usage()
 
         #apply subsampling
         N_train = w0_train.shape[0]
