@@ -59,6 +59,7 @@ class Loader():
         large_weight_clipping_threshold = 1e7,
         weight_polarity = False,
         scaling="minmax",
+        algorithms=None,
     ):
         """
         Parameters
@@ -229,18 +230,23 @@ class Loader():
             w0 = w0/(w0.sum())
             w1 = w1/(w1.sum())
 
-
-        # Target labels
-        y0 = np.zeros(x0.shape[0])
-        y1 = np.ones(x1.shape[0])
-
-        if subsample:
+        if "subsample" in algorithms:
             # Extract the feature names from the columns of the dataframe - used in sub-sampling
             featureNames = x0.columns
-            
+
             # Apply Sub-sampling
+            ratio = int( w0.shape[0]*(w1.sum()/w0.sum()) )
             X0, w0 = subsample(X0, w0, w0.shape[0], global_name, featureNames="x0_"+featureNames) 
-            X1, w1 = subsample(X1, w1, w0.shape[0]*(w1.sum()/w0.sum()), global_name, featureNames="x1_"+featureNames) 
+            X1, w1 = subsample(X1, w1, ratio, global_name, featureNames="x1_"+featureNames) 
+
+        print(X0.shape)
+        print(X1.shape)
+        print(w0.shape)
+        print(w1.shape)
+
+        # Target labels
+        y0 = np.zeros(X0.shape[0])
+        y1 = np.ones(X1.shape[0])
 
 
         # Train, test splitting of input dataset
