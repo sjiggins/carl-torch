@@ -226,34 +226,33 @@ class Loader():
         w0 = w0.to_numpy()
         w1 = w1.to_numpy()
 
-        if normalise:
-            w0 = w0/(w0.sum())
-            w1 = w1/(w1.sum())
-
-        if "subsample" in algorithms:
-            # Extract the feature names from the columns of the dataframe - used in sub-sampling
-            featureNames = x0.columns
-
-            # Apply Sub-sampling
-            ratio = int( w0.shape[0]*(w1.sum()/w0.sum()) )
-            X0, w0 = subsample(X0, w0, w0.shape[0], global_name, featureNames="x0_"+featureNames) 
-            X1, w1 = subsample(X1, w1, ratio, global_name, featureNames="x1_"+featureNames) 
-
-        print(X0.shape)
-        print(X1.shape)
-        print(w0.shape)
-        print(w1.shape)
-
         # Target labels
         y0 = np.zeros(X0.shape[0])
         y1 = np.ones(X1.shape[0])
 
+        if normalise:
+            w0 = w0/(w0.sum())
+            w1 = w1/(w1.sum())
 
         # Train, test splitting of input dataset
         X0_train, X0_test, y0_train, y0_test, w0_train, w0_test = train_test_split(X0, y0, w0, test_size=0.05, random_state=42)
         X1_train, X1_test, y1_train, y1_test, w1_train, w1_test = train_test_split(X1, y1, w1, test_size=0.05, random_state=42)
         X0_train, X0_val,  y0_train, y0_val, w0_train, w0_val =  train_test_split(X0_train, y0_train, w0_train, test_size=0.50, random_state=42)
         X1_train, X1_val,  y1_train, y1_val, w1_train, w1_val =  train_test_split(X1_train, y1_train, w1_train, test_size=0.50, random_state=42)
+
+        if "subsample" in algorithms:
+            # Extract the feature names from the columns of the dataframe - used in sub-sampling
+            featureNames = x0.columns
+
+            # Apply Sub-sampling
+            ratio = int( w1.sum()/w0.sum() )
+            X0_train, w0_train = subsample(X0_train, w0_train, w0_train.shape[0], global_name, featureNames="x0_train_"+featureNames) 
+            X0_val, w0_val = subsample(X0_val, w0_val, w0_val.shape[0], global_name, featureNames="x0_val_"+featureNames) 
+            X0_test, w0_test = subsample(X0_test, w0_test, w0_test.shape[0], global_name, featureNames="x0_test_"+featureNames) 
+
+            X1_train, w1_train = subsample(X1_train, w1_train, int(w1_train.shape[0] * ratio ), global_name, featureNames="x1_train_"+featureNames) 
+            X1_val, w1_val = subsample(X1_val, w1_val, int(w1_test.shape[0] * ratio ), global_name, featureNames="x1_val_"+featureNames) 
+            X1_test, w1_test = subsample(X1_test, w1_test, int(w1_val.shape[0] * ratio ), global_name, featureNames="x1_test_"+featureNames) 
 
 
         #cliping large weights, and replace it by 1.0
