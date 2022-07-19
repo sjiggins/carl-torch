@@ -237,22 +237,73 @@ class Loader():
         # Train, test splitting of input dataset
         X0_train, X0_test, y0_train, y0_test, w0_train, w0_test = train_test_split(X0, y0, w0, test_size=0.05, random_state=42)
         X1_train, X1_test, y1_train, y1_test, w1_train, w1_test = train_test_split(X1, y1, w1, test_size=0.05, random_state=42)
+
         X0_train, X0_val,  y0_train, y0_val, w0_train, w0_val =  train_test_split(X0_train, y0_train, w0_train, test_size=0.50, random_state=42)
         X1_train, X1_val,  y1_train, y1_val, w1_train, w1_val =  train_test_split(X1_train, y1_train, w1_train, test_size=0.50, random_state=42)
 
-        if "subsample" in algorithms:
+        print("x0_train size: {}".format(X0_train.shape))
+        print("x0_test size:  {}".format(X0_test.shape))
+        print("x0_val size:   {}".format(X0_val.shape))
+
+        print("x1_train size: {}".format(X1_train.shape))
+        print("x1_test size:  {}".format(X1_test.shape))
+        print("x1_val size:   {}".format(X1_val.shape))
+
+        print("y0_train size: {}".format(y0_train.shape))
+        print("y0_test size:  {}".format(y0_test.shape))
+        print("y0_val size:   {}".format(y0_val.shape))
+
+        print("y1_train size: {}".format(y1_train.shape))
+        print("y1_test size:  {}".format(y1_test.shape))
+        print("y1_val size:   {}".format(y1_val.shape))
+
+        print("w0_train size: {}".format(w0_train.shape))
+        print("w0_test size:  {}".format(w0_test.shape))
+        print("w0_val size:   {}".format(w0_val.shape))
+
+        print("w1_train size: {}".format(w1_train.shape))
+        print("w1_test size:  {}".format(w1_test.shape))
+        print("w1_val size:   {}".format(w1_val.shape))
+        print("++++++++++++++++++++++++++++++++")
+
+        if algorithms is not None and "subsample" in algorithms:
             # Extract the feature names from the columns of the dataframe - used in sub-sampling
             featureNames = x0.columns
 
             # Apply Sub-sampling
             ratio = int( w1.sum()/w0.sum() )
-            X0_train, w0_train = subsample(X0_train, w0_train, w0_train.shape[0], global_name, featureNames="x0_train_"+featureNames) 
-            X0_val, w0_val = subsample(X0_val, w0_val, w0_val.shape[0], global_name, featureNames="x0_val_"+featureNames) 
-            X0_test, w0_test = subsample(X0_test, w0_test, w0_test.shape[0], global_name, featureNames="x0_test_"+featureNames) 
+            X0_train, w0_train, y0_train = subsample(X0_train, w0_train, 0, w0_train.shape[0], global_name, featureNames="x0_train_"+featureNames) 
+            X0_val, w0_val, y0_val = subsample(X0_val, w0_val, 0, w0_val.shape[0], global_name, featureNames="x0_val_"+featureNames) 
+            X0_test, w0_test, y0_test = subsample(X0_test, w0_test, 0, w0_test.shape[0], global_name, featureNames="x0_test_"+featureNames) 
 
-            X1_train, w1_train = subsample(X1_train, w1_train, int(w1_train.shape[0] * ratio ), global_name, featureNames="x1_train_"+featureNames) 
-            X1_val, w1_val = subsample(X1_val, w1_val, int(w1_test.shape[0] * ratio ), global_name, featureNames="x1_val_"+featureNames) 
-            X1_test, w1_test = subsample(X1_test, w1_test, int(w1_val.shape[0] * ratio ), global_name, featureNames="x1_test_"+featureNames) 
+            X1_train, w1_train, y1_train = subsample(X1_train, w1_train, 1, int(w0_train.shape[0] * ratio ), global_name, featureNames="x1_train_"+featureNames) 
+            X1_val, w1_val, y1_val = subsample(X1_val, w1_val, 1, int(w0_val.shape[0] * ratio ), global_name, featureNames="x1_val_"+featureNames) 
+            X1_test, w1_test, y1_test = subsample(X1_test, w1_test, 1, int(w0_test.shape[0] * ratio ), global_name, featureNames="x1_test_"+featureNames) 
+
+
+        print("x0_train size: {}".format(X0_train.shape))
+        print("x0_test size:  {}".format(X0_test.shape))
+        print("x0_val size:   {}".format(X0_val.shape))
+
+        print("x1_train size: {}".format(X1_train.shape))
+        print("x1_test size:  {}".format(X1_test.shape))
+        print("x1_val size:   {}".format(X1_val.shape))
+
+        print("y0_train size: {}".format(y0_train.shape))
+        print("y0_test size:  {}".format(y0_test.shape))
+        print("y0_val size:   {}".format(y0_val.shape))
+
+        print("y1_train size: {}".format(y1_train.shape))
+        print("y1_test size:  {}".format(y1_test.shape))
+        print("y1_val size:   {}".format(y1_val.shape))
+
+        print("w0_train size: {}".format(w0_train.shape))
+        print("w0_test size:  {}".format(w0_test.shape))
+        print("w0_val size:   {}".format(w0_val.shape))
+
+        print("w1_train size: {}".format(w1_train.shape))
+        print("w1_test size:  {}".format(w1_test.shape))
+        print("w1_val size:   {}".format(w1_val.shape))
 
 
         #cliping large weights, and replace it by 1.0
