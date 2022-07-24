@@ -14,12 +14,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import roc_curve, auc, confusion_matrix
 from sklearn.neural_network import MLPRegressor
-from sklearn.calibration import calibration_curve
+#from sklearn.calibration import calibration_curve
 import wasserstein
 import scipy as scipy
 
 import torch
 from .tools import create_missing_folders
+from .tools import calibration_curve
 
 logger = logging.getLogger(__name__)
 hist_settings_nom = {'alpha': 0.25, 'color':'blue'}
@@ -618,7 +619,7 @@ def draw_ROC(X0, X1, W0, W1, weights, label, legend, n, plot = True):
     logger.info("Unweighted %s AUC is %.3f"%(label,roc_auc_t))
     logger.info("Saving ROC plots to /plots")
 
-def plot_calibration_curve(y, probs_raw, probs_cal, global_name, save = False):
+def plot_calibration_curve(y, probs_raw, probs_cal, w_raw, w_cal, global_name, save = False):
     ax1 = plt.subplot2grid((3, 1), (0, 0), rowspan=2)
     ax2 = plt.subplot2grid((3, 1), (2, 0))
     ax1.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
@@ -639,8 +640,8 @@ def plot_calibration_curve(y, probs_raw, probs_cal, global_name, save = False):
 
 
 
-    frac_of_pos_raw, mean_pred_value_raw = calibration_curve(y, probs_raw, n_bins=50)#, normalize=True)
-    frac_of_pos_cal, mean_pred_value_cal = calibration_curve(y, probs_cal, n_bins=50)#, normalize=True)
+    frac_of_pos_raw, mean_pred_value_raw = calibration_curve(y, probs_raw, sample_weights=w_raw, n_bins=50)#, normalize=True)
+    frac_of_pos_cal, mean_pred_value_cal = calibration_curve(y, probs_cal, sample_weights=w_cal, n_bins=50)#, normalize=True)
 
     ax1.plot(mean_pred_value_raw, frac_of_pos_raw, "s-", label='uncalibrated', **hist_settings_nom)
     ax1.plot(mean_pred_value_cal, frac_of_pos_cal, "s-", label='calibrated', **hist_settings_alt)
@@ -649,8 +650,8 @@ def plot_calibration_curve(y, probs_raw, probs_cal, global_name, save = False):
     ax1.legend(loc="lower right")
     ax1.set_title(f'Calibration plot')
 
-    ax2.hist(probs_raw, range=(0, 1), bins=50, label='uncalibrated', lw=2, **hist_settings_nom)
-    ax2.hist(probs_cal, range=(0, 1), bins=50, label='calibrated', lw=2, **hist_settings_alt)
+    ax2.hist(probs_raw, weights=w_raw, range=(0, 1), bins=50, label='uncalibrated', lw=2, **hist_settings_nom)
+    ax2.hist(probs_cal, weights=w_cal, range=(0, 1), bins=50, label='calibrated', lw=2, **hist_settings_alt)
     ax2.set_xlabel("Mean predicted value")
     ax2.set_ylabel("Count")
     if save:
