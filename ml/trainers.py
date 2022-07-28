@@ -1,8 +1,8 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import pathlib
 import six
-import logging
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 import numpy as np
 import time
 import torch
@@ -11,6 +11,12 @@ from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 from torch.nn.utils import clip_grad_norm_
 from sklearn.metrics import accuracy_score
+
+from ml import evaluate
+from .utils import statistic
+from .utils import loading
+
+import logging
 logger = logging.getLogger(__name__)
 
 class NanException(Exception):
@@ -24,6 +30,7 @@ class NumpyDataset(Dataset):
     def __init__(self, *arrays, **kwargs):
 
         self.dtype = kwargs.get("dtype", torch.float)
+        self.device = kwargs.get("device", "cpu")
         self.memmap = []
         self.data = []
         self.n = None
@@ -50,6 +57,7 @@ class NumpyDataset(Dataset):
                 # https://discuss.pytorch.org/t/cuda-initialization-error-when-dataloader-with-cuda-tensor/43390
                 #tensor = torch.from_numpy(array).to(self.device, self.dtype)
                 tensor = torch.from_numpy(array).to(self.dtype)
+                tensor.share_memory_()
                 self.data.append(tensor)
 
     def __getitem__(self, index):
@@ -97,8 +105,9 @@ class Trainer(object):
 
     def train(
         self,
-        data,
+        data, # packed training data, including both nominal and variation
         loss_functions,
+        input_data_dict={}, # dict of all the data
         loss_weights=None,
         loss_labels=None,
         epochs=50,
@@ -113,8 +122,11 @@ class Trainer(object):
         early_stopping_patience=None,
         clip_gradient=None,
         verbose="some",
-        intermediate_train_plot=None,
-        intermediate_save=None,
+        intermediate_train_plot=None, # dict of loading.load_result args
+        intermediate_save=None, # dict of estimator.save args
+        intermediate_stats_dist = False, # calculate statistical distance after each epoch
+        stats_method_list = [], # list of statistical method for computing the distance.
+        estimator = None, # instance of base.Estimator that calls the Trainer.train
     ):
         self._timer(start="ALL")
         self._timer(start="check data")
@@ -167,16 +179,61 @@ class Trainer(object):
         losses_train, losses_val, accuracy_train, accuracy_val = [], [], [], []
         self._timer(stop="initialize training")
 
+        # Get list of features
+        feature_names = input_data_dict.get("features", [])
+
+        # Yuzhan: list for tracking statistical distances
+        # the methods are expecting to receive dataset (trained, trained_w, expect, expect_w)
+        stats_methods = {}
+        stats_values = {"train" : {}, "val" : {}}
+        stats_w1 = {"train" : None, "val" : None}
+        stats_features0 = {"train" : None, "val" : None}
+        stats_trans_features = {"train" : None, "val" : None}
+        # check registered statistical mathods and input features list
+        if stats_method_list and feature_names and estimator is not None:
+            for _method_name in stats_method_list:
+                _method = getattr(statistic, _method_name, None)
+                if _method is not None:
+                    stats_methods[_method_name] = _method
+                    stats_values["train"][_method_name] = defaultdict(list)
+                    stats_values["val"][_method_name] = defaultdict(list)
+            logger.info(f"list of registered statistical methods: {stats_methods.keys()}")
+        else:
+            # if none is found, set intermediate_stats_dist to False
+            intermediate_stats_dist = False
+        # check require data from input_data_dict for computing statistical distance
+        if intermediate_stats_dist and stats_method_list:
+            for _type in ["train", "val"]:
+                data_query = {}
+                data_query[f"w0_{_type}"] = input_data_dict.get(f"w0_{_type}", None)
+                data_query[f"w1_{_type}"] = input_data_dict.get(f"w1_{_type}", None)
+                data_query[f"x0_{_type}"] = input_data_dict.get(f"X0_{_type}", None)
+                data_query[f"x1_{_type}"] = input_data_dict.get(f"X1_{_type}", None)
+                if any([_x is None for _x in data_query.values()]) :
+                    continue
+                else:
+                    stats_w1[_type] = data_query[f"w1_{_type}"].flatten()
+                    _x0_type = data_query[f"x0_{_type}"]
+                    _x1_type = data_query[f"x1_{_type}"]
+                    stats_trans_features[_type] = (_x0_type.T, _x1_type.T)
+                    # prepare data in torch.Tensor form.
+                    stats_features0[_type] = estimator.transform_data(_x0_type)
+                    # create directory for outputs
+                    stats_output_dir = pathlib.Path("stats_dist/")
+                    stats_output_dir.mkdir(parents=True, exist_ok=True)
+                    stats_output_dir = stats_output_dir.resolve()
+
         # Loop over epochs
         for i_epoch in range(epochs):
             logger.debug("Training epoch", i_epoch + 1, epochs)
             self._timer(start="set lr")
             lr = self.calculate_lr(i_epoch, epochs, initial_lr, final_lr)
             self.set_lr(opt, lr)
-            logger.debug("Learning rate: %s", lr)
+            logger.debug(f"Learning rate: {lr}")
             self._timer(stop="set lr")
             loss_val = None
 
+            self._timer(start="epoch_training")
             try:
                 loss_train, loss_val, loss_contributions_train, loss_contributions_val, accu_train, accu_val = self.epoch(
                     i_epoch, data_labels, train_loader, val_loader, opt, loss_functions, loss_weights, clip_gradient
@@ -186,8 +243,9 @@ class Trainer(object):
                 accuracy_train.append(accu_train)
                 accuracy_val.append(accu_val)
             except NanException:
-                logger.info("Ending training during epoch %s because NaNs appeared", i_epoch + 1)
+                logger.info(f"Ending training during epoch {i_epoch+1} because NaNs appeared")
                 break
+            self._timer(stop="epoch_training")
 
             self._timer(start="early stopping")
             if early_stopping:
@@ -196,7 +254,7 @@ class Trainer(object):
                         best_loss, best_model, best_epoch, loss_val, i_epoch, early_stopping_patience
                     )
                 except EarlyStoppingException:
-                    logger.info("Early stopping: ending training after %s epochs", i_epoch + 1)
+                    logger.info(f"Early stopping: ending training after {i_epoch + 1} epochs")
                     break
             self._timer(stop="early stopping", start="report epoch")
 
@@ -215,34 +273,87 @@ class Trainer(object):
                 accu_train = accu_train,
                 accu_val = accu_val,
                 verbose=verbose_epoch,
+                dt=self.timer["epoch_training"],
             )
             self._timer(stop="report epoch")
 
-            # do intermediate plotting and saving
-            if verbose_epoch:
+            # computing statistic on data and model after epoch training
+            if intermediate_stats_dist:
+                self._timer(start="statistical distiance")
+                for _type in ["train", "val"]:
+                    if stats_features0[_type] is None:
+                        continue
+                    # using estimator.evaluate to compute results from x0 features
+                    # assuming CARL method for now, but this can be generalized for others
+                    self._timer(start="statistical distiance::carl weight computation")
+                    _r_hat, _s_hat = evaluate.evaluate_ratio_model(
+                        self.model,
+                        stats_features0[_type],
+                        skip_data_conversion=True, # already converted above
+                    )
+                    _carl_w = 1.0/_r_hat
+                    self._timer(stop="statistical distiance::carl weight computation")
+                    for _name_id, (_x0, _x1) in enumerate(zip(*stats_trans_features[_type])):
+                        _name = feature_names[_name_id]
+                        for _stats_method_name, _stats_method in stats_methods.items():
+                            self._timer(start=_stats_method_name)
+                            _value = _stats_method(_x0, _carl_w, _x1, stats_w1[_type])
+                            stats_values[_type][_stats_method_name][_name].append(_value)
+                            self._timer(stop=_stats_method_name)
+                    for _method_name, _stats_value in stats_values[_type].items():
+                        for _name in feature_names:
+                            np.save(f"{stats_output_dir}/{_type}_{_name}_{_method_name}.npy", np.array(_stats_value[_name]))
+                self._timer(stop="statistical distiance")
+
+            # do intermediate plotting and saving for per verbose epoch
+            # still using external provided arguments and data.
+            if verbose_epoch and estimator:
                 if intermediate_train_plot:
                     self._timer(start="intermediate train plot")
-                    m_evaluator, m_plotter = intermediate_train_plot
+                    loader = loading.Loader()
                     for type in ["train", "val"]:
-                        m_r_hat, m_s_hat = m_evaluator[0](m_evaluator[1][type])
-                        m_plotter[1][type].update({"ext_plot_path":f"epoch_plot_{i_epoch}_{type}"})
+                        plot_args = {}
+                        plot_args.update(input_data_dict["per_epoch_plot"])
+                        _x0 = input_data_dict[f"X0_{type}"]
+                        _x1 = input_data_dict[f"X1_{type}"]
+                        _w0 = input_data_dict[f"w0_{type}"]
+                        _w1 = input_data_dict[f"w1_{type}"]
+                        plot_args.update({"x0" : _x0, "w0" : _w0, "x1" : _x1, "w1" : _w1})
+                        m_r_hat, m_s_hat = estimator.evaluate(_x0)
                         m_carl_w = 1.0/m_r_hat
-                        m_plotter[1][type].update({"weights":m_carl_w})
-                        m_plotter[1][type].update({"label":type})
-                        m_plotter[0](**m_plotter[1][type])
+                        plot_args.update({"ext_plot_path":f"epoch_plot_{i_epoch}_{type}"})
+                        plot_args.update({"weights":m_carl_w})
+                        plot_args.update({"label":type})
+                        loader.load_result(**plot_args)
+                        # check for spectators
+                        spectators = input_data_dict.get("spectators", None)
+                        plot_args["x0"] = input_data_dict.get(f"spec_x0_{type}", None)
+                        plot_args["x1"] = input_data_dict.get(f"spec_x1_{type}", None)
+                        if spectators is None:
+                            continue
+                        if plot_args["x0"] is None:
+                            continue
+                        if plot_args["x1"] is None:
+                            continue
+                        plot_args["features"] = spectators
+                        plot_args["metaData"] = input_data_dict.get("spectator_metaData", None)
+                        plot_args["ext_plot_path"] = f"epoch_plot_{i_epoch}_{type}_spec"
+                        plot_args["label"] = f"spectator_{type}"
+                        loader.load_result(**plot_args)
                     self._timer(stop="intermediate train plot")
                 if intermediate_save:
                     self._timer(start="intermediate save")
-                    saver, save_args = intermediate_save
+                    save_args = {"x": input_data_dict["X_train"]}
+                    save_args.update(input_data_dict["per_epoch_save"])
                     m_filename = save_args['filename']
                     new_fname = f"models/epoch_{i_epoch}/{m_filename}"
                     save_args.update({"filename":new_fname})
-                    saver(**save_args)
+                    estimator.save(**save_args)
                     save_args.update({"filename":m_filename})
-                    np.save(f"{new_fname}_loss_train.py", np.array(losses_train))
-                    np.save(f"{new_fname}_loss_val.py", np.array(losses_val))
-                    np.save(f"{new_fname}_accu_train.py", np.array(accuracy_train))
-                    np.save(f"{new_fname}_accu_val.py", np.array(accuracy_val))
+                    np.save(f"{new_fname}_loss_train.npy", np.array(losses_train))
+                    np.save(f"{new_fname}_loss_val.npy", np.array(losses_val))
+                    np.save(f"{new_fname}_accu_train.npy", np.array(accuracy_train))
+                    np.save(f"{new_fname}_accu_val.npy", np.array(accuracy_val))
                     self._timer(stop="intermediate save")
 
         self._timer(start="early stopping")
@@ -284,25 +395,34 @@ class Trainer(object):
         for key, value in six.iteritems(data):
             data_labels.append(key)
             data_arrays.append(value)
-        dataset = NumpyDataset(*data_arrays, dtype=self.dtype, device=self.device)#, run_on_gpu=self.run_on_gpu)
+        dataset = NumpyDataset(*data_arrays, dtype=self.dtype, device=self.device)
         return data_labels, dataset
 
-    def make_dataloaders(self, dataset, dataset_val, validation_split, batch_size):
+    def make_dataloaders(self, dataset, dataset_val, validation_split, batch_size, shuffle=True):
         if dataset_val is None and (validation_split is None or validation_split <= 0.0):
             train_loader = DataLoader(
-                dataset, batch_size=batch_size, shuffle=True, pin_memory=self.run_on_gpu, num_workers=self.n_workers
-                #dataset, batch_size=batch_size, shuffle=True, num_workers=0
+                dataset,
+                batch_size=batch_size,
+                shuffle=shuffle,
+                pin_memory=self.run_on_gpu,
+                num_workers=self.n_workers,
             )
             val_loader = None
 
         elif dataset_val is not None:
             train_loader = DataLoader(
-                dataset, batch_size=batch_size, shuffle=True, pin_memory=self.run_on_gpu, num_workers=self.n_workers
-                #dataset, batch_size=batch_size, shuffle=True, num_workers=0
+                dataset,
+                batch_size=batch_size,
+                shuffle=shuffle,
+                pin_memory=self.run_on_gpu,
+                num_workers=self.n_workers,
             )
             val_loader = DataLoader(
-                dataset_val, batch_size=batch_size, shuffle=True, pin_memory=self.run_on_gpu, num_workers=self.n_workers
-                #dataset_val, batch_size=batch_size, shuffle=True, num_workers=0
+                dataset_val,
+                batch_size=batch_size,
+                shuffle=shuffle,
+                pin_memory=self.run_on_gpu,
+                 num_workers=self.n_workers,
             )
 
         else:
@@ -311,7 +431,8 @@ class Trainer(object):
             n_samples = len(dataset)
             indices = list(range(n_samples))
             split = int(np.floor(validation_split * n_samples))
-            np.random.shuffle(indices)
+            if shuffle:
+                np.random.shuffle(indices)
             train_idx, valid_idx = indices[split:], indices[:split]
 
             train_sampler = SubsetRandomSampler(train_idx)
@@ -498,28 +619,35 @@ class Trainer(object):
 
     @staticmethod
     def report_epoch(
-        i_epoch, loss_labels, loss_train, loss_val, loss_contributions_train, loss_contributions_val, accu_train=None, accu_val=None, verbose=False
+        i_epoch, loss_labels, loss_train, loss_val, loss_contributions_train, loss_contributions_val, accu_train=None, accu_val=None, verbose=False, dt=None
     ):
         logging_fn = logger.info if verbose else logger.debug
 
         def contribution_summary(labels, contributions):
+            contributions = zip(labels, contributions)
             summary = ""
-            for i, (label, value) in enumerate(zip(labels, contributions)):
-                if i > 0:
-                    summary += ", "
-                summary += "{}: {:>6.3f}".format(label, value)
+            summary += ", ".join([f"{label}: {value:>6.3f}" for label, value in contributions])
+            # for i, (label, value) in enumerate():
+            #     if i > 0:
+            #         summary += ", "
+            #     summary += f"{label}: {value:>6.3f}"
             return summary
 
-        train_report = "  Epoch {:>3d}: train loss {:>8.8f} ({}), accu {}".format(
-            i_epoch + 1, loss_train, contribution_summary(loss_labels, loss_contributions_train), accu_train
-        )
+        msg_prefix = f"  Epoch {i_epoch+1:>3d}: "
+        n_indent = " "*len(msg_prefix)
+
+        contrib = contribution_summary(loss_labels, loss_contributions_train)
+        train_report = f"{msg_prefix} train loss {loss_train:>8.8f} ({contrib}), accu {accu_train:>.3f}"
         logging_fn(train_report)
 
         if loss_val is not None:
-            val_report = "             val. loss  {:>8.8f} ({}), accu {}".format(
-                loss_val, contribution_summary(loss_labels, loss_contributions_val), accu_val
-            )
+            contrib = contribution_summary(loss_labels, loss_contributions_val)
+            val_report = f"{n_indent} val. loss {loss_val:>8.8f} ({contrib}), accu {accu_val:>.3f}"
             logging_fn(val_report)
+
+        if dt is not None:
+            logging_fn(f"{n_indent} accu time spent {dt:>6.1f}s")
+
 
     def wrap_up_early_stopping(self, best_model, currrent_loss, best_loss, best_epoch):
         if best_loss is None or not np.isfinite(best_loss):

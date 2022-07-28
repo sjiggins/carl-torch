@@ -17,18 +17,20 @@ def evaluate_ratio_model(
     run_on_gpu=True,
     double_precision=False,
     return_grad_x=False,
+    skip_data_conversion=False,
 ):
     # CPU or GPU?
     run_on_gpu = run_on_gpu and torch.cuda.is_available()
     device = torch.device("cuda" if run_on_gpu else "cpu")
     dtype = torch.double if double_precision else torch.float
 
-    # Prepare data
-    n_xs = len(xs)
-    xs = torch.stack([tensor(i) for i in xs])
-
-    model = model.to(device, dtype)
+    # Prepare data if needed
+    if not skip_data_conversion:
+        n_xs = len(xs)
+        xs = torch.stack([tensor(i) for i in xs])
     xs = xs.to(device, dtype)
+    
+    model = model.to(device, dtype)
     with torch.no_grad():
         model.eval()
 
@@ -36,7 +38,7 @@ def evaluate_ratio_model(
         # Do we need this as ml/models.py::forward() defined implicitely that the output of the network is:
         #      s_hat = torch.sigmoid(s_hat)  where s_hat at this point is the network last layer
         #      r_hat = (1-s_hat) / s_hat = p_{1}(x) / p_{0}(x)
-        #s_hat = torch.sigmoid(s_hat) 
+        #s_hat = torch.sigmoid(s_hat)
         # Copy back tensors to CPU
         if run_on_gpu:
             r_hat = r_hat.cpu()
@@ -73,6 +75,10 @@ def evaluate_performance_model(
         _, logit  = model(xs)
         probs = torch.sigmoid(logit)
         y_pred = torch.round(probs)
+        # Note that if y_pred is a CUDA tensor, it needs to be detached
+        # before converting to numpy array
+        if run_on_gpu:
+            y_pred = y_pred.cpu().numpy()
         print("confusion matrix ",confusion_matrix(ys, y_pred))
         print(classification_report(ys, y_pred))
         fpr, tpr, auc_thresholds = roc_curve(ys, y_pred)

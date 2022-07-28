@@ -1,89 +1,102 @@
-import os
-import sys
 import logging
 import numpy as np
-from arg_handler import arg_handler_eval
 from ml import RatioEstimator
 from ml.utils.loading import Loader
+from arg_handler import arg_handler_eval
+from file_path_handler import datafiles_path_preparation
+
+logger = logging.getLogger(__name__)
 
 #################################################
 opts = arg_handler_eval()
-nominal  = opts.nominal
-variation = opts.variation
+# nominal = opts.nominal
+# variation = opts.variation
 n = opts.nentries
 p = opts.datapath
 global_name = opts.global_name
 features = opts.features.split(",")
 weightFeature = opts.weightFeature
 treename = opts.treename
-model = opts.model
 binning = opts.binning
 normalise = opts.normalise
-raw_weight = opts.raw_weight
 scale_method = opts.scale_method
+output = opts.output
+carl_weight_clipping = opts.carl_weight_clipping
+datafile = opts.datafile
 #################################################
 
+data_files = datafiles_path_preparation(output, global_name, n, datafile)
 
-logger = logging.getLogger(__name__)
-if os.path.exists('data/'+global_name+'/X_train_'+str(n)+'.npy') and os.path.exists('data/'+global_name+'/metaData_'+str(n)+'.pkl'):
-    logger.info(" Doing evaluation of model trained with datasets: [{}, {}], with {} events.".format(nominal, variation, n))
-else:
-    logger.info(" No data set directory of the form {}.".format('data/'+global_name+'/X_train_'+str(n)+'.npy'))
-    logger.info(" No datasets available for evaluation of model trained with datasets: [{},{}] with {} events.".format(nominal, variation, n))
-    logger.info("ABORTING")
-    sys.exit()
-
+# loading model
 loading = Loader()
 carl = RatioEstimator()
 carl.scaling_method = scale_method
-if model:
-    carl.load(model, global_name=global_name, nentries=n)
-else:
-    carl.load('models/'+global_name+'_carl_'+str(n), global_name=global_name, nentries=n)
-evaluate = ['train','val']
-raw_w = "raw_" if raw_weight else ""
-for i in evaluate:
-    logger.info("Running evaluation for {}".format(i))
-    r_hat, s_hat = carl.evaluate(x='data/'+global_name+'/X0_'+i+'_'+str(n)+'.npy')
-    logger.info("s_hat = {}".format(s_hat))
-    logger.info("r_hat = {}".format(r_hat))
-    w = 1./r_hat   # I thought r_hat = p_{1}(x) / p_{0}(x) ???
+carl.load(data_files["model"], data_files["train"].get("metaData", None))
+
+evaluate = ["train", "val"]
+for eval_mode in evaluate:
+    if not data_files[eval_mode]:
+        logger.warning(f"check input file path, skipping {eval_mode}")
+        continue
+    logger.info(f"Running evaluation for {eval_mode}")
+    r_hat, s_hat = carl.evaluate(x=data_files[eval_mode]["x0"])
+    logger.info(f"{s_hat=}")
+    logger.info(f"{r_hat=}")
+    w = 1.0 / r_hat  # I thought r_hat = p_{1}(x) / p_{0}(x) ???
     # Correct nan's and inf's to 1.0 corrective weights as they are useless in this instance. Warning
     # to screen should already be printed
+    # if carl_weight_protection:
+    w = np.nan_to_num(w, nan=1.0, posinf=1.0, neginf=1.0)
+
     if opts.weight_protection:
         w = np.nan_to_num(w, nan=1.0, posinf=1.0, neginf=1.0)
-    
+
     # Weight clipping if requested by user
     if opts.weight_threshold < 100:
         carl_w_clipping = np.percentile(w, opts.weight_threshold)
-        w[w > carl_w_clipping] = carl_w_clipping
 
-    print("w = {}".format(w))
-    print("<evaluate.py::__init__>::   Loading Result for {}".format(i))
+    logger.info(f"{w=}")
+    logger.info(f"Loading Result for {eval_mode}")
     loading.load_result(
-        x0=f'data/{global_name}/X0_{i}_{n}.npy',
-        x1=f'data/{global_name}/X1_{i}_{n}.npy',
-        w0=f'data/{global_name}/w0_{i}_{raw_w}{n}.npy',
-        w1=f'data/{global_name}/w1_{i}_{raw_w}{n}.npy',
-        metaData=f'data/{global_name}/metaData_{n}.pkl',
+        **data_files[eval_mode],
         weights=w,
         features=features,
-        #weightFeature=weightFeature,
-        label=i,
+        # weightFeature=weightFeature,
+        label=eval_mode,
         plot=True,
         nentries=n,
-        #TreeName=treename,
-        #pathA=p+nominal+".root",
-        #pathB=p+variation+".root",
         global_name=global_name,
         plot_ROC=opts.plot_ROC,
         plot_obs_ROC=opts.plot_obs_ROC,
-        ext_binning = binning,
-        normalise = normalise,
+        ext_binning=binning,
+        normalise=normalise,
         scaling=scale_method,
         plot_resampledRatio=opts.plot_resampledRatio,
     )
+
+    # attempt to plot spectators
+    if not data_files[f"spectator-{eval_mode}"]:
+        continue
+    try:
+        loading.load_result(
+            **data_files[f"spectator-{eval_mode}"],
+            weights=w,
+            features=features,
+            label=f"spectator_{eval_mode}",
+            plot=True,
+            nentries=n,
+            global_name=global_name,
+            plot_ROC=False,
+            plot_obs_ROC=False,
+            ext_binning=binning,
+            normalise=normalise,
+        )
+    except Exception as _error:
+        logger.warning(f"Unable to plot spectator distributions due to: {_error}")
+
 # Evaluate performance
-print("<evaluate.py::__init__>::   Evaluate Performance of Model")
-carl.evaluate_performance(x='data/'+global_name+'/X_val_'+str(n)+'.npy',
-                          y='data/'+global_name+'/y_val_'+str(n)+'.npy')
+logger.info("Evaluate Performance of Model")
+carl.evaluate_performance(
+    x=f"{output}/data/{global_name}/X_val_{n}.npy",
+    y=f"{output}/data/{global_name}/y_val_{n}.npy",
+)
