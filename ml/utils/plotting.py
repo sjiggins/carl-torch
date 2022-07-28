@@ -72,7 +72,8 @@ def draw_weighted_distributions(x0, x1, w0, w1,
                                 save = False,
                                 ext_plot_path=None,
                                 normalise=True,
-                                do_comparison=True):
+                                do_comparison=True,
+                                remove_zeros=True):
     # Formatting
     font = font_manager.FontProperties(family='Symbol',
                                        style='normal', size=12)
@@ -104,9 +105,22 @@ def draw_weighted_distributions(x0, x1, w0, w1,
         #if save: axes[0].figure(figsize=(14, 10))
         #else: axes[0].plt.subplot(3,4, id)
         #plt.yscale('log')
-        nom_count, nom_bin, nom_bars = axes[0].hist(x0[:,id], bins = binning[id], weights = w0, label = "nominal", **hist_settings_nom, density=True)
-        carl_count, carl_bin, carl_bars = axes[0].hist(x0[:,id], bins = binning[id], weights = w_carl, label = 'nominal*CARL', **hist_settings_CARL, density=True)
-        alt_count, alt_bins, alt_bars = axes[0].hist(x1[:,id], bins = binning[id], weights = w1, label = legend, **hist_settings_alt, density=True)
+        temp_x0 = x0[:,id]
+        temp_x1 = x1[:,id]
+        temp_w0 = w0
+        temp_w1 = w1
+        temp_carl = w_carl
+        if remove_zeros:
+            mask_x0 = (temp_x0 != 0.0)
+            mask_x1 = (temp_x1 != 0.0)
+            temp_x0 = temp_x0[mask_x0]
+            temp_x1 = temp_x1[mask_x1]
+            temp_w0 = temp_w0[mask_x0]
+            temp_w1 = temp_w1[mask_x1]
+            temp_carl = temp_carl[mask_x0]
+        nom_count, nom_bin, nom_bars = axes[0].hist(temp_x0, bins = binning[id], weights = temp_w0, label = "nominal", **hist_settings_nom, density=True)
+        carl_count, carl_bin, carl_bars = axes[0].hist(temp_x0, bins = binning[id], weights = temp_carl, label = 'nominal*CARL', **hist_settings_CARL, density=True)
+        alt_count, alt_bins, alt_bars = axes[0].hist(temp_x1, bins = binning[id], weights = temp_w1, label = legend, **hist_settings_alt, density=True)
         axes[0].grid(axis='x', color='silver')
         if addInvSample:
             _setting = {'histtype':'step', 'linewidth':2, 'color':'red'}
@@ -144,8 +158,8 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             #carl_alt_KL_res = "KL(carl,alt) = {}".format(carl_alt_KL)
             ############################
             ########### Custom #########
-            nom_alt_KL = statistic.compute_kl_divergence(x0[:,id], w0, x1[:,id], w1, len(binning[id]))
-            carl_alt_KL = statistic.compute_kl_divergence(x0[:,id], w0, x0[:,id], w_carl, len(binning[id]))
+            nom_alt_KL = statistic.compute_kl_divergence(temp_x0, temp_w0, temp_x1, temp_w1, len(binning[id]))
+            carl_alt_KL = statistic.compute_kl_divergence(temp_x0, temp_w0, temp_x0, temp_carl, len(binning[id]))
 
             # Pring Result string to logger
             logger.info(f"Observable {column}")
@@ -186,9 +200,9 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             #plt.figure(figsize=(10, 8)) # this line is needed to keep same canvas size
 
             # ratio plot
-            x0_hist, edge0 = np.histogram(x0[:,id], bins = binning[id], weights = w0, density=True)
-            x1_hist, edge1 = np.histogram(x1[:,id], bins = binning[id], weights = w1, density=True)
-            carl_hist, edgecarl = np.histogram(x0[:,id], bins = binning[id], weights = w_carl, density=True)
+            x0_hist, edge0 = np.histogram(temp_x0, bins = binning[id], weights = temp_w0, density=True)
+            x1_hist, edge1 = np.histogram(temp_x1, bins = binning[id], weights = temp_w1, density=True)
+            carl_hist, edgecarl = np.histogram(temp_x0, bins = binning[id], weights = temp_carl, density=True)
             #x1_ratio = x1_hist/x0_hist
             x1_ratio = x0_hist/x1_hist
             #carl_ratio = carl_hist/x0_hist
@@ -205,31 +219,31 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             residue = []
             residue_carl = []
             # Normalise weights to unity
-            w0 = w0*(1.0/np.sum(w0))
-            w1 = w1*(1.0/np.sum(w1))
-            w_carl = w_carl*(1.0/np.sum(w_carl))
+            temp_w0 = temp_w0*(1.0/np.sum(temp_w0))
+            temp_w1 = temp_w1*(1.0/np.sum(temp_w1))
+            temp_carl = temp_carl*(1.0/np.sum(temp_carl))
             if len(binning[id]) > 1:
                 width = abs(binning[id][1] - binning[id][0] )
                 for xbin in binning[id]:
                     # Form masks for all event that match condition
-                    mask0 = (x0[:,id] < (xbin + width)) & (x0[:,id] > (xbin - width))
-                    mask1 = (x1[:,id] < (xbin + width)) & (x1[:,id] > (xbin - width))
+                    mask0 = (temp_x0 < (xbin + width)) & (temp_x0 > (xbin - width))
+                    mask1 = (temp_x1 < (xbin + width)) & (temp_x1 > (xbin - width))
                     # Form bin error
-                    binsqrsum_x0 = np.sum(w0[mask0]**2)
-                    binsqrsum_x1 = np.sum(w1[mask1]**2)
-                    binsqrsum_x0_carl = np.sum(w_carl[mask0]**2)
+                    binsqrsum_x0 = np.sum(temp_w0[mask0]**2)
+                    binsqrsum_x1 = np.sum(temp_w1[mask1]**2)
+                    binsqrsum_x0_carl = np.sum(temp_carl[mask0]**2)
                     binsqrsum_x0 = math.sqrt(binsqrsum_x0)
                     binsqrsum_x1 = math.sqrt(binsqrsum_x1)
                     binsqrsum_x0_carl = math.sqrt(binsqrsum_x0_carl)
                     # Form residue
-                    res_num = np.sum(w1[mask1]) - np.sum(w0[mask0])
+                    res_num = np.sum(temp_w1[mask1]) - np.sum(temp_w0[mask0])
                     res_denom = math.sqrt(binsqrsum_x0**2 + binsqrsum_x1**2)
                     # Form residue (CARL)
-                    res_num_carl = np.sum(w1[mask1]) - np.sum(w_carl[mask0])
+                    res_num_carl = np.sum(temp_w1[mask1]) - np.sum(temp_carl[mask0])
                     res_denom_carl = math.sqrt(binsqrsum_x0_carl**2 + binsqrsum_x1**2)
                     # Form relative error
-                    binsqrsum_x0 = binsqrsum_x0/w0[mask0].sum()
-                    binsqrsum_x1 = binsqrsum_x1/w1[mask1].sum()
+                    binsqrsum_x0 = binsqrsum_x0/temp_w0[mask0].sum()
+                    binsqrsum_x1 = binsqrsum_x1/temp_w1[mask1].sum()
 
                     # Save residual
                     x0_error.append(binsqrsum_x0 if binsqrsum_x0 > 0 else 0.0)
