@@ -36,7 +36,7 @@ def loadFractionOfEvents(path, features, selection, fraction=1.0):
     for file in glob.glob(path):
         print(file)
         with uproot.open(file)["Nominal"] as tree:
-            nEventsToLoad = int(fraction * tree.num_entries)
+            nEventsToLoad = int(fraction * tree.num_entries) + 1
             df = tree.arrays(features, library="pd", cut=selection)
             if nEventsToLoad > df.shape[0]:
                 nEventsToLoad = df.shape[0]
