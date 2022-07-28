@@ -21,6 +21,7 @@ if uproot.__version__ < '4.3.3':
 
 import glob
 import pandas as pd
+import numpy as np
 
 
 def totalNumberOfEvents(path):
@@ -31,15 +32,16 @@ def totalNumberOfEvents(path):
     return nEvents
 
 def loadFractionOfEvents(path, features, selection, fraction=1.0):
-    allEvents = pd.DataFrame(columns=features)
+    allEvents = pd.DataFrame(columns=features), dtype=np.float64)
     for file in glob.glob(path):
+        print(file)
         with uproot.open(file)["Nominal"] as tree:
             nEventsToLoad = int(fraction * tree.num_entries)
             df = tree.arrays(features, library="pd", cut=selection)
             if nEventsToLoad > df.shape[0]:
                 nEventsToLoad = df.shape[0]
             df = df.sample(n=nEventsToLoad, random_state=42)
-            allEvents = allEvents.append(df, ignore_index=True)
+            allEvents = pd.concat([allEvents, df], ignore_index=True)
     return allEvents
 
 
@@ -48,9 +50,12 @@ def main(args):
     totalNevents = totalNumberOfEvents(args.path)
     print(f"Total number of events: {totalNevents}")
     print(f"selecting events = {args.n_events}")
-    fraction = args.n_events / totalNevents
-    if fraction > 1.0:
-        fraction = -1.0
+    if args.n_events == -1:
+        fraction = 1.0
+    else:
+        fraction = args.n_events / totalNevents
+        if fraction > 1.0:
+            fraction = -1.0
     print(f"fraction of events = {fraction}")
     features = args.features.split(",")
     print(f"features = {features}")
