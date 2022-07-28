@@ -32,7 +32,7 @@ def totalNumberOfEvents(path):
     return nEvents
 
 def loadFractionOfEvents(path, features, selection, fraction=1.0):
-    allEvents = pd.DataFrame(columns=features), dtype=np.float64)
+    allEvents = pd.DataFrame(columns=features, dtype=np.float64)
     for file in glob.glob(path):
         print(file)
         with uproot.open(file)["Nominal"] as tree:
