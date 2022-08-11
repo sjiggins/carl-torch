@@ -38,6 +38,7 @@ weight_sigma = opts.weight_nsigma
 polarity = opts.polarity
 loss_type = opts.loss_type
 BoolFilter = opts.BoolFilter
+n_workers = opts.n_workers
 #################################################
 
 #################################################
@@ -209,6 +210,7 @@ train_loss, val_loss, accuracy_train, accuracy_val = estimator.train(
     plot_inputs=False,    
     nentries=n,
     loss_type=loss_type,
+    n_workers=n_workers,
     #initial_lr=0.0001,
     #final_lr=0.00001,
 )
