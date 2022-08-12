@@ -9,3 +9,7 @@ env/
 venv/
 ENV/
 CarlEnv/
+env
+venv
+ENV
+CarlEnv
