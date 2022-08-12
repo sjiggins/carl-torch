@@ -59,6 +59,7 @@ class Loader():
         large_weight_clipping_threshold = 1e7,
         weight_polarity = False,
         scaling="minmax",
+        algorithms=None,
     ):
         """
         Parameters
@@ -109,7 +110,7 @@ class Loader():
             x1, w1, vlabels1
         )  = HarmonisedLoading(fA = pathA, fB = pathB,
                                features=features, weightFeature=weightFeature,
-                               nentries = -1, TreeName = TreeName, 
+                               nentries = int(nentries), TreeName = TreeName, 
                                weight_polarity=weight_polarity, Filter=self.Filter)
 
 
@@ -204,105 +205,106 @@ class Loader():
                 logger.info("Storing minmax scaling min:: {}".format( x0[v].min() if x0[v].min() < x1[v].min() else x1[v].min() ))
                 logger.info("Storing minmax scaling max: {}".format(  x0[v].max() if x0[v].max() > x1[v].max() else x1[v].max() ))
             logger.info("Storing minmax scaling metadata: {}".format(metaData))
-        
-        featureNames = x0.columns
 
-        if nentries > x0.shape[0]:
-            logger.info("Fewer entries in the input than selected by the -e flag. Using all events ({}).".format(x0.shape[0]))
-
-        logger.info("Sampling x0, w0, vlabels0 ...")
-        x0 = x0.sample(min(nentries,x0.shape[0])) if nentries!=-1 else x0.sample(frac=1.0)
+        # Shuffle the dataframes
+        logger.info("Shuffling the dataframe for x0 & w0")
+        x0 = x0.sample(frac=1.0, random_state=1) # random_state set to 1 for reproducibility
         w0 = w0.iloc[x0.index]
         logger.info("...done.")
 
-        logger.info("Sampling x1, w1, vlabels1 ...")
-        x1 = x1.sample(min(nentries,x0.shape[0])) if nentries!=-1 else x1.sample(frac=1.0)
+        logger.info("Shuffling dataframe for x1 & w1")
+        x1 = x1.sample(frac=1.0, random_state=1) # random_state set to 1 for reproducibility
         w1 = w1.iloc[x1.index]
         logger.info("...done.")
-        
+
+
+        # Create the numpy arrays
+        X0 = x0.to_numpy()
+        X1 = x1.to_numpy()        
+
+        # Convert weights to numpy
+        w0 = w0.to_numpy()
+        w1 = w1.to_numpy()
+
+        # Target labels
+        y0 = np.zeros(X0.shape[0])
+        y1 = np.ones(X1.shape[0])
+
         if normalise:
-            w0 = w0/(w0[0].sum())
-            w1 = w1/(w1[0].sum())
+            w0 = w0/(w0.sum())
+            w1 = w1/(w1.sum())
 
-        # split test/validation/train as 5%/47.5%/47.5%
-        logger.info("Splitting data...")
-        x0_train = x0[0:int(0.475*x0.shape[0])]
-        x0_val = x0[int(0.475*x0.shape[0]):int(0.95*x0.shape[0])]
-        x0_test = x0[int(0.95*x0.shape[0]):]
+        # Train, test splitting of input dataset
+        X0_train, X0_test, y0_train, y0_test, w0_train, w0_test = train_test_split(X0, y0, w0, test_size=0.05, random_state=42)
+        X1_train, X1_test, y1_train, y1_test, w1_train, w1_test = train_test_split(X1, y1, w1, test_size=0.05, random_state=42)
 
-        """
-        y0_train = y0[0:int(0.475*y0.shape[0])]
-        y0_val = y0[int(0.475*y0.shape[0]):int(0.95*y0.shape[0])]
-        y0_test = y0[int(0.95*y0.shape[0]):]
-        del y0
-        gc.collect()
-        """
-        
-        w0_train = w0[0:int(0.475*w0.shape[0])]
-        w0_val = w0[int(0.475*w0.shape[0]):int(0.95*w0.shape[0])]
-        #w0_test = w0[int(0.95*w0.shape[0]):] #don't need this, it's set to None in the original code anyway
-        del w0
-        gc.collect()
+        X0_train, X0_val,  y0_train, y0_val, w0_train, w0_val =  train_test_split(X0_train, y0_train, w0_train, test_size=0.50, random_state=42)
+        X1_train, X1_val,  y1_train, y1_val, w1_train, w1_val =  train_test_split(X1_train, y1_train, w1_train, test_size=0.50, random_state=42)
 
-        
-        x1_train = x1[0:int(0.475*x1.shape[0])]
-        x1_val = x1[int(0.475*x1.shape[0]):int(0.95*x1.shape[0])]
-        x1_test = x1[int(0.95*x1.shape[0]):]
+        print("x0_train size: {}".format(X0_train.shape))
+        print("x0_test size:  {}".format(X0_test.shape))
+        print("x0_val size:   {}".format(X0_val.shape))
 
-        """
-        y1_train = y1[0:int(0.475*y1.shape[0])]
-        y1_val = y1[int(0.475*y1.shape[0]):int(0.95*y1.shape[0])]
-        y1_test = y1[int(0.95*y1.shape[0]):]
-        del y1
-        gc.collect()
-        """
+        print("x1_train size: {}".format(X1_train.shape))
+        print("x1_test size:  {}".format(X1_test.shape))
+        print("x1_val size:   {}".format(X1_val.shape))
 
-        w1_train = w1[0:int(0.475*w1.shape[0])]
-        w1_val = w1[int(0.475*w1.shape[0]):int(0.95*w1.shape[0])]
-        #w1_test = w0[int(0.95*w1.shape[0]):] #don't need this, it's set to None in the original code anyway
-        logger.info("..done.")
+        print("y0_train size: {}".format(y0_train.shape))
+        print("y0_test size:  {}".format(y0_test.shape))
+        print("y0_val size:   {}".format(y0_val.shape))
 
-        #convert all dataframes into numpy arrays
-        logger.info("Converting pandas dataframes into numpy arrays...")
-        x0_train = x0_train.to_numpy()
-        x0_val = x0_val.to_numpy()
-        x0_test = x0_test.to_numpy()
-        w0_train = w0_train.to_numpy()
-        w0_val = w0_val.to_numpy()
-        x1_train = x1_train.to_numpy()
-        x1_val = x1_val.to_numpy()
-        x1_test = x1_test.to_numpy()
-        w1_train = w1_train.to_numpy()
-        w1_val = w1_val.to_numpy()
-        logger.info("...done.")
+        print("y1_train size: {}".format(y1_train.shape))
+        print("y1_test size:  {}".format(y1_test.shape))
+        print("y1_val size:   {}".format(y1_val.shape))
 
-        #apply subsampling
-        N_train = w0_train.shape[0]
-        ratio_train = w0_train.shape[0]/w1_train.shape[0]
-        N_val = w0_val.shape[0]
-        ratio_val = w0_val.shape[0]/w1_val.shape[0]
-        x0_train, w0_train = subsample(x0_train, w0_train, N_train, global_name, featureNames="x0_train_"+featureNames)
-        x0_val, w0_val = subsample(x0_val, w0_val, N_val, global_name, featureNames="x0_val_"+featureNames)
-        x1_train, w1_train = subsample(x1_train, w1_train, int(N_train*ratio_train), global_name, featureNames="x1_train_"+featureNames)
-        x1_val, w1_val = subsample(x1_val, w1_val, int(N_val*ratio_val), global_name, featureNames="x1_val_"+featureNames)
+        print("w0_train size: {}".format(w0_train.shape))
+        print("w0_test size:  {}".format(w0_test.shape))
+        print("w0_val size:   {}".format(w0_val.shape))
 
-        #create target labels
-        y0_train = np.zeros(x0_train.shape[0])
-        y0_val = np.zeros(x0_val.shape[0])
-        y0_test = np.zeros(x0_test.shape[0])
+        print("w1_train size: {}".format(w1_train.shape))
+        print("w1_test size:  {}".format(w1_test.shape))
+        print("w1_val size:   {}".format(w1_val.shape))
+        print("++++++++++++++++++++++++++++++++")
 
-        y1_train = np.ones(x1_train.shape[0])
-        y1_val = np.ones(x1_val.shape[0])
-        y1_test = np.ones(x1_test.shape[0])
+        if algorithms is not None and "subsample" in algorithms:
+            # Extract the feature names from the columns of the dataframe - used in sub-sampling
+            featureNames = x0.columns
 
-        #define variables used later:
+            # Apply Sub-sampling
+            ratio = int( w1.sum()/w0.sum() )
+            X0_train, w0_train, y0_train = subsample(X0_train, w0_train, 0, w0_train.shape[0], global_name, featureNames="x0_train_"+featureNames) 
+            X0_val, w0_val, y0_val = subsample(X0_val, w0_val, 0, w0_val.shape[0], global_name, featureNames="x0_val_"+featureNames) 
+            X0_test, w0_test, y0_test = subsample(X0_test, w0_test, 0, w0_test.shape[0], global_name, featureNames="x0_test_"+featureNames) 
 
-        X0_train = x0_train
-        X0_val = x0_val
-        X0_test = x0_test
-        X1_train = x1_train
-        X1_val = x1_val
-        X1_test = x1_test
+            X1_train, w1_train, y1_train = subsample(X1_train, w1_train, 1, int(w0_train.shape[0] * ratio ), global_name, featureNames="x1_train_"+featureNames) 
+            X1_val, w1_val, y1_val = subsample(X1_val, w1_val, 1, int(w0_val.shape[0] * ratio ), global_name, featureNames="x1_val_"+featureNames) 
+            X1_test, w1_test, y1_test = subsample(X1_test, w1_test, 1, int(w0_test.shape[0] * ratio ), global_name, featureNames="x1_test_"+featureNames) 
+
+
+        print("x0_train size: {}".format(X0_train.shape))
+        print("x0_test size:  {}".format(X0_test.shape))
+        print("x0_val size:   {}".format(X0_val.shape))
+
+        print("x1_train size: {}".format(X1_train.shape))
+        print("x1_test size:  {}".format(X1_test.shape))
+        print("x1_val size:   {}".format(X1_val.shape))
+
+        print("y0_train size: {}".format(y0_train.shape))
+        print("y0_test size:  {}".format(y0_test.shape))
+        print("y0_val size:   {}".format(y0_val.shape))
+
+        print("y1_train size: {}".format(y1_train.shape))
+        print("y1_test size:  {}".format(y1_test.shape))
+        print("y1_val size:   {}".format(y1_val.shape))
+
+        print("w0_train size: {}".format(w0_train.shape))
+        print("w0_test size:  {}".format(w0_test.shape))
+        print("w0_val size:   {}".format(w0_val.shape))
+
+        print("w1_train size: {}".format(w1_train.shape))
+        print("w1_test size:  {}".format(w1_test.shape))
+        print("w1_val size:   {}".format(w1_val.shape))
+
 
         #cliping large weights, and replace it by 1.0
         raw_w0_train = None

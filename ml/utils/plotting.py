@@ -336,10 +336,25 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             #    return
             
 def draw_resampled_ratio(x0, w0, x1, w1, ratioName=''):
+
+    # Determine bins from (potentially) nan present data
     bins = np.linspace(np.amin(x0), np.amax(x0) ,50)
+
+    # Protection for nans - bad approach as it over writes the original data
+    x0 = np.nan_to_num(x0, nan=np.inf) # set to infinite, thereby removing the dummy value from the plotting range
+    x1 = np.nan_to_num(x1, nan=np.inf) # set to infinite, thereby removing the dummy value from the plotting range
+    print("x0 :  {}".format(x0))
+    print("x1 :  {}".format(x1))
+    print("w0 :  {}".format(w0))
+    print("w1 :  {}".format(w1))
+
     n0, _, _ = plt.hist(x0, weights=w0, bins=bins, label='original', **hist_settings_nom)
     n1, _, _ = plt.hist(x1, weights=w1, bins=bins, label='resampled', **hist_settings_alt)
+    plt.savefig(f'plots/subsample_raw_{ratioName}.png')
     plt.clf()
+
+    print("n0 :  {}".format(n0))
+    print("n1 :  {}".format(n1))
 
     ratio = [n1i/n0i-1 if n0i!=0 else -1 for (n0i,n1i) in zip(n0,n1)]
 
@@ -392,7 +407,7 @@ def draw_resampled_ratio(x0, w0, x1, w1, ratioName=''):
     plt.clf()
     plt.close()
 
-def subsample(x0, w0, nEvents, globalName, featureNames=[]):
+def subsample(x0, w0, label, nEvents, globalName, featureNames=[]):
     
     w0 = w0.flatten()
     
@@ -416,7 +431,10 @@ def subsample(x0, w0, nEvents, globalName, featureNames=[]):
         draw_resampled_ratio(x0[:,n], w0/np.sum(w0), subsampled_x0[:,n], subsampled_w0/np.sum(subsampled_w0), "_subsample_{}_{}".format(globalName,feature))
     #===========================================================================
     
-    return (subsampled_x0, subsampled_w0)
+    # Create the labels
+    subsampled_y0 = np.full(subsampled_x0.shape, label)
+
+    return (subsampled_x0, subsampled_w0, subsampled_y0)
     
 def weight_obs_data(x0, x1, w0, w1, ratioName=''):
 
