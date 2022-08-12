@@ -98,13 +98,14 @@ else:
         pathA=p+nominal+".root",
         pathB=p+variation+".root",
         noTar=True,
-        normalise=False,
+        normalise=True,
         debug=False,
         weight_preprocess=weight_sigma > 0,
         weight_preprocess_nsigma=weight_sigma,
         large_weight_clipping=weight_clipping,
         weight_polarity=polarity,
         scaling=scale_method,
+        algorithms=opts.algorithms.split(',') if opts.algorithms is not None else None,
     )
     logger.info(" Loaded new datasets ")
 #######################################

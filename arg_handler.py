@@ -27,6 +27,7 @@ def arg_handler_train():
     parser.add_argument('-l', '--layers', action='store', type=int, dest='layers', nargs='*', default=None, help='number of nodes for each layer')
     parser.add_argument('-d', '--dropout-prob', action='store', type=float, dest='dropout_prob', default=None, help='Dropout probability for internal hidden layers')
     parser.add_argument('-r', '--regularise', action='store', type=str, dest='regularise', default=None, help='Regularisation technique for the loss function [L0, L1, L2]')
+    parser.add_argument('-a', '--algorithms', action='store', type=str, dest='algorithms', default=None, help='List of algorithms to run for data processing. Options = ["subsample"]')
     parser.add_argument('--batch',  action='store', type=int, dest='batch_size',  default=4096, help='batch size')
     parser.add_argument('--per-epoch-plot', action='store_true', dest='per_epoch_plot', default=False, help='plotting train/validation result per epoch.')
     parser.add_argument('--per-epoch-save', action='store_true', dest='per_epoch_save', default=False, help='saving trained model per epoch.')
