@@ -29,7 +29,11 @@ You can upload files via
 ```bash
 rucio upload <path/to/local/file.root> --rse <RSE>
 ```
-where `<RSE>` is the ??? and 	
+where `<RSE>` is the Rucio Storage Element. List of all RSEs can be found by running
+```bash
+rucio list-rses
+```
+The input data can be saved on any scratchdisk. However, beaware that the data storage is not permanent.
 
 ## Submitting jobs to the Grid
 
