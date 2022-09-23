@@ -50,7 +50,7 @@ prun --exec "source gridExec.sh %RNDM:0 %IN" --outDS user.<username>.<outputName
 --site UKI-LT2-QMUL --nFilesPerJob 2
 
 ```
-and can be monitored via [BigPanda](https://bigpanda.cern.ch/). You should receive and email after 
+and can be monitored via [BigPanda](https://bigpanda.cern.ch/). You should receive and an email after the jobs have finished.
 
 ## Downloading the results
 The results can be downloaded using Rucio
