@@ -37,11 +37,14 @@ The jobs can be submitted via `panda`.
 
 ```bash
 lsetup panda
+```
 
-prun --exec "source gridExec.sh %IN" --outDS user.<username>.<outputName> \
---inDS user.<username>:user.<username>.CARLtraining --outputs "output.tar" \
+```bash
+prun --exec "source gridExec.sh %RNDM:0 %IN" --outDS user.<username>.<outputName> \
+--inDS user.<username>:user.<username>.<inputName> --outputs "output.tar" \
 --noBuild --maxAttempt 1 --forceStaged --architecture "&nvidia" --nCore 1 \
---memory 10000
+--site UKI-LT2-QMUL --nFilesPerJob 2
+
 ```
 and can be monitored via [BigPanda](https://bigpanda.cern.ch/). You should receive and email after 
 
