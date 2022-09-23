@@ -60,6 +60,8 @@ class Loader():
         weight_polarity = False,
         scaling="minmax",
         algorithms=None,
+        clipFeatures = [],
+        clippingQuantile = 1.0,
     ):
         """
         Parameters
@@ -191,6 +193,15 @@ class Loader():
         # sort dataframes alphanumerically
         x0 = x0[sorted(x0.columns)]
         x1 = x1[sorted(x1.columns)]
+
+        for var in clipFeatures:
+            q0 = x0[var].quantile(clippingQuantile,interpolation='lower')
+            q1 = x1[var].quantile(clippingQuantile,interpolation='lower')
+            logger.info("x0: Clipping {} at {}".format(var, q0))
+            x0[var].clip(x0[var].min(),q0,inplace=True)
+            logger.info("x1: Clipping {} at {}".format(var, q1))
+            x1[var].clip(x1[var].min(),q1,inplace=True)
+
 
         # get metadata, i.e. max, min, mean, std of all the variables in the dataframes
         #metaData = defaultdict()

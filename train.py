@@ -39,6 +39,8 @@ polarity = opts.polarity
 loss_type = opts.loss_type
 BoolFilter = opts.BoolFilter
 n_workers = opts.n_workers
+clipFeatures = opts.clipFeatures.split(",")
+clippingQuantile = opts.clippingQuantile
 #################################################
 
 #################################################
@@ -106,6 +108,8 @@ else:
         weight_polarity=polarity,
         scaling=scale_method,
         algorithms=opts.algorithms.split(',') if opts.algorithms is not None else None,
+        clipFeatures = clipFeatures,
+        clippingQuantile = clippingQuantile,
     )
     logger.info(" Loaded new datasets ")
 #######################################
