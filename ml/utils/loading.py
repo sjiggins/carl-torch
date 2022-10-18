@@ -195,12 +195,10 @@ class Loader():
         x1 = x1[sorted(x1.columns)]
 
         for var in clipFeatures:
-            q0 = x0[var].quantile(clippingQuantile,interpolation='lower')
-            q1 = x1[var].quantile(clippingQuantile,interpolation='lower')
-            logger.info("x0: Clipping {} at {}".format(var, q0))
-            x0[var].clip(x0[var].min(),q0,inplace=True)
-            logger.info("x1: Clipping {} at {}".format(var, q1))
-            x1[var].clip(x1[var].min(),q1,inplace=True)
+            q = x0[var].quantile(clippingQuantile,interpolation='lower')
+            logger.info("Clipping {} at {}".format(var, q))
+            x0[var].clip(x0[var].min(),q,inplace=True)
+            x1[var].clip(x1[var].min(),q,inplace=True)
 
 
         # get metadata, i.e. max, min, mean, std of all the variables in the dataframes
