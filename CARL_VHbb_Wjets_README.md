@@ -44,7 +44,7 @@ python train.py -n Wjets_Sh221 -v Wjets_MGPy8 -e -1 \
 -p /eos/user/${USER:0:1}/${USER}/CxAOD_output/<name>/ -g <model_global_name> \
 -t Nominal -f "MET,dPhiLBmin,dPhiVBB,dRBB,dYWH,mBB,mTW,Mtop,pTB1,pTB2,pTV,nTags,nJ,FlavourLabel" \
 -w EventWeight --scale-method minmax --BoolFilter "nTags==2 & nJ <= 3 & FlavourLabel==2" \
--r "L2" --loss-type score_suppressed
+-r "L2"
 ```
 The variables used in the `BoolFilter` *must* be listed in the input variable list `-f`. The training can be run locally on a CPU but it is recommended to use GPU via the lxplus batch system. This can be easily achieved by having an *HTCondor* submission scrip as follows:
 
