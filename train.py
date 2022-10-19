@@ -39,7 +39,7 @@ polarity = opts.polarity
 loss_type = opts.loss_type
 BoolFilter = opts.BoolFilter
 n_workers = opts.n_workers
-clipFeatures = opts.clipFeatures.split(",")
+clipFeatures = opts.clipFeatures.split(",") if len(opts.clipFeatures)>0 else []
 clippingQuantile = opts.clippingQuantile
 #################################################
 
