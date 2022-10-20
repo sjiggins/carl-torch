@@ -62,6 +62,8 @@ def main(args):
     print(f"selection = {args.selection}")
     df = loadFractionOfEvents(args.path, features, args.selection, fraction=fraction)
     print(df)
+    print("Shuffling the dataframe")
+    df = df.sample(frac=1.0, random_state=42)
     outputFile = uproot.recreate(args.output_path)
     outputFile["Nominal"] = df
     
