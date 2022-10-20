@@ -59,9 +59,9 @@ def main(args):
     print(f"fraction of events = {fraction}")
     features = args.features.split(",")
     print(f"features = {features}")
+    print(f"selection = {args.selection}")
     df = loadFractionOfEvents(args.path, features, args.selection, fraction=fraction)
     print(df)
-
     outputFile = uproot.recreate(args.output_path)
     outputFile["Nominal"] = df
     
