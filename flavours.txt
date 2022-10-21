@@ -1,0 +1,6 @@
+0 bb
+1 bc
+2 bl
+3 cc
+4 cl
+5 l
