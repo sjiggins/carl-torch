@@ -1,18 +1,13 @@
 #!/bin/bash
 
-
-cd /users/vozdecky/Carl/carl-torch # change this to your path !!!!
-
-ls -l
+cd /afs/cern.ch/user/l/lvozdeck/public/CarlTorch/carl-torch # change this to your path !!!!
 
 echo "training flavour $2 (FlavourLabel==$1)"
 
 source CarlEnv/bin/activate
 
-which python
+python preprocess.py "/eos/user/l/lvozdeck/CxAOD_output/carlTrainingTrees4_truthTagging_Sh221/Reader_1L_33-05_*/haddedTree/tree-*.root" "EventWeight,MET,dPhiLBmin,dPhiVBB,dRBB,dYWH,mBB,mTW,Mtop,pTB1,pTB2,pTV,nJ,FlavourLabel" -n -1 -s "(nTags==2) & (nJ <= 3) & (FlavourLabel==$1)" -o /afs/cern.ch/user/l/lvozdeck/eos/CarlSeparateTrainingTrees/Wjets_Sh221_$2.root
 
-which python3
-
-python3 preprocess.py /data/vozdecky/carlTrainingTrees4_truthTagging/Wjets_Sh221.root "EventWeight,MET,dPhiLBmin,dPhiVBB,dRBB,dYWH,mBB,mTW,Mtop,pTB1,pTB2,pTV,nJ" -n 5000000 -s "(nTags==2) & (nJ <= 3) & (FlavourLabel==$1)" -o /data/vozdecky/CarlTrainingMVA_prefiltered/Wjets_$2.root
+python preprocess.py "/eos/user/l/lvozdeck/CxAOD_output/carlTrainingTrees4_truthTagging_MGPy8/Reader_1L_33-05_*/haddedTree/tree-*.root" "EventWeight,MET,dPhiLBmin,dPhiVBB,dRBB,dYWH,mBB,mTW,Mtop,pTB1,pTB2,pTV,nJ,FlavourLabel" -n -1 -s "(nTags==2) & (nJ <= 3) & (FlavourLabel==$1)" -o /afs/cern.ch/user/l/lvozdeck/eos/CarlSeparateTrainingTrees/Wjets_MGPy8_$2.root
 
 deactivate
