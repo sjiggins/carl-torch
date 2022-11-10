@@ -72,7 +72,7 @@ def evaluate_performance_model(
 
         _, logit  = model(xs)
         probs = torch.sigmoid(logit)
-        y_pred = torch.round(probs)
+        y_pred = torch.round(probs).cpu()
         print("confusion matrix ",confusion_matrix(ys, y_pred))
         print(classification_report(ys, y_pred))
         fpr, tpr, auc_thresholds = roc_curve(ys, y_pred)
