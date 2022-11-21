@@ -50,7 +50,7 @@ loading = Loader()
 
 logger = logging.getLogger(__name__)
 if os.path.exists('data/'+global_name+'/X_train_'+str(n)+'.npy') and os.path.exists('data/'+global_name+'/metaData_'+str(n)+'.pkl'):
-    logger.info(" Doing calibration of model trained with datasets: [{},{}], with {} events.", nominal, variation, n)
+    logger.info(" Doing calibration of model trained with datasets: [{},{}], with {} events.".format( nominal, variation, n))
 else:
     logger.info(" No datasets available for evaluation of model trained with datasets: [{},{}] with {} events.".format(nominal, variation, n))
     logger.info("ABORTING")
@@ -81,6 +81,8 @@ p0, p1, r_cal = calib.predict(X=X)
 loading.load_calibration(y_true = y,
                          p1_raw = s_hat, 
                          p1_cal = p1, 
+                         w_raw = w,
+                         r_cal = r_cal,  # In-line vectored multiplication? Maybe np.multiply()? 1/r_cal?
                          label = 'calibrated',
                          global_name = global_name,
                          plot = True,

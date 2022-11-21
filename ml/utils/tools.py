@@ -15,6 +15,8 @@ from collections import defaultdict
 from time import process_time # For sub-process timing
 #import cudf
 import torch
+from sklearn.utils import column_or_1d,check_consistent_length
+#from sklearn.metrics import _check_pos_label_consistency
 
 logger = logging.getLogger(__name__)
 
@@ -399,3 +401,218 @@ def split_train_test(data, test_ratio):
     test_indices = shuffled_indices[:test_set_size]
     train_indices = shuffled_indices[test_set_size:]
     return data.iloc[train_indices], data.iloc[test_indices]
+
+
+# Calbration curve visual display method taken from SkLearn:
+#   -> https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/calibration.py (22-07-21)
+# Adapting the definition to be compatible with weighted samples due to Monte Carlo weights
+def calibration_curve(
+    y_true,
+    y_prob,
+    sample_weights=None,
+    *,
+    pos_label=None,
+    normalize="deprecated",
+    n_bins=5,
+    strategy="uniform",
+):
+    """Compute true and predicted probabilities for a calibration curve.
+    The method assumes the inputs come from a binary classifier, and
+    discretize the [0, 1] interval into bins.
+    Calibration curves may also be referred to as reliability diagrams.
+    Read more in the :ref:`User Guide <calibration>`.
+    Parameters
+    ----------
+    y_true : array-like of shape (n_samples,)
+        True targets.
+    y_prob : array-like of shape (n_samples,)
+        Probabilities of the positive class.
+    sample_weights: array-like structure of shape (n_samples,)
+        storing a floating point value as a weight of each data 
+        point 
+    pos_label : int or str, default=None
+        The label of the positive class.
+        .. versionadded:: 1.1
+    normalize : bool, default="deprecated"
+        Whether y_prob needs to be normalized into the [0, 1] interval, i.e.
+        is not a proper probability. If True, the smallest value in y_prob
+        is linearly mapped onto 0 and the largest one onto 1.
+        .. deprecated:: 1.1
+            The normalize argument is deprecated in v1.1 and will be removed in v1.3.
+            Explicitly normalizing `y_prob` will reproduce this behavior, but it is
+            recommended that a proper probability is used (i.e. a classifier's
+            `predict_proba` positive class).
+    n_bins : int, default=5
+        Number of bins to discretize the [0, 1] interval. A bigger number
+        requires more data. Bins with no samples (i.e. without
+        corresponding values in `y_prob`) will not be returned, thus the
+        returned arrays may have less than `n_bins` values.
+    strategy : {'uniform', 'quantile'}, default='uniform'
+        Strategy used to define the widths of the bins.
+        uniform
+            The bins have identical widths.
+        quantile
+            The bins have the same number of samples and depend on `y_prob`.
+    Returns
+    -------
+    prob_true : ndarray of shape (n_bins,) or smaller
+        The proportion of samples whose class is the positive class, in each
+        bin (fraction of positives).
+    prob_pred : ndarray of shape (n_bins,) or smaller
+        The mean predicted probability in each bin.
+    References
+    ----------
+    Alexandru Niculescu-Mizil and Rich Caruana (2005) Predicting Good
+    Probabilities With Supervised Learning, in Proceedings of the 22nd
+    International Conference on Machine Learning (ICML).
+    See section 4 (Qualitative Analysis of Predictions).
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from sklearn.calibration import calibration_curve
+    >>> y_true = np.array([0, 0, 0, 0, 1, 1, 1, 1, 1])
+    >>> y_pred = np.array([0.1, 0.2, 0.3, 0.4, 0.65, 0.7, 0.8, 0.9,  1.])
+    >>> prob_true, prob_pred = calibration_curve(y_true, y_pred, n_bins=3)
+    >>> prob_true
+    array([0. , 0.5, 1. ])
+    >>> prob_pred
+    array([0.2  , 0.525, 0.85 ])
+    """
+    y_true = column_or_1d(y_true)
+    y_prob = column_or_1d(y_prob)
+    sample_weights = column_or_1d(sample_weights)
+    check_consistent_length(y_true, y_prob)
+    pos_label = _check_pos_label_consistency(pos_label, y_true)
+    pos_label=1
+    print("y_true(pre) : {}".format(y_true))
+    print("pos_label : {}".format(pos_label))
+
+    # TODO(1.3): Remove normalize conditional block.
+    if normalize != "deprecated":
+        warnings.warn(
+            "The normalize argument is deprecated in v1.1 and will be removed in v1.3."
+            " Explicitly normalizing y_prob will reproduce this behavior, but it is"
+            " recommended that a proper probability is used (i.e. a classifier's"
+            " `predict_proba` positive class or `decision_function` output calibrated"
+            " with `CalibratedClassifierCV`).",
+            FutureWarning,
+        )
+        if normalize:  # Normalize predicted values into interval [0, 1]
+            y_prob = (y_prob - y_prob.min()) / (y_prob.max() - y_prob.min())
+
+    if y_prob.min() < 0 or y_prob.max() > 1:
+        raise ValueError("y_prob has values outside [0, 1].")
+
+    labels = np.unique(y_true)
+    if len(labels) > 2:
+        raise ValueError(
+            f"Only binary classification is supported. Provided labels {labels}."
+        )
+    y_true = y_true == pos_label
+
+    if strategy == "quantile":  # Determine bin edges by distribution of data
+        quantiles = np.linspace(0, 1, n_bins + 1)
+        bins = np.percentile(y_prob, quantiles * 100)
+    elif strategy == "uniform":
+        bins = np.linspace(0.0, 1.0, n_bins + 1)
+    else:
+        raise ValueError(
+            "Invalid entry to 'strategy' input. Strategy "
+            "must be either 'quantile' or 'uniform'."
+        )
+
+    binids = np.searchsorted(bins[1:-1], y_prob)
+
+    weights_sums = y_prob
+    weights_true = y_true
+    weights_total = None
+    if sample_weights is not None:
+        #sample_weight = check_array(sample_weight, ensure_2d=False) # Check done at start of method
+        check_consistent_length(y_true, sample_weights)
+    
+        # Check that the sample weights sum is positive
+        # Big issue for -ve weighted events in which the mean
+        # of the weights is < 0.
+        if sample_weights.sum() <= 0:
+            logger.info("<{}>:   Sample has overal negative sum, therefore rejecting an skipping.".format(process_time()))
+            return y_true,y_prob
+            
+        weights_sums = sample_weights*y_prob
+        weights_true = sample_weights*y_true
+        weights_total = sample_weights
+
+    bin_sums = np.bincount  (binids, weights=weights_sums, minlength=len(bins))
+    bin_true = np.bincount  (binids, weights=weights_true, minlength=len(bins))
+    bin_total = np.bincount (binids, weights=weights_total,  minlength=len(bins))
+    
+
+    nonzero = bin_total != 0
+    prob_true = bin_true[nonzero] / bin_total[nonzero]
+    prob_pred = bin_sums[nonzero] / bin_total[nonzero]
+
+    # Diagnostics
+    print("y_prob : {}".format(y_prob))
+    print("weights_sums : {}".format(weights_sums))
+    print("bin_sums : {}".format(bin_sums))
+
+    print("y_true : {}".format(y_true))
+    print("weights_true : {}".format(weights_true))
+    print("bin_true : {}".format(bin_true))
+
+    print("weights_total : {}".format(weights_total))
+    print("bin_total : {}".format(bin_total))
+
+    print("nonzero : {}".format(nonzero))
+    print("prob_true : {}".format(prob_true))
+    print("prob_pred : {}".format(prob_pred))
+
+
+    return prob_true, prob_pred
+
+
+def _check_pos_label_consistency(pos_label, y_true):
+    """Check if `pos_label` need to be specified or not.
+    In binary classification, we fix `pos_label=1` if the labels are in the set
+    {-1, 1} or {0, 1}. Otherwise, we raise an error asking to specify the
+    `pos_label` parameters.
+    Parameters
+    ----------
+    pos_label : int, str or None
+        The positive label.
+    y_true : ndarray of shape (n_samples,)
+        The target vector.
+    Returns
+    -------
+    pos_label : int
+        If `pos_label` can be inferred, it will be returned.
+    Raises
+    ------
+    ValueError
+        In the case that `y_true` does not have label in {-1, 1} or {0, 1},
+        it will raise a `ValueError`.
+    """
+    # ensure binary classification if pos_label is not specified
+    # classes.dtype.kind in ('O', 'U', 'S') is required to avoid
+    # triggering a FutureWarning by calling np.array_equal(a, b)
+    # when elements in the two arrays are not comparable.
+    classes = np.unique(y_true)
+    if pos_label is None and (
+        classes.dtype.kind in "OUS"
+        or not (
+            np.array_equal(classes, [0, 1])
+            or np.array_equal(classes, [-1, 1])
+            or np.array_equal(classes, [0])
+            or np.array_equal(classes, [-1])
+            or np.array_equal(classes, [1])
+        )
+    ):
+        classes_repr = ", ".join(repr(c) for c in classes)
+        raise ValueError(
+            f"y_true takes value in {{{classes_repr}}} and pos_label is not "
+            "specified: either make y_true take value in {0, 1} or "
+            "{-1, 1} or pass pos_label explicitly."
+        )
+    elif pos_label is None:
+        pos_label = 1
+
+    return 

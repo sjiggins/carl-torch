@@ -521,6 +521,8 @@ class Loader():
         y_true,
         p1_raw,
         p1_cal,
+        w_raw,
+        r_cal,
         label = None,
         features=[],
         plot = False,
@@ -536,10 +538,15 @@ class Loader():
             uncalibrated probabilities of the positive class
         p1_cal : ndarray
             calibrated probabilities of the positive class
+        w_raw  : ndarray of shape (1,)
+        r_cal  : ndarray of shape (1,)
         Returns
         -------
         """
 
         # load samples
         y_true  = load_and_check(y_true,  memmap_files_larger_than_gb=1.0)
-        plot_calibration_curve(y_true, p1_raw, p1_cal, global_name, plot)
+        w_raw = load_and_check(w_raw, memmap_files_larger_than_gb=1.0)
+        w_raw = np.squeeze(w_raw)
+        w_cal = np.multiply(w_raw, r_cal)
+        plot_calibration_curve(y_true, p1_raw, p1_cal, w_raw, w_cal, global_name, plot)
