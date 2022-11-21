@@ -56,6 +56,7 @@ class Loader():
         large_weight_clipping = False,
         large_weight_clipping_threshold = 1e7,
         weight_polarity = False,
+        mixture_model = "single",
         scaling="minmax",
     ):
         """
@@ -213,8 +214,15 @@ class Loader():
             w1 = w1 / (w1.sum())
 
         # Target labels
-        y0 = np.zeros(x0.shape[0])
-        y1 = np.ones(x1.shape[0])
+        if mixture_model == "single":
+            y0 = np.zeros(x0.shape[0])
+            y1 = np.ones(x1.shape[0])
+        elif mixture_model == "negpos":
+            y0 = np.where( w0 > 0, 0, 1 ) # enum class
+            y1 = np.where( w1 < 0, 2, 3 ) # enum class
+            # Convert all weights to positive
+            w0 = np.where( w0 < 0, np.absolute(w0), w0 )
+            w1 = np.where( w1 < 0, np.absolute(w1), w1 )
 
         # Train, test splitting of input dataset
         X0_train, X0_test, y0_train, y0_test, w0_train, w0_test = train_test_split(X0, y0, w0, test_size=0.05, random_state=42) # what is "w0_test" for? maybe a split size of 0.05 if ok.

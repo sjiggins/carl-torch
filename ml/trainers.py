@@ -178,8 +178,11 @@ class Trainer(object):
             loss_val = None
 
             try:
-                loss_train, loss_val, loss_contributions_train, loss_contributions_val, accu_train, accu_val = self.epoch(
-                    i_epoch, data_labels, train_loader, val_loader, opt, loss_functions, loss_weights, clip_gradient
+                loss_train, loss_val, 
+                loss_contributions_train, loss_contributions_val, 
+                accu_train, accu_val = self.epoch( i_epoch, data_labels, 
+                                                   train_loader, val_loader, 
+                                                   opt, loss_functions, loss_weights, clip_gradient
                 )
                 losses_train.append(loss_train)
                 losses_val.append(loss_val)
@@ -418,6 +421,13 @@ class Trainer(object):
         self._timer(start="training forward pass")
         loss_contributions, accuracy = self.forward_pass(batch_data, loss_functions)
         self._timer(stop="training forward pass", start="training sum losses")
+
+        # loss_contribution is a list of 1D numpy/torch.tensor objects.
+        for id,ls in enumerate(loss_contributions):
+            self.optimizer_step(optimizer, ls, clip_gradient)
+            self._timer(stop="training sum (subnet - {}) losses".format(id)
+                        , start="optimizer step")
+            
         loss = self.sum_losses(loss_contributions, loss_weights)
         self._timer(stop="training sum losses", start="optimizer step")
 
@@ -434,7 +444,16 @@ class Trainer(object):
         self._timer(start="validation forward pass")
         loss_contributions, accuracy = self.forward_pass(batch_data, loss_functions)
         self._timer(stop="validation forward pass", start="validation sum losses")
+
+        # loss_contribution is a list of 1D numpy/torch.tensor objects.
+        for id,ls in enumerate(loss_contributions):
+            self.optimizer_step(optimizer, ls, clip_gradient)
+            self._timer(stop="validation sum (subnet - {}) losses".format(id)
+                        , start="optimizer step")
+        
+
         loss = self.sum_losses(loss_contributions, loss_weights)
+        self._timer(stop="validation sum losses", start="optimizer step"
 
         loss = loss.item()
         loss_contributions = [contrib.item() for contrib in loss_contributions]
@@ -601,6 +620,44 @@ class RatioTrainer(Trainer):
         # computing binary classification accuracy
         truth = (y>0.5).float()*1
         predict = (s_hat>0.0).float()*1
+        accuracy = accuracy_score(truth.cpu().flatten(), predict.cpu().flatten(), sample_weight=w.cpu().flatten())
+
+        self._timer(stop="fwd: calculate losses", start="fwd: check for nans")
+        self._check_for_nans("Loss", *losses)
+        self._timer(stop="fwd: check for nans")
+
+        return losses, accuracy
+
+
+class EnsembleRatioTrainer(Trainer):
+    def __init__(self, model, run_on_gpu=True, double_precision=False, n_workers=4):
+        super(EnsembleRatioTrainer, self).__init__(model, run_on_gpu, double_precision, n_workers)
+
+    def check_data(self, data):
+        data_keys = list(data.keys())
+
+    def forward_pass(self, batch_data, loss_functions):
+        self._timer(start="fwd: move data")
+        x = batch_data["x"].to(self.device, self.dtype, non_blocking=True)
+        y = batch_data["y"].to(self.device, self.dtype, non_blocking=True)
+        w = batch_data["w"].to(self.device, self.dtype, non_blocking=True) #sjiggins
+
+        self._timer(stop="fwd: move data", start="fwd: check for nans")
+        self._timer(start="fwd: model.forward", stop="fwd: check for nans")
+
+        repr, probs, labels = self.model(x, y)
+
+        self._timer(stop="fwd: model.forward", start="fwd: check for nans")
+        self._check_for_nans("Model output", s_hat, r_hat)
+
+        self._timer(start="fwd: calculate losses", stop="fwd: check for nans")
+        losses = [
+            loss_function(probs, labels, w) for loss_function in loss_functions
+        ]
+
+        ## computing binary classification accuracy
+        truth = (y>0.5).float()*1
+        predict = (probs>0.0).float()*1 # Will break as probs is not a 1D array
         accuracy = accuracy_score(truth.cpu().flatten(), predict.cpu().flatten(), sample_weight=w.cpu().flatten())
 
         self._timer(stop="fwd: calculate losses", start="fwd: check for nans")
