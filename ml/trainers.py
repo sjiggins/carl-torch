@@ -106,8 +106,10 @@ class Trainer(object):
         logger.debug("Initialising training data")
         self.check_data(data)
         self._timer(stop="check data", start="make dataset")
+        print("Train Data")
         data_labels, dataset = self.make_dataset(data)
         if data_val is not None:
+            print("Val. Data")
             _, dataset_val = self.make_dataset(data_val)
         else:
             dataset_val = None
@@ -266,6 +268,9 @@ class Trainer(object):
         data_labels = []
         for key, value in six.iteritems(data):
             data_labels.append(key)
+            print(key)
+            print(len(key))
+            print(len(value))
             data_arrays.append(value)
         dataset = NumpyDataset(*data_arrays, dtype=self.dtype, run_on_gpu=self.run_on_gpu)
         return data_labels, dataset

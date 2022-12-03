@@ -427,12 +427,12 @@ def subsample(x0, w0, label, nEvents, globalName, featureNames=[]):
     subsampled_w0 = w0_ones.copy()[weighted_data0]
     
     #===========================================================================
-    for n, feature in enumerate(featureNames):
-        draw_resampled_ratio(x0[:,n], w0/np.sum(w0), subsampled_x0[:,n], subsampled_w0/np.sum(subsampled_w0), "_subsample_{}_{}".format(globalName,feature))
+    #for n, feature in enumerate(featureNames):
+    #    draw_resampled_ratio(x0[:,n], w0/np.sum(w0), subsampled_x0[:,n], subsampled_w0/np.sum(subsampled_w0), "_subsample_{}_{}".format(globalName,feature))
     #===========================================================================
     
     # Create the labels
-    subsampled_y0 = np.full(subsampled_x0.shape, label)
+    subsampled_y0 = np.full(subsampled_x0.shape[0], label)
 
     return (subsampled_x0, subsampled_w0, subsampled_y0)
     

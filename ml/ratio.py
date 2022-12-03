@@ -157,9 +157,11 @@ class RatioEstimator(Estimator):
         w1 = load_and_check(w1, memmap_files_larger_than_gb=memmap_threshold, name="weights2")
 
         # Infer dimensions of problem
-        n_samples = x.shape[0]
+        #n_samples = x.shape[0]
         n_observables = x.shape[1]
-        logger.info("Found %s samples with %s observables", n_samples, n_observables)
+        #logger.info("Found %s samples with %s observables", n_samples, n_observables)
+        logger.info("Found x0 = %s samples with %s observables", x0.shape[0], x0.shape[1])
+        logger.info("Found x1 = %s samples with %s observables", x1.shape[0], x1.shape[1])
 
         external_validation = x_val is not None and y_val is not None
         if external_validation:

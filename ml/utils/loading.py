@@ -281,13 +281,28 @@ class Loader():
 
             # Apply Sub-sampling
             ratio = int( w1.sum()/w0.sum() )
-            X0_train, w0_train, y0_train = subsample(X0_train, w0_train, 0, w0_train.shape[0], global_name, featureNames="x0_train_"+featureNames) 
-            X0_val, w0_val, y0_val = subsample(X0_val, w0_val, 0, w0_val.shape[0], global_name, featureNames="x0_val_"+featureNames) 
-            X0_test, w0_test, y0_test = subsample(X0_test, w0_test, 0, w0_test.shape[0], global_name, featureNames="x0_test_"+featureNames) 
+            X0_train, w0_train, y0_train = subsample(X0_train, w0_train,
+                                                     0, w0_train.shape[0], 
+                                                     global_name, featureNames="x0_train_"+featureNames) 
+            X0_val, w0_val, y0_val = subsample(X0_val, w0_val, 
+                                               0, w0_val.shape[0], global_name, 
+                                               featureNames="x0_val_"+featureNames) 
+            X0_test, w0_test, y0_test = subsample(X0_test, w0_test, 
+                                                  0, w0_test.shape[0], 
+                                                  global_name, featureNames="x0_test_"+featureNames) 
 
-            X1_train, w1_train, y1_train = subsample(X1_train, w1_train, 1, int(w0_train.shape[0] * ratio ), global_name, featureNames="x1_train_"+featureNames) 
-            X1_val, w1_val, y1_val = subsample(X1_val, w1_val, 1, int(w0_val.shape[0] * ratio ), global_name, featureNames="x1_val_"+featureNames) 
-            X1_test, w1_test, y1_test = subsample(X1_test, w1_test, 1, int(w0_test.shape[0] * ratio ), global_name, featureNames="x1_test_"+featureNames) 
+            #X1_train, w1_train, y1_train = subsample(X1_train, w1_train, 1, int(w0_train.shape[0] * ratio ), global_name, featureNames="x1_train_"+featureNames) 
+            X1_train, w1_train, y1_train = subsample(X1_train, w1_train, 
+                                                     1, int(w0_train.shape[0]), 
+                                                     global_name, featureNames="x1_train_"+featureNames) 
+            #X1_val, w1_val, y1_val = subsample(X1_val, w1_val, 1, int(w0_val.shape[0] * ratio ), global_name, featureNames="x1_val_"+featureNames) 
+            X1_val, w1_val, y1_val = subsample(X1_val, w1_val, 1, 
+                                               int(w0_val.shape[0]), 
+                                               global_name, featureNames="x1_val_"+featureNames) 
+            #X1_test, w1_test, y1_test = subsample(X1_test, w1_test, 1, int(w0_test.shape[0] * ratio ), global_name, featureNames="x1_test_"+featureNames) 
+            X1_test, w1_test, y1_test = subsample(X1_test, w1_test, 
+                                                  1, int(w0_test.shape[0]), 
+                                                  global_name, featureNames="x1_test_"+featureNames) 
 
 
         print("x0_train size: {}".format(X0_train.shape))
@@ -382,8 +397,12 @@ class Loader():
 
         # finalizing dataset format
         X_train = np.vstack([X0_train, X1_train])
+        print(f"X_train size = {X_train.shape[0]}")
+        print(f"y0/1_train size = {y0_train.shape[0]}, {y1_train.shape[0]}")
         y_train = np.concatenate((y0_train, y1_train), axis=None)
+        print(f"y_train size = {y_train.shape[0]}")
         w_train = np.concatenate((w0_train, w1_train), axis=None)
+        print(f"w_train size = {w_train.shape[0]}")
 
         # Since we don't pass these 3 variables back, just save it and set to None
         # to avoid too much RAM usage.
