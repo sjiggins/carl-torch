@@ -40,6 +40,8 @@ class Estimator(object):
         self.n_parameters = None
         self.x_scaling_means = None
         self.x_scaling_stds = None
+        self.x_scaling_mins = None
+        self.x_scaling_maxs = None
         self.scaling_method = None
         self.scaling_clamp = False
         self.clamp_min = None
@@ -102,6 +104,9 @@ class Estimator(object):
             logger.debug("Saving input scaling information to %s_x_means.npy and %s_x_stds.npy", filename, filename)
             np.save(filename + "_x_means.npy", self.x_scaling_means)
             np.save(filename + "_x_stds.npy", self.x_scaling_stds)
+
+        if self.x_scaling_mins is not None and self.x_scaling_maxs is not None:
+            logger.debug("Saving input scaling information to %s_x_mins.npy and %s_x_maxs.npy", filename, filename)
             np.save(filename + "_x_mins.npy", self.x_scaling_mins)
             np.save(filename + "_x_maxs.npy", self.x_scaling_maxs)
 
@@ -256,9 +261,9 @@ class Estimator(object):
                 self.x_scaling_stds =  np.load(filename + "_x_stds.npy")
                 self.x_scaling_mins =  np.load(filename + "_x_mins.npy")
                 self.x_scaling_maxs =  np.load(filename + "_x_maxs.npy")
-            logger.debug(
-                "  Found input scaling information: means %s, stds %s, mins %s, maxs %s  ", self.x_scaling_means, self.x_scaling_stds, self.x_scaling_mins, self.x_scaling_maxs
-            )
+                logger.debug(
+                    "  Found input scaling information: means %s, stds %s, mins %s, maxs %s  ", self.x_scaling_means, self.x_scaling_stds, self.x_scaling_mins, self.x_scaling_maxs
+                )
         except FileNotFoundError:
             logger.warning("Scaling information not found in %s", filename)
             self.x_scaling_means = None
@@ -268,7 +273,7 @@ class Estimator(object):
 
         # Load state dict
         logger.debug("Loading state dictionary from %s_state_dict.pt", filename)
-        self.model.load_state_dict(torch.load(filename + "_state_dict.pt", map_location="cpu"))
+        self.model.load_state_dict(torch.load(filename + "_state_dict.pt", map_location="cpu")) # Likely an issue when in/on GPU mode/node
 
     def initialize_input_transform(self, x, 
                                    transform=True, overwrite=True, 
@@ -293,12 +298,14 @@ class Estimator(object):
             for idx,(key,pair) in enumerate(metaData.items()):
                 logger.info("   Passing for variable {}:".format(key))
                 logger.info("        Pair = {}".format(pair))
-                logger.info("        first = {}".format(pair[0]))
-                logger.info("        second = {}".format(pair[-1]))
+                logger.info("        first = {}".format(pair[0])) 
+                logger.info("        second = {}".format(pair[-1])) 
                 np_pair_first.append(pair[0])
                 np_pair_second.append(pair[-1])
 
             logger.info("Using scale method '{}'".format(scaling))
+            # Assume the first entry is the first parameter (min/mean)
+            # Assume the last entry is the second parameter (max/standard deviation)
             if scaling == "minmax":
                 self.x_scaling_mins = np.array(np_pair_first)
                 self.x_scaling_maxs = np.array(np_pair_second)
@@ -340,7 +347,7 @@ class Estimator(object):
             self.x_scaling_quantile_up = np.ones(n_parameters)
 
     def _clamp_inputs(self, x):
-        print("<base.py::_transform_inputs()>::   Doing Clamping for inputs")
+        logger.info("<base.py::_transform_inputs()>::   Doing Clamping for inputs")
         # clamp value by 25% to 75% quntile
         if isinstance(x, torch.Tensor):
             clamp_max = torch.tesnor(self.clamp_max, dtype=x.dtype, device=x.device)
@@ -358,7 +365,7 @@ class Estimator(object):
         if scaling == "standard":
             #Check for standard deviation = 0 and none values
             if self.x_scaling_means is not None and self.x_scaling_stds is not None:
-                print("<base.py::_transform_inputs()>::   Doing Standard Scaling")
+                logger.info("Doing Standard Scaling")
                 if isinstance(x, torch.Tensor):
                     x_scaled = x - torch.tensor(self.x_scaling_means, dtype=x.dtype, device=x.device)
                     x_scaled = x_scaled / torch.tensor(self.x_scaling_stds, dtype=x.dtype, device=x.device)
@@ -367,18 +374,19 @@ class Estimator(object):
                     x_scaled /= self.x_scaling_stds
                 
                 # Check for nans/nums
-                #x_scaled = torch.tensor(np.nan_to_num(x_scaled, nan=0.0, posinf=0.0, neginf=0.0), dtype=x.dtype, device=x.device )
-                x_scaled = np.nan_to_num(x_scaled, nan=-1, posinf=0.0, neginf=0.0)
+                # -1 might not be best option if this is a valid value for a feature. Best option is to set to -10% of range below min or above max
+                x_scaled = np.nan_to_num(x_scaled, nan=-1.0, posinf=0.0, neginf=0.0) 
+                #x_scaled = torch.tensor(np.nan_to_num(x_scaled, nan=-1.0, posinf=0.0, neginf=0.0), dtype=x.dtype, device=x.device )  # For GPU shenanigans
                 #x_scaled = torch.tensor(x_scaled, dtype=x_scaled.dtype, device=x.device)
             else:
-                print("<base.py::_transform_inputs()>::   unable to do standard scaling")
+                logger.info("Unable to do standard scaling")
                 x_scaled = x
         else:
             # Check for none and 0 values
             if self.x_scaling_mins is not None and self.x_scaling_maxs is not None:
-                print("<base.py::_transform_inputs()>::   Doing min-max scaling")
-                print("self.x_scaling_mins = {}".format(self.x_scaling_mins))
-                print("self.x_scaling_maxs = {}".format(self.x_scaling_maxs))
+                logger.info("Doing min-max scaling")
+                logger.info("self.x_scaling_mins = {}".format(self.x_scaling_mins))
+                logger.info("self.x_scaling_maxs = {}".format(self.x_scaling_maxs))
                 if self.scaling_clamp:
                     x = self._clamp_inputs(x)
                 if isinstance(x, torch.Tensor):
@@ -390,9 +398,10 @@ class Estimator(object):
                     diff = (self.x_scaling_maxs - self.x_scaling_mins)
                     x_scaled = np.divide(x_scaled, diff, out=np.zeros_like(x_scaled), where=diff!=0)
             else:
-                print("<base.py::_transform_inputs()>::   unable to do min-max scaling")
+                logger.info("Unable to do min-max scaling")
                 x_scaled = x
-            # Check for nans/nums
+            # Check for nans/nums and assigning dummy values
+            # -1 might not be best option if this is a valid value for a feature. Best option is to set to -10% of range below min or above max
             x_scaled = np.nan_to_num(x_scaled, nan=-1.0, posinf=0.0, neginf=0.0) 
 
         return x_scaled

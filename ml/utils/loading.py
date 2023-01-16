@@ -47,7 +47,7 @@ class Loader():
         save = False,
         correlation = True,
         preprocessing = False,
-        nentries = 0,
+        nentries = -1,
         pathA = '',
         pathB = '',
         normalise = False,

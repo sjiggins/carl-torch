@@ -55,9 +55,6 @@ def get_optimizer(optimizer, nesterov_momentum):
 
 
 def _ratio_xe(s_hat, y_true, w):
-    # New weighted loss functions - sjiggins
-    epsilon_1 = 0.9
-    epsilon_2 = 0.9
     if w is None:
         w = torch.ones(y_true.shape[0])
     loss = BCELoss(weight=w, reduction='mean')(s_hat, y_true)
@@ -71,9 +68,9 @@ def _ratio_xe_prob_reg(s_hat, y_true, w):
     bceloss = BCELoss(weight=w, reduction='none')
     loss = bceloss(s_hat, y_true)
 
-    # Calculate the suppresion term
+    # Calculate the suppresion term - This is all static at present must change to allow user hyperparameter optimisation
     s_hat_temp = torch.sub(s_hat, 0.5)
-    s_hat_temp = torch.where(s_hat_temp > 0, s_hat_temp, torch.zeros(s_hat_temp.size()).to("cuda", torch.float, non_blocking=True))
+    s_hat_temp = torch.where(s_hat_temp > 0, s_hat_temp, torch.zeros(s_hat_temp.size()).to("cuda" if torch.cuda.is_available() else "cpu", torch.float, non_blocking=True))
     s_hat_temp = torch.mul(s_hat_temp, 2)
     s_hat_temp = torch.pow(s_hat_temp, 4)
     inverse_sub = torch.reciprocal(1-s_hat_temp)
