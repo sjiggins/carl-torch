@@ -97,7 +97,7 @@ else:
         pathA=p+nominal+".root",
         pathB=p+variation+".root",
         noTar=True,
-        normalise=True,
+        normalise=opts.normalise_inputs,
         debug=False,
         weight_preprocess=weight_sigma > 0,
         weight_preprocess_nsigma=weight_sigma,
