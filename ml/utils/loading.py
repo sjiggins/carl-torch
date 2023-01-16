@@ -271,7 +271,7 @@ class Loader():
             featureNames = x0.columns
 
             # Apply Sub-sampling
-            ratio = int( w1.sum()/w0.sum() )
+            ratio =  w1.sum()/w0.sum()
             X0_train, w0_train, y0_train = subsample(X0_train, w0_train, 0, w0_train.shape[0], global_name, featureNames="x0_train_"+featureNames) 
             X0_val, w0_val, y0_val = subsample(X0_val, w0_val, 0, w0_val.shape[0], global_name, featureNames="x0_val_"+featureNames) 
             X0_test, w0_test, y0_test = subsample(X0_test, w0_test, 0, w0_test.shape[0], global_name, featureNames="x0_test_"+featureNames) 
