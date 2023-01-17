@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 # from functools import partial
 from collections import defaultdict,OrderedDict
 from .tools import create_missing_folders, load, load_and_check, HarmonisedLoading
-from .plotting import subsample,draw_weighted_distributions, draw_unweighted_distributions, draw_ROC, draw_Obs_ROC, resampled_obs_and_roc, plot_calibration_curve, draw_weights, draw_scatter
+from .plotting import draw_weighted_distributions, draw_unweighted_distributions, draw_ROC, draw_Obs_ROC, resampled_obs_and_roc, plot_calibration_curve, draw_weights, draw_scatter, subsample
 from sklearn.model_selection import train_test_split
 import yaml
 import copy
@@ -273,12 +273,12 @@ class Loader():
             # Apply Sub-sampling
             ratio =  w1.sum()/w0.sum()
             X0_train, w0_train, y0_train = subsample(X0_train, w0_train, 0, w0_train.shape[0], global_name, featureNames="x0_train_"+featureNames) 
-            X0_val, w0_val, y0_val = subsample(X0_val, w0_val, 0, w0_val.shape[0], global_name, featureNames="x0_val_"+featureNames) 
-            X0_test, w0_test, y0_test = subsample(X0_test, w0_test, 0, w0_test.shape[0], global_name, featureNames="x0_test_"+featureNames) 
+            X0_val, w0_val, y0_val       = subsample(X0_val,   w0_val,   0, w0_val.shape[0],   global_name, featureNames="x0_val_"+featureNames) 
+            X0_test, w0_test, y0_test    = subsample(X0_test,  w0_test,  0, w0_test.shape[0],  global_name, featureNames="x0_test_"+featureNames) 
 
-            X1_train, w1_train, y1_train = subsample(X1_train, w1_train, 1, int(w0_train.shape[0] * ratio ), global_name, featureNames="x1_train_"+featureNames) 
-            X1_val, w1_val, y1_val = subsample(X1_val, w1_val, 1, int(w0_val.shape[0] * ratio ), global_name, featureNames="x1_val_"+featureNames) 
-            X1_test, w1_test, y1_test = subsample(X1_test, w1_test, 1, int(w0_test.shape[0] * ratio ), global_name, featureNames="x1_test_"+featureNames) 
+            X1_train, w1_train, y1_train = subsample(X1_train, w1_train, 1, int(w0_train.shape[0] * ratio), global_name, featureNames="x1_train_"+featureNames) 
+            X1_val, w1_val, y1_val       = subsample(X1_val,   w1_val,   1, int(w0_val.shape[0]   * ratio), global_name, featureNames="x1_val_"+featureNames) 
+            X1_test, w1_test, y1_test    = subsample(X1_test,  w1_test,  1, int(w0_test.shape[0]  * ratio), global_name, featureNames="x1_test_"+featureNames) 
 
 
         print("x0_train size: {}".format(X0_train.shape))
