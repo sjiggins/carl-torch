@@ -37,7 +37,7 @@ class NumpyDataset(Dataset):
         #    self.device = kwargs.get("device", "cpu")
 
 
-        for i,array in enumerate(arrays):
+        for array in arrays:
             if self.n is None:
                 self.n = array.shape[0]
                 assert array.shape[0] == self.n
