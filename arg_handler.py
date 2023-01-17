@@ -40,6 +40,9 @@ def arg_handler_train():
     parser.add_argument('--polarity', action='store_true', dest="polarity", help='enable event weight polarity feature.')
     parser.add_argument('--loss-type', action='store', type=str, dest="loss_type", default="regular", help='a type on how to handle weight in loss function, options are "abs(w)" & "log(abs(w))" ')
     parser.add_argument('--BoolFilter', action='store', dest='BoolFilter', type=str, default=None, help='Comma separated list of boolean logic. e.g. \'a | b\'.')
+    parser.add_argument('--n_workers', action='store', dest='n_workers', type=int, default=8, help='Number of batch workers (default: 8)')
+    parser.add_argument('--clipFeatures',  action='store', type=str, dest='clipFeatures',  default='', help='Comma separated list of features to be clipped')
+    parser.add_argument('--clippingQuantile', action='store', type=float, dest='clippingQuantile', default=None, help='The quantile at which the features will be clipped')
     opts = parser.parse_args()
     return opts
 

@@ -60,6 +60,8 @@ class Loader():
         weight_polarity = False,
         scaling="minmax",
         algorithms=None,
+        clipFeatures = [],
+        clippingQuantile = 1.0,
     ):
         """
         Parameters
@@ -192,6 +194,13 @@ class Loader():
         x0 = x0[sorted(x0.columns)]
         x1 = x1[sorted(x1.columns)]
 
+        for var in clipFeatures:
+            q = x0[var].quantile(clippingQuantile,interpolation='lower')
+            logger.info("Clipping {} at {}".format(var, q))
+            x0[var].clip(x0[var].min(),q,inplace=True)
+            x1[var].clip(x1[var].min(),q,inplace=True)
+
+
         # get metadata, i.e. max, min, mean, std of all the variables in the dataframes
         #metaData = defaultdict()
         metaData = OrderedDict()
@@ -220,7 +229,7 @@ class Loader():
 
         # Create the numpy arrays
         X0 = x0.to_numpy()
-        X1 = x1.to_numpy()
+        X1 = x1.to_numpy()        
 
         # Convert weights to numpy
         w0 = w0.to_numpy()
@@ -279,7 +288,6 @@ class Loader():
             X1_train, w1_train, y1_train = subsample(X1_train, w1_train, 1, int(w0_train.shape[0] * ratio), global_name, featureNames="x1_train_"+featureNames) 
             X1_val, w1_val, y1_val       = subsample(X1_val,   w1_val,   1, int(w0_val.shape[0]   * ratio), global_name, featureNames="x1_val_"+featureNames) 
             X1_test, w1_test, y1_test    = subsample(X1_test,  w1_test,  1, int(w0_test.shape[0]  * ratio), global_name, featureNames="x1_test_"+featureNames) 
-
 
         print("x0_train size: {}".format(X0_train.shape))
         print("x0_test size:  {}".format(X0_test.shape))

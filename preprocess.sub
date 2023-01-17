@@ -1,0 +1,11 @@
+requirements		= (OpSysAndVer == "CentOS7")
+getenv			= True
+executable              = CARLPreprocess.sh
+arguments               = $(argument)
+output                  = CARLRun.$(ClusterId).$(ProcId).out
+error                   = CARLRun.$(ClusterId).$(ProcId).err
+log                     = CARLRun.$(ClusterId).log
+request_memory 		= 10000 MB
+should_transfer_files   = YES
++JobFlavour             = "longlunch"
+queue argument from flavours.txt
