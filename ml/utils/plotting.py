@@ -349,9 +349,6 @@ def draw_resampled_ratio(x0, w0, x1, w1, ratioName=''):
     plt.savefig(f'plots/subsample_raw_{ratioName}.png')
     plt.clf()
 
-    print("n0 :  {}".format(n0))
-    print("n1 :  {}".format(n1))
-
     ratio = [n1i/n0i-1 if n0i!=0 else -1 for (n0i,n1i) in zip(n0,n1)]
 
     #error
