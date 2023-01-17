@@ -85,7 +85,7 @@ def HarmonisedLoading(
     fB="",
     features=[],
     weightFeature="DummyEvtWeight",
-    nentries=0,
+    nentries=-1,
     TreeName="Tree",
     Filter=None,
     do_self_dope=False,
@@ -238,7 +238,7 @@ def load(
     f="",
     features=[],
     weightFeature="DummyEvtWeight",
-    n=0,
+    n=-1,
     t="Tree",
     weight_polarity=False,
     Filter=None,
@@ -286,6 +286,10 @@ def load(
         # Set the features to all keys in tree - warn user!!!
         logger.info("Attempting extract features however user did not define values. Using all keys inside TTree as features.")
         features = X_tree.keys()
+
+    # Ensure that we don't try to load 0 events. Convert 0 to None, meaning load the entire dataset
+    if n == 0:
+        n = None
 
     # Extract the pandas dataframe - warning about jagged arrays
     #df = X_tree.pandas.df(features, flatten=False)
@@ -395,3 +399,4 @@ def split_train_test(data, test_ratio):
     test_indices = shuffled_indices[:test_set_size]
     train_indices = shuffled_indices[test_set_size:]
     return data.iloc[train_indices], data.iloc[test_indices]
+

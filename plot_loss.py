@@ -19,4 +19,5 @@ if __name__ == "__main__":
     plt.plot(val_loss, label="val loss")
     plt.ylabel("loss")
     plt.legend(frameon=False, title="")
-    plt.show()
+    #plt.show()
+    plt.savefig("plots/train_val_loss_{}.png".format(opts.global_name))

@@ -27,28 +27,44 @@ class NumpyDataset(Dataset):
         self.memmap = []
         self.data = []
         self.n = None
+        #self.run_on_gpu = kwargs.get("run_on_gpu", False)
+        self.device = kwargs.get("device", "cpu")
+        #self.device = "cpu"
+        #print("device = {}".format(self.device))
+        #if self.run_on_gpu:
+        #    self.device = kwargs.get("device", "gpu")
+        #else:
+        #    self.device = kwargs.get("device", "cpu")
+
 
         for array in arrays:
             if self.n is None:
                 self.n = array.shape[0]
-            assert array.shape[0] == self.n
+                assert array.shape[0] == self.n
 
             if isinstance(array, np.memmap):
                 self.memmap.append(True)
                 self.data.append(array)
             else:
                 self.memmap.append(False)
+                # https://discuss.pytorch.org/t/cuda-initialization-error-when-dataloader-with-cuda-tensor/43390
+                #tensor = torch.from_numpy(array).to(self.device, self.dtype)
                 tensor = torch.from_numpy(array).to(self.dtype)
                 self.data.append(tensor)
 
     def __getitem__(self, index):
         items = []
         for memmap, array in zip(self.memmap, self.data):
+            #print("index : {}".format(index))
+            #print("arrayy.dtype : {}".format(array.dtype))
+            #print("memmap : {}".format(memmap))
             if memmap:
                 tensor = np.array(array[index])
+                #items.append(torch.from_numpy(tensor).to(self.device, self.dtype))
                 items.append(torch.from_numpy(tensor).to(self.dtype))
             else:
                 items.append(array[index])
+                #items.append(torch.from_numpy(array[index]).to(self.device, self.dtype))
         return tuple(items)
 
     def __len__(self):
@@ -58,7 +74,7 @@ class NumpyDataset(Dataset):
 class Trainer(object):
     """ Trainer class. Any subclass has to implement the forward_pass() function. """
 
-    def __init__(self, model, run_on_gpu=True, double_precision=False, n_workers=8):
+    def __init__(self, model, run_on_gpu=True, double_precision=False, n_workers=4):
         self._init_timer()
         self._timer(start="ALL")
         self._timer(start="initialize model")
@@ -117,6 +133,7 @@ class Trainer(object):
         self._timer(stop="make dataloader", start="setup optimizer")
         logger.debug("Setting up optimizer")
         optimizer_kwargs = {} if optimizer_kwargs is None else optimizer_kwargs
+        logger.info("optimizer_kwards: {}".format(optimizer_kwargs))
         opt = optimizer(self.model.parameters(), lr=initial_lr, **optimizer_kwargs)
         early_stopping = early_stopping and (validation_split is not None) and (epochs > 1)
         best_loss, best_model, best_epoch = None, None, None
@@ -267,22 +284,25 @@ class Trainer(object):
         for key, value in six.iteritems(data):
             data_labels.append(key)
             data_arrays.append(value)
-        dataset = NumpyDataset(*data_arrays, dtype=self.dtype, run_on_gpu=self.run_on_gpu)
+        dataset = NumpyDataset(*data_arrays, dtype=self.dtype, device=self.device)#, run_on_gpu=self.run_on_gpu)
         return data_labels, dataset
 
     def make_dataloaders(self, dataset, dataset_val, validation_split, batch_size):
         if dataset_val is None and (validation_split is None or validation_split <= 0.0):
             train_loader = DataLoader(
                 dataset, batch_size=batch_size, shuffle=True, pin_memory=self.run_on_gpu, num_workers=self.n_workers
+                #dataset, batch_size=batch_size, shuffle=True, num_workers=0
             )
             val_loader = None
 
         elif dataset_val is not None:
             train_loader = DataLoader(
                 dataset, batch_size=batch_size, shuffle=True, pin_memory=self.run_on_gpu, num_workers=self.n_workers
+                #dataset, batch_size=batch_size, shuffle=True, num_workers=0
             )
             val_loader = DataLoader(
                 dataset_val, batch_size=batch_size, shuffle=True, pin_memory=self.run_on_gpu, num_workers=self.n_workers
+                #dataset_val, batch_size=batch_size, shuffle=True, num_workers=0
             )
 
         else:
@@ -302,14 +322,14 @@ class Trainer(object):
                 sampler=train_sampler,
                 batch_size=batch_size,
                 pin_memory=self.run_on_gpu,
-                num_workers=self.n_workers,
+                #num_workers=0#self.n_workers,
             )
             val_loader = DataLoader(
                 dataset,
                 sampler=val_sampler,
                 batch_size=batch_size,
                 pin_memory=self.run_on_gpu,
-                num_workers=self.n_workers,
+                #num_workers=0#self.n_workers,
             )
 
         return train_loader, val_loader
@@ -553,7 +573,7 @@ class Trainer(object):
 
 
 class RatioTrainer(Trainer):
-    def __init__(self, model, run_on_gpu=True, double_precision=False, n_workers=8):
+    def __init__(self, model, run_on_gpu=True, double_precision=False, n_workers=4):
         super(RatioTrainer, self).__init__(model, run_on_gpu, double_precision, n_workers)
 
     def check_data(self, data):

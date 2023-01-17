@@ -343,10 +343,6 @@ def draw_resampled_ratio(x0, w0, x1, w1, ratioName=''):
     # Protection for nans - bad approach as it over writes the original data
     x0 = np.nan_to_num(x0, nan=np.inf) # set to infinite, thereby removing the dummy value from the plotting range
     x1 = np.nan_to_num(x1, nan=np.inf) # set to infinite, thereby removing the dummy value from the plotting range
-    print("x0 :  {}".format(x0))
-    print("x1 :  {}".format(x1))
-    print("w0 :  {}".format(w0))
-    print("w1 :  {}".format(w1))
 
     n0, _, _ = plt.hist(x0, weights=w0, bins=bins, label='original', **hist_settings_nom)
     n1, _, _ = plt.hist(x1, weights=w1, bins=bins, label='resampled', **hist_settings_alt)
@@ -406,35 +402,6 @@ def draw_resampled_ratio(x0, w0, x1, w1, ratioName=''):
     plt.savefig(f'plots/ratio_{ratioName}.png')
     plt.clf()
     plt.close()
-
-def subsample(x0, w0, label, nEvents, globalName, featureNames=[]):
-    
-    w0 = w0.flatten()
-    
-    # Remove negative probabilities - maintains proportionality still by abs()
-    w0_abs = abs(w0)
-
-    # Dataset 0 probability proportionality sub-sampling
-    x0_len = x0.shape[0]
-    w0_abs_sum = int(w0_abs.sum())
-    w0_abs = w0_abs / w0_abs.sum()
-    weighted_data0 = np.random.choice(range(x0_len), nEvents, p = w0_abs)
-    subsampled_x0 = x0.copy()[weighted_data0]
-    
-    # set of +-1 weights, depending on the sign of the original weight
-    w0_ones = np.ones(x0_len)
-    w0_ones[w0<0] = -1
-    subsampled_w0 = w0_ones.copy()[weighted_data0]
-    
-    #===========================================================================
-    for n, feature in enumerate(featureNames):
-        draw_resampled_ratio(x0[:,n], w0/np.sum(w0), subsampled_x0[:,n], subsampled_w0/np.sum(subsampled_w0), "_subsample_{}_{}".format(globalName,feature))
-    #===========================================================================
-    
-    # Create the labels
-    subsampled_y0 = np.full(subsampled_x0.shape, label)
-
-    return (subsampled_x0, subsampled_w0, subsampled_y0)
     
 def weight_obs_data(x0, x1, w0, w1, ratioName=''):
 
@@ -762,3 +729,32 @@ def compute_kl_divergence(train_sample, train_weights, test_sample, test_weights
     p, q = get_probs(list_of_tuples)
     
     return kl_divergence(p, q)
+
+def subsample(x0, w0, label, nEvents, globalName, featureNames=[]):
+    
+    w0 = w0.flatten()
+    
+    # Remove negative probabilities - maintains proportionality still by abs()
+    w0_abs = abs(w0)
+
+    # Dataset 0 probability proportionality sub-sampling
+    x0_len = x0.shape[0]
+    w0_abs_sum = int(w0_abs.sum())
+    w0_abs = w0_abs / w0_abs.sum()
+    weighted_data0 = np.random.choice(range(x0_len), nEvents, p = w0_abs)
+    subsampled_x0 = x0.copy()[weighted_data0]
+    
+    # set of +-1 weights, depending on the sign of the original weight
+    w0_ones = np.ones(x0_len)
+    w0_ones[w0<0] = -1
+    subsampled_w0 = w0_ones.copy()[weighted_data0]
+    
+    #===========================================================================
+    for n, feature in enumerate(featureNames):
+        draw_resampled_ratio(x0[:,n], w0/np.sum(w0), subsampled_x0[:,n], subsampled_w0/np.sum(subsampled_w0), "_subsample_{}_{}".format(globalName,feature))
+    #===========================================================================
+    
+    # Create the labels
+    subsampled_y0 = np.full(subsampled_x0.shape[0], label)
+
+    return (subsampled_x0, subsampled_w0, subsampled_y0)
