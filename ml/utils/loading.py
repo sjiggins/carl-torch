@@ -229,7 +229,7 @@ class Loader():
 
         # Create the numpy arrays
         X0 = x0.to_numpy()
-        X1 = x1.to_numpy()        
+        X1 = x1.to_numpy()
 
         # Convert weights to numpy
         w0 = w0.to_numpy()
