@@ -343,7 +343,7 @@ def draw_resampled_ratio(x0, w0, x1, w1, ratioName=''):
     # Protection for nans - bad approach as it over writes the original data
     x0 = np.nan_to_num(x0, nan=np.inf) # set to infinite, thereby removing the dummy value from the plotting range
     x1 = np.nan_to_num(x1, nan=np.inf) # set to infinite, thereby removing the dummy value from the plotting range
-    
+
     n0, _, _ = plt.hist(x0, weights=w0, bins=bins, label='original', **hist_settings_nom)
     n1, _, _ = plt.hist(x1, weights=w1, bins=bins, label='resampled', **hist_settings_alt)
     plt.savefig(f'plots/subsample_raw_{ratioName}.png')
@@ -399,7 +399,6 @@ def draw_resampled_ratio(x0, w0, x1, w1, ratioName=''):
     plt.savefig(f'plots/ratio_{ratioName}.png')
     plt.clf()
     plt.close()
-
     
 def weight_obs_data(x0, x1, w0, w1, ratioName=''):
 

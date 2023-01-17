@@ -38,6 +38,9 @@ weight_sigma = opts.weight_nsigma
 polarity = opts.polarity
 loss_type = opts.loss_type
 BoolFilter = opts.BoolFilter
+n_workers = opts.n_workers
+clipFeatures = opts.clipFeatures.split(",") if len(opts.clipFeatures)>0 else []
+clippingQuantile = opts.clippingQuantile
 #################################################
 
 #################################################
@@ -105,6 +108,8 @@ else:
         weight_polarity=polarity,
         scaling=scale_method,
         algorithms=opts.algorithms.split(',') if opts.algorithms is not None else None,
+        clipFeatures = clipFeatures,
+        clippingQuantile = clippingQuantile,
     )
     logger.info(" Loaded new datasets ")
 #######################################
@@ -210,6 +215,7 @@ train_loss, val_loss, accuracy_train, accuracy_val = estimator.train(
     plot_inputs=opts.plot_inputs,    
     nentries=n,
     loss_type=loss_type,
+    n_workers=n_workers,
     #initial_lr=0.0001,
     #final_lr=0.00001,
 )
