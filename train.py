@@ -84,7 +84,7 @@ if os.path.exists('data/'+global_name+'/X_train_'+str(n)+'.npy'):
 else:
     x, y, x0, x1, w, w0, w1, metaData = loading.loading(
         folder=f"{pathlib.Path('./data/').resolve()}/",
-        plot=True,
+        plot=opts.plot_inputs,
         global_name=global_name,
         features=features,
         weightFeature=weightFeature,
@@ -97,13 +97,14 @@ else:
         pathA=p+nominal+".root",
         pathB=p+variation+".root",
         noTar=True,
-        normalise=False,
+        normalise=opts.normalise_inputs,
         debug=False,
         weight_preprocess=weight_sigma > 0,
         weight_preprocess_nsigma=weight_sigma,
         large_weight_clipping=weight_clipping,
         weight_polarity=polarity,
         scaling=scale_method,
+        algorithms=opts.algorithms.split(',') if opts.algorithms is not None else None,
     )
     logger.info(" Loaded new datasets ")
 #######################################
@@ -206,7 +207,7 @@ train_loss, val_loss, accuracy_train, accuracy_val = estimator.train(
     intermediate_save = intermediate_save,
     optimizer_kwargs=kwargs,
     global_name=global_name,
-    plot_inputs=False,    
+    plot_inputs=opts.plot_inputs,    
     nentries=n,
     loss_type=loss_type,
     #initial_lr=0.0001,

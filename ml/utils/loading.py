@@ -6,6 +6,8 @@ import tarfile
 import torch
 import pickle
 import numpy as np
+import tracemalloc
+import gc
 # import pandas as pd
 import seaborn as sns
 # from pandas.plotting import scatter_matrix
@@ -16,7 +18,7 @@ import matplotlib.pyplot as plt
 # from functools import partial
 from collections import defaultdict,OrderedDict
 from .tools import create_missing_folders, load, load_and_check, HarmonisedLoading
-from .plotting import draw_weighted_distributions, draw_unweighted_distributions, draw_ROC, draw_Obs_ROC, resampled_obs_and_roc, plot_calibration_curve, draw_weights, draw_scatter
+from .plotting import draw_weighted_distributions, draw_unweighted_distributions, draw_ROC, draw_Obs_ROC, resampled_obs_and_roc, plot_calibration_curve, draw_weights, draw_scatter, subsample
 from sklearn.model_selection import train_test_split
 import yaml
 import copy
@@ -57,6 +59,7 @@ class Loader():
         large_weight_clipping_threshold = 1e7,
         weight_polarity = False,
         scaling="minmax",
+        algorithms=None,
     ):
         """
         Parameters
@@ -193,7 +196,7 @@ class Loader():
         #metaData = defaultdict()
         metaData = OrderedDict()
         if scaling == "standard":
-            metaData = {v : (x0[v].mean() , x0[v].std() ) for v in  x0.columns }
+            metaData = {v : (x0[v].mean() , x0[v].std()) for v in  x0.columns }
             logger.info("Storing Z0 Standard scaling metadata: {}".format(metaData))
         elif scaling == "minmax":
             #metaData = {v : OrderedDict({x0[v].min() if x0[v].min() < x1[v].min() else x1[v].min(), x0[v].max() if x0[v].max() > x1[v].max() else x1[v].max() } for v in  x0.columns) }
@@ -202,28 +205,106 @@ class Loader():
                 logger.info("Storing minmax scaling min:: {}".format( x0[v].min() if x0[v].min() < x1[v].min() else x1[v].min() ))
                 logger.info("Storing minmax scaling max: {}".format(  x0[v].max() if x0[v].max() > x1[v].max() else x1[v].max() ))
             logger.info("Storing minmax scaling metadata: {}".format(metaData))
+
+        # Shuffle the dataframes
+        logger.info("Shuffling the dataframe for x0 & w0")
+        x0 = x0.sample(frac=1.0, random_state=1) # random_state set to 1 for reproducibility
+        w0 = w0.iloc[x0.index]
+        logger.info("...done.")
+
+        logger.info("Shuffling dataframe for x1 & w1")
+        x1 = x1.sample(frac=1.0, random_state=1) # random_state set to 1 for reproducibility
+        w1 = w1.iloc[x1.index]
+        logger.info("...done.")
+
+
+        # Create the numpy arrays
         X0 = x0.to_numpy()
         X1 = x1.to_numpy()
 
         # Convert weights to numpy
         w0 = w0.to_numpy()
         w1 = w1.to_numpy()
-        if normalise:
-            w0 = w0 / (w0.sum())
-            w1 = w1 / (w1.sum())
 
         # Target labels
-        y0 = np.zeros(x0.shape[0])
-        y1 = np.ones(x1.shape[0])
+        y0 = np.zeros(X0.shape[0])
+        y1 = np.ones(X1.shape[0])
+
+        if normalise:
+            w0 = w0/(w0.sum())
+            w1 = w1/(w1.sum())
 
         # Train, test splitting of input dataset
-        X0_train, X0_test, y0_train, y0_test, w0_train, w0_test = train_test_split(X0, y0, w0, test_size=0.05, random_state=42) # what is "w0_test" for? maybe a split size of 0.05 if ok.
+        X0_train, X0_test, y0_train, y0_test, w0_train, w0_test = train_test_split(X0, y0, w0, test_size=0.05, random_state=42)
         X1_train, X1_test, y1_train, y1_test, w1_train, w1_test = train_test_split(X1, y1, w1, test_size=0.05, random_state=42)
+
         X0_train, X0_val,  y0_train, y0_val, w0_train, w0_val =  train_test_split(X0_train, y0_train, w0_train, test_size=0.50, random_state=42)
         X1_train, X1_val,  y1_train, y1_val, w1_train, w1_val =  train_test_split(X1_train, y1_train, w1_train, test_size=0.50, random_state=42)
 
-        w0_test = None
-        w1_test = None
+        print("x0_train size: {}".format(X0_train.shape))
+        print("x0_test size:  {}".format(X0_test.shape))
+        print("x0_val size:   {}".format(X0_val.shape))
+
+        print("x1_train size: {}".format(X1_train.shape))
+        print("x1_test size:  {}".format(X1_test.shape))
+        print("x1_val size:   {}".format(X1_val.shape))
+
+        print("y0_train size: {}".format(y0_train.shape))
+        print("y0_test size:  {}".format(y0_test.shape))
+        print("y0_val size:   {}".format(y0_val.shape))
+
+        print("y1_train size: {}".format(y1_train.shape))
+        print("y1_test size:  {}".format(y1_test.shape))
+        print("y1_val size:   {}".format(y1_val.shape))
+
+        print("w0_train size: {}".format(w0_train.shape))
+        print("w0_test size:  {}".format(w0_test.shape))
+        print("w0_val size:   {}".format(w0_val.shape))
+
+        print("w1_train size: {}".format(w1_train.shape))
+        print("w1_test size:  {}".format(w1_test.shape))
+        print("w1_val size:   {}".format(w1_val.shape))
+        print("++++++++++++++++++++++++++++++++")
+
+        if algorithms is not None and "subsample" in algorithms:
+            # Extract the feature names from the columns of the dataframe - used in sub-sampling
+            featureNames = x0.columns
+
+            # Apply Sub-sampling
+            ratio =  w1.sum()/w0.sum()
+            X0_train, w0_train, y0_train = subsample(X0_train, w0_train, 0, w0_train.shape[0], global_name, featureNames="x0_train_"+featureNames) 
+            X0_val, w0_val, y0_val       = subsample(X0_val,   w0_val,   0, w0_val.shape[0],   global_name, featureNames="x0_val_"+featureNames) 
+            X0_test, w0_test, y0_test    = subsample(X0_test,  w0_test,  0, w0_test.shape[0],  global_name, featureNames="x0_test_"+featureNames) 
+
+            X1_train, w1_train, y1_train = subsample(X1_train, w1_train, 1, int(w0_train.shape[0] * ratio), global_name, featureNames="x1_train_"+featureNames) 
+            X1_val, w1_val, y1_val       = subsample(X1_val,   w1_val,   1, int(w0_val.shape[0]   * ratio), global_name, featureNames="x1_val_"+featureNames) 
+            X1_test, w1_test, y1_test    = subsample(X1_test,  w1_test,  1, int(w0_test.shape[0]  * ratio), global_name, featureNames="x1_test_"+featureNames) 
+
+
+        print("x0_train size: {}".format(X0_train.shape))
+        print("x0_test size:  {}".format(X0_test.shape))
+        print("x0_val size:   {}".format(X0_val.shape))
+
+        print("x1_train size: {}".format(X1_train.shape))
+        print("x1_test size:  {}".format(X1_test.shape))
+        print("x1_val size:   {}".format(X1_val.shape))
+
+        print("y0_train size: {}".format(y0_train.shape))
+        print("y0_test size:  {}".format(y0_test.shape))
+        print("y0_val size:   {}".format(y0_val.shape))
+
+        print("y1_train size: {}".format(y1_train.shape))
+        print("y1_test size:  {}".format(y1_test.shape))
+        print("y1_val size:   {}".format(y1_val.shape))
+
+        print("w0_train size: {}".format(w0_train.shape))
+        print("w0_test size:  {}".format(w0_test.shape))
+        print("w0_val size:   {}".format(w0_val.shape))
+
+        print("w1_train size: {}".format(w1_train.shape))
+        print("w1_test size:  {}".format(w1_test.shape))
+        print("w1_val size:   {}".format(w1_val.shape))
+
 
         #cliping large weights, and replace it by 1.0
         raw_w0_train = None

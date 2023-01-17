@@ -40,7 +40,7 @@ class NumpyDataset(Dataset):
         for array in arrays:
             if self.n is None:
                 self.n = array.shape[0]
-            assert array.shape[0] == self.n
+                assert array.shape[0] == self.n
 
             if isinstance(array, np.memmap):
                 self.memmap.append(True)
