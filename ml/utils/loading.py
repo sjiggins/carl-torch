@@ -470,6 +470,7 @@ class Loader():
         plot_ROC = True,
         plot_obs_ROC = True,
         plot_resampledRatio=False,
+        nbins=100,
         ext_binning = None,
         ext_plot_path=None,
         verbose=False,
@@ -517,7 +518,7 @@ class Loader():
             logger.info("Calculating min/max range for plots & binning")
         binning = defaultdict()
         minmax = defaultdict()
-        divisions = 100 # 50 default
+        divisions = nbins # 100 default
 
         # external binning from yaml file.
         if ext_binning:
@@ -541,16 +542,16 @@ class Loader():
             #  as integer values indicate well bounded data
             intTest = [ (i % 1) == 0  for i in X0[:,idx] ]
             intTest = all(intTest) #np.all(intTest == True)
-            upperThreshold = 100 if intTest or np.any(X0[:,idx] < 0) else 98
+            upperThreshold = 98 if not intTest else 100 
             max = np.percentile(X0[:,idx], upperThreshold)
-            lowerThreshold = 0 if (np.any(X0[:,idx] < 0 ) or intTest) else 0
+            lowerThreshold=0
             min = np.percentile(X0[:,idx], lowerThreshold)
             minmax[idx] = [min,max]
             binning[idx] = np.linspace(min, max, divisions)
             if verbose:
-                logger.info("<loading.py::load_result>::   Column {}:  min  =  {},  max  =  {}".format(column,min,max))
+                logger.info("<loading.py::load_result>::   Column {}:  min  =  {},  max  =  {}".format(key,min,max))
                 print(binning[idx])       
-
+        
         # no point in plotting distributions with too few events, they only look bad
         #if int(nentries) > 5000:
         # plot ROC curves

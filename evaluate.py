@@ -18,6 +18,7 @@ weightFeature = opts.weightFeature
 treename = opts.treename
 model = opts.model
 binning = opts.binning
+nbins = opts.nbins
 normalise = opts.normalise
 raw_weight = opts.raw_weight
 scale_method = opts.scale_method
@@ -79,6 +80,7 @@ for i in evaluate:
         plot_ROC=opts.plot_ROC,
         plot_obs_ROC=opts.plot_obs_ROC,
         ext_binning = binning,
+        nbins = nbins,
         normalise = normalise,
         scaling=scale_method,
         plot_resampledRatio=opts.plot_resampledRatio,
