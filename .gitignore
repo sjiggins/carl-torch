@@ -1,0 +1,5 @@
+# python cache files
+*.pyc
+
+# temporary (.swp) files
+*.swp
