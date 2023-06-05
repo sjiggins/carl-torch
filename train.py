@@ -27,6 +27,7 @@ features = opts.features.split(",")
 weightFeature = opts.weightFeature
 treename = opts.treename
 binning = opts.binning
+nbins = opts.nbins
 n_hidden = tuple(opts.layers) if opts.layers != None else tuple( repeat( (len(features)), 3) )
 batch_size = opts.batch_size
 per_epoch_plot = opts.per_epoch_plot
@@ -149,6 +150,7 @@ if per_epoch_plot:
         "nentries":n,
         "global_name":global_name,
         "ext_binning":binning,
+        "nbins":nbins,
         "verbose" : False,
         "plot_ROC" : False,
         "plot_obs_ROC" : False,
@@ -166,6 +168,7 @@ if per_epoch_plot:
         "nentries":n,
         "global_name":global_name,
         "ext_binning":binning,
+        "nbins":nbins,
         "verbose" : False,
         "plot_ROC" : False,
         "plot_obs_ROC" : False,

@@ -1,0 +1,16 @@
+# of the sort (start,stop,step==binwidth)
+# run evaluate.py with the option --binning/-b example_binning.yaml
+# overrides
+binning : 
+  mJ : [50,800,10]
+  absdeltaPhiVJ : [1.5,3.3,0.1]
+  Colour : [0.0,10.0,0.1]
+  deltaRbTrkJbTrkJ : [0.0,1.4,0.05]
+  deltaYVJ : [0.0,2.8,0.05]
+  lepPtBalance : [0.0,1.0,0.05]
+  MET : [0.0,800.0,10]
+  pTL : [0.0,800.0,10]
+  pTV : [350.0,1200.,10]
+  pTBTrkJ1 : [0.0,300.0,5]
+  pTBTrkJ2 : [0.0,300.0,5]
+  pTBTrkJ3 : [0.0,300.0,5]
