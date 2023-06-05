@@ -24,6 +24,7 @@ def arg_handler_train():
     parser.add_argument('-w', '--weightFeature',  action='store', type=str, dest='weightFeature',  default='DummyEvtWeight', help='Name of event weights feature in TTree')
     parser.add_argument('-t', '--TreeName',  action='store', type=str, dest='treename',  default='Tree', help='Name of TTree name inside root files')
     parser.add_argument('-b', '--binning',  action='store', type=str, dest='binning',  default=None, help='path to binning yaml file.')
+    parser.add_argument('-nb','--nbins',type=int,default=100,help='number of bins in evaluation plots') # RB
     parser.add_argument('-l', '--layers', action='store', type=int, dest='layers', nargs='*', default=None, help='number of nodes for each layer')
     parser.add_argument('-d', '--dropout-prob', action='store', type=float, dest='dropout_prob', default=None, help='Dropout probability for internal hidden layers')
     parser.add_argument('-r', '--regularise', action='store', type=str, dest='regularise', default=None, help='Regularisation technique for the loss function [L0, L1, L2]')
@@ -62,6 +63,7 @@ def arg_handler_eval():
     parser.add_argument('--PlotResampleRatio',  action="store_true", dest='plot_resampledRatio',  help='Flag to determine if one should plot a ratio of resampled vs original distribution')
     parser.add_argument('-m', '--model', action='store', type=str, dest='model', default=None, help='path to the model')
     parser.add_argument('-b', '--binning',  action='store', type=str, dest='binning',  default=None, help='path to binning yaml file')
+    parser.add_argument('-nb','--nbins',type=int,default=100,help='number of bins in evaluation plots') # RB
     parser.add_argument('--normalise', action='store_true', dest='normalise', default=False, help='enforce normalization when plotting')
     parser.add_argument('--rawWeight',  action="store_true", dest='raw_weight',  help='Flag to use raw event weight')
     parser.add_argument('--scale-method', action='store', dest='scale_method', type=str, default='minmax', help='scaling method for input data. e.g minmax, standard')
