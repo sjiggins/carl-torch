@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 class NanException(Exception):
     pass
 
-
+class EarlyStoppingException(Exception):
+    pass
 
 class NumpyDataset(Dataset):
     """ Dataset for numpy arrays with explicit memmap support """
