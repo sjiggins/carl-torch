@@ -44,6 +44,7 @@ def arg_handler_train():
     parser.add_argument('--n_workers', action='store', dest='n_workers', type=int, default=8, help='Number of batch workers (default: 8)')
     parser.add_argument('--clipFeatures',  action='store', type=str, dest='clipFeatures',  default='', help='Comma separated list of features to be clipped')
     parser.add_argument('--clippingQuantile', action='store', type=float, dest='clippingQuantile', default=None, help='The quantile at which the features will be clipped')
+    parser.add_argument('--makeInputDSOnly', action='store_true', dest='makeInputDSOnly', default=False, help='If we should only make the input .npy datasets.')
     opts = parser.parse_args()
     return opts
 

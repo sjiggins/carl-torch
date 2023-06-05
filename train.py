@@ -115,6 +115,11 @@ else:
     logger.info(" Loaded new datasets ")
 #######################################
 
+# Make only the input dataset files
+if opts.makeInputDSOnly:
+    logger.info(" Exiting after making the datasets")
+    sys.exit(1)
+
 #######################################
 # Estimate the likelihood ratio using a NN model
 #   -> Calculate number of input variables as rudimentary guess
