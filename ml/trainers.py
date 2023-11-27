@@ -13,10 +13,25 @@ from torch.nn.utils import clip_grad_norm_
 from sklearn.metrics import accuracy_score
 logger = logging.getLogger(__name__)
 
+# Class exception handler for Nan's (custom empty for now)
 class NanException(Exception):
     pass
 
-
+# Class exception handler for EarlyStopping criteria during training
+class EarlyStoppingException(Exception):
+    pass
+#    '''Raised when training loop reaches early stopping criteria
+#    
+#    Attributes:
+#       epoch -- Current training epoch called during exception
+#    '''
+#
+#    def __init__(self,
+#                 epoch,
+#                 message=f'Early stopping: ending training after'):
+#        self._epoch = epoch
+#        self._message = message + f' {epoch} epochs'
+#        super().__init__(self._message)
 
 class NumpyDataset(Dataset):
     """ Dataset for numpy arrays with explicit memmap support """
@@ -484,10 +499,10 @@ class Trainer(object):
             best_epoch = i_epoch
 
         if early_stopping_patience is not None and i_epoch - best_epoch > early_stopping_patience >= 0:
-            raise EarlyStoppingException
+            raise EarlyStoppingException #(i_epoch)
 
         if loss is None or not np.isfinite(loss):
-            raise EarlyStoppingException
+            raise EarlyStoppingException #(i_epoch)
 
         return best_loss, best_model, best_epoch
 
