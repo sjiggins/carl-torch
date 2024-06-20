@@ -101,9 +101,9 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             w0 = w0/w0.sum()
             w1 = w1/w1.sum()
             w_carl = w_carl/w_carl.sum()
-        nom_count, nom_bin, nom_bars = axes[0].hist(x0[:,id], bins = binning[id], weights = w0, label = "nominal", **hist_settings_nom, density=True)
-        carl_count, carl_bin, carl_bars = axes[0].hist(x0[:,id], bins = binning[id], weights = w_carl, label = 'nominal*CARL', **hist_settings_CARL, density=True)
-        alt_count, alt_bins, alt_bars = axes[0].hist(x1[:,id], bins = binning[id], weights = w1, label = legend, **hist_settings_alt, density=True)
+        nom_count, nom_bin, nom_bars = axes[0].hist(x0[:,id], bins = binning[id], weights = w0, label = "nominal", **hist_settings_nom, density=normalise)
+        carl_count, carl_bin, carl_bars = axes[0].hist(x0[:,id], bins = binning[id], weights = w_carl, label = 'nominal*CARL', **hist_settings_CARL, density=normalise)
+        alt_count, alt_bins, alt_bars = axes[0].hist(x1[:,id], bins = binning[id], weights = w1, label = legend, **hist_settings_alt, density=normalise)
         axes[0].grid(axis='x', color='silver')
         if addInvSample:
             print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
@@ -122,7 +122,10 @@ def draw_weighted_distributions(x0, x1, w0, w1,
 
         axes[0].set_xlabel('%s'%(column), horizontalalignment='right',x=1)
         axes[0].legend(frameon=False,title = '%s sample'%(label), prop=font )
-        axes[0].set_ylabel(r"$\frac{1}{N} \cdot \frac{d \sigma}{dx}$", horizontalalignment='center',x=1, fontsize=18)
+        if normalise:
+            axes[0].set_ylabel(r"$\frac{1}{N} \cdot \frac{d \sigma}{dx}$", horizontalalignment='center',x=1, fontsize=18)
+        else:
+            axes[0].set_ylabel(r"$\frac{dN}{dx}$", horizontalalignment='center',x=1, fontsize=18)
         #axes[0].legend.get_title().set_fontsize('14')
         #axes = plt.gca()
         #axes[0].set_xticks(fontsize=14)
@@ -186,9 +189,9 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             #plt.figure(figsize=(10, 8)) # this line is needed to keep same canvas size
 
             # ratio plot
-            x0_hist, edge0 = np.histogram(x0[:,id], bins = binning[id], weights = w0, density=True)
-            x1_hist, edge1 = np.histogram(x1[:,id], bins = binning[id], weights = w1, density=True)
-            carl_hist, edgecarl = np.histogram(x0[:,id], bins = binning[id], weights = w_carl, density=True)
+            x0_hist, edge0 = np.histogram(x0[:,id], bins = binning[id], weights = w0, density=normalise)
+            x1_hist, edge1 = np.histogram(x1[:,id], bins = binning[id], weights = w1, density=normalise)
+            carl_hist, edgecarl = np.histogram(x0[:,id], bins = binning[id], weights = w_carl, density=normalise)
             #x1_ratio = x1_hist/x0_hist
             x1_ratio = x0_hist/x1_hist
             #carl_ratio = carl_hist/x0_hist
@@ -205,9 +208,9 @@ def draw_weighted_distributions(x0, x1, w0, w1,
             residue = []
             residue_carl = []
             # Normalise weights to unity
-            w0 = w0*(1.0/np.sum(w0))
-            w1 = w1*(1.0/np.sum(w1))
-            w_carl = w_carl*(1.0/np.sum(w_carl))
+            #w0 = w0*(1.0/np.sum(w0))
+            #w1 = w1*(1.0/np.sum(w1))
+            #w_carl = w_carl*(1.0/np.sum(w_carl))
             if len(binning[id]) > 1:
                 width = abs(binning[id][1] - binning[id][0] )
                 for xbin in binning[id]:
